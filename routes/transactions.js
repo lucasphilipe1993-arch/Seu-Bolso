@@ -49,7 +49,7 @@ router.get('/', async (req, res) => {
          t.data_vencimento,
          t.data_pagamento,
          t.criado_em,
-         t.status,
+         CASE WHEN t.pago = true THEN 'pago' ELSE 'pendente' END AS status,
          c.nome           AS categoria_nome,
          c.cor            AS categoria_cor,
          ct.nome          AS conta_nome

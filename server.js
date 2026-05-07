@@ -71,6 +71,14 @@ bot.iniciar()
     console.error('   O servidor continua funcionando sem o bot.');
   });
 
+// Impede que erros não tratados derrubem o servidor
+process.on('uncaughtException', (err) => {
+  console.error('⚠️  Erro não tratado (bot):', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️  Promise rejeitada (bot):', reason);
+});
+
 // ── Cron: lembretes diários às 8h ────────────────────────
 // Envia WhatsApp para quem tem contas vencendo hoje
 cron.schedule('0 8 * * *', async () => {

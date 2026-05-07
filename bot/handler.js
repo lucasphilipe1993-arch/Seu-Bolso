@@ -1,6 +1,11 @@
 // bot/handler.js — Bot WhatsApp GranaZen
 // IA: OpenAI (GPT-4o-mini para texto/imagem, Whisper para áudio)
 
+// bot/handler.js — Bot WhatsApp GranaZen
+// IA: OpenAI (GPT-4o-mini para texto/imagem, Whisper para áudio)
+
+const crypto = require('crypto');
+
 const {
   default: makeWASocket,
   DisconnectReason,

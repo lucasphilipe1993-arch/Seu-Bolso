@@ -42,7 +42,7 @@ Categorias:
 - Freelance: freela, freelance, bico, serviço prestado
 - Outros: qualquer coisa não listada`;
 
-// ─── Auth State no PostgreSQL (substitui useMultiFileAuthState) ───────────────
+// ─── Auth State no PostgreSQL ─────────────────────────────────
 async function usePostgresAuthState() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS whatsapp_session (
@@ -79,38 +79,51 @@ async function usePostgresAuthState() {
     await db.query('DELETE FROM whatsapp_session WHERE chave = $1', [key]);
   }
 
-  const creds = (await readData('creds')) || initAuthCreds();
-
-  return {
-    state: {
-      creds,
-      keys: makeCacheableSignalKeyStore(
-        {
-          get: async (type, ids) => {
-            const data = {};
-            for (const id of ids) {
-              const val = await readData(`key-${type}-${id}`);
-              if (val) data[id] = val;
-            }
-            return data;
-          },
-          set: async (data) => {
-            for (const [type, ids] of Object.entries(data)) {
-              for (const [id, val] of Object.entries(ids)) {
-                if (val) {
-                  await writeData(`key-${type}-${id}`, val);
-                } else {
-                  await removeData(`key-${type}-${id}`);
-                }
+  // ✅ FIX: state é um objeto mutável — saveCreds deve referenciar state.creds
+  const state = {
+    creds: (await readData('creds')) || initAuthCreds(),
+    keys: makeCacheableSignalKeyStore(
+      {
+        get: async (type, ids) => {
+          const data = {};
+          for (const id of ids) {
+            const val = await readData(`key-${type}-${id}`);
+            if (val) data[id] = val;
+          }
+          return data;
+        },
+        set: async (data) => {
+          for (const [type, ids] of Object.entries(data)) {
+            for (const [id, val] of Object.entries(ids)) {
+              if (val) {
+                await writeData(`key-${type}-${id}`, val);
+              } else {
+                await removeData(`key-${type}-${id}`);
               }
             }
-          },
+          }
         },
-        { level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({ level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({}) }) }
-      ),
-    },
+      },
+      {
+        level: 'silent',
+        trace: () => {}, debug: () => {}, info: () => {},
+        warn: () => {}, error: () => {}, fatal: () => {},
+        child: () => ({
+          level: 'silent',
+          trace: () => {}, debug: () => {}, info: () => {},
+          warn: () => {}, error: () => {}, fatal: () => {},
+          child: () => ({}),
+        }),
+      }
+    ),
+  };
+
+  return {
+    state,
     saveCreds: async () => {
-      await writeData('creds', creds);
+      // ✅ FIX: salva state.creds (referência atualizada pelo Baileys)
+      // antes era: await writeData('creds', creds) — variável do closure desatualizada
+      await writeData('creds', state.creds);
     },
   };
 }
@@ -121,8 +134,8 @@ class BotGranaZen {
     this.socket = null;
     this.conectado = false;
     this.qrAtual = null;
-    this._tentativas = 0;          // ✅ contador de reconexões
-    this._reconectando = false;    // ✅ flag para evitar reconexões paralelas
+    this._tentativas = 0;
+    this._reconectando = false;
 
     this.onQR = null;
     this.onConnected = null;
@@ -142,14 +155,12 @@ class BotGranaZen {
   }
 
   async iniciar() {
-    // ✅ Evita múltiplas reconexões simultâneas
     if (this._reconectando) {
       console.log('⏳ Reconexão já em andamento, ignorando chamada duplicada.');
       return;
     }
     this._reconectando = true;
 
-    // ✅ Destrói socket anterior corretamente antes de criar novo
     if (this.socket) {
       try {
         this.socket.ev.removeAllListeners();
@@ -164,22 +175,21 @@ class BotGranaZen {
       const { version, isLatest } = await fetchLatestBaileysVersion();
       console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
 
-this.socket = makeWASocket({
-  version,
-  auth: state,
-  printQRInTerminal: true,
-  browser: ['GranaZen', 'Chrome', '120.0.0'],
-  logger: this._logger,
-  syncFullHistory: false,
-  connectTimeoutMs: 90000,        // era 60000 → aumenta para 90s
-  defaultQueryTimeoutMs: 90000,   // era 60000 → aumenta para 90s
-  keepAliveIntervalMs: 20000,     // reduz para manter conexão mais ativa
-  retryRequestDelayMs: 3000,
-  generateHighQualityLinkPreview: false,
-  getMessage: async () => ({ conversation: '' }),
-  // ✅ Adiciona isso — ignora falha nas init queries
-  fireInitQueries: false,
-});
+      this.socket = makeWASocket({
+        version,
+        auth: state,
+        printQRInTerminal: true,
+        browser: ['GranaZen', 'Chrome', '120.0.0'],
+        logger: this._logger,
+        syncFullHistory: false,
+        connectTimeoutMs: 90000,
+        defaultQueryTimeoutMs: 90000,
+        keepAliveIntervalMs: 20000,
+        retryRequestDelayMs: 3000,
+        generateHighQualityLinkPreview: false,
+        getMessage: async () => ({ conversation: '' }),
+        fireInitQueries: false,
+      });
 
       this.socket.ev.on('creds.update', saveCreds);
 
@@ -197,7 +207,7 @@ this.socket = makeWASocket({
         if (connection === 'open') {
           this.conectado = true;
           this.qrAtual = null;
-          this._tentativas = 0;        // ✅ reseta contador ao conectar com sucesso
+          this._tentativas = 0;
           this._reconectando = false;
           console.log('✅ WhatsApp Bot conectado!');
           if (this.onConnected) this.onConnected();
@@ -214,14 +224,12 @@ this.socket = makeWASocket({
           if (deverReconectar) {
             this._tentativas += 1;
 
-            // ✅ Limite de 10 tentativas para evitar loop infinito
             if (this._tentativas > 10) {
               console.error('❌ Máximo de tentativas de reconexão atingido (10). Reconexão suspensa.');
               console.error('   Reinicie o serviço manualmente ou via Railway para tentar novamente.');
               return;
             }
 
-            // ✅ Backoff exponencial: 5s, 10s, 20s, 40s... máx 60s
             const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
             console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
             setTimeout(() => this.iniciar(), delay);
@@ -239,7 +247,6 @@ this.socket = makeWASocket({
 
           const remoteJid = msg.key.remoteJid || '';
 
-          // ✅ Ignora grupos e JIDs do tipo @lid (identificador interno do WhatsApp)
           if (remoteJid.endsWith('@g.us') || remoteJid.endsWith('@lid')) continue;
 
           const telefone = remoteJid.replace('@s.whatsapp.net', '');
@@ -620,7 +627,6 @@ this.socket = makeWASocket({
     );
   }
 
-  // ✅ enviar() com timeout próprio para não travar a aplicação
   async enviar(telefone, texto) {
     if (!this.socket || !this.conectado) {
       console.warn(`Bot desconectado, não enviou para ${telefone}`);
@@ -640,7 +646,7 @@ this.socket = makeWASocket({
   }
 
   async reconectar() {
-    this._tentativas = 0; // ✅ reseta contador ao reconectar manualmente
+    this._tentativas = 0;
     if (this.socket) {
       try {
         this.socket.ev.removeAllListeners();

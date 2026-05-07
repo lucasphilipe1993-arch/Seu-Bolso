@@ -164,20 +164,22 @@ class BotGranaZen {
       const { version, isLatest } = await fetchLatestBaileysVersion();
       console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
 
-      this.socket = makeWASocket({
-        version,
-        auth: state,
-        printQRInTerminal: true,
-        browser: ['GranaZen', 'Chrome', '120.0.0'],
-        logger: this._logger,
-        syncFullHistory: false,
-        connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 60000,
-        keepAliveIntervalMs: 25000,
-        retryRequestDelayMs: 2000,
-        generateHighQualityLinkPreview: false,
-        getMessage: async () => ({ conversation: '' }),
-      });
+this.socket = makeWASocket({
+  version,
+  auth: state,
+  printQRInTerminal: true,
+  browser: ['GranaZen', 'Chrome', '120.0.0'],
+  logger: this._logger,
+  syncFullHistory: false,
+  connectTimeoutMs: 90000,        // era 60000 → aumenta para 90s
+  defaultQueryTimeoutMs: 90000,   // era 60000 → aumenta para 90s
+  keepAliveIntervalMs: 20000,     // reduz para manter conexão mais ativa
+  retryRequestDelayMs: 3000,
+  generateHighQualityLinkPreview: false,
+  getMessage: async () => ({ conversation: '' }),
+  // ✅ Adiciona isso — ignora falha nas init queries
+  fireInitQueries: false,
+});
 
       this.socket.ev.on('creds.update', saveCreds);
 

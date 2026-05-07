@@ -1,16 +1,13 @@
 // bot/handler.js — Bot WhatsApp GranaZen
 // IA: OpenAI (GPT-4o-mini para texto/imagem, Whisper para áudio)
 
-// bot/handler.js — Bot WhatsApp GranaZen
-// IA: OpenAI (GPT-4o-mini para texto/imagem, Whisper para áudio)
-
-const crypto = require('crypto');
-
 const {
   default: makeWASocket,
   DisconnectReason,
-  useMultiFileAuthState,
+  makeCacheableSignalKeyStore,
   downloadMediaMessage,
+  initAuthCreds,
+  BufferJSON,
 } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
@@ -19,11 +16,8 @@ const axios = require('axios');
 const FormData = require('form-data');
 const db = require('../database/db');
 
-const SESSAO_DIR = path.join(process.cwd(), 'sessao_whatsapp');
 const TMP_DIR = path.join(process.cwd(), 'tmp');
-
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
-if (!fs.existsSync(SESSAO_DIR)) fs.mkdirSync(SESSAO_DIR, { recursive: true });
 
 // ─── Prompt do sistema ────────────────────────────────────────
 const SYSTEM_PROMPT = `Você é o assistente financeiro do GranaZen.
@@ -47,20 +41,96 @@ Categorias:
 - Freelance: freela, freelance, bico, serviço prestado
 - Outros: qualquer coisa não listada`;
 
+// ─── Auth State no PostgreSQL (substitui useMultiFileAuthState) ───────────────
+async function usePostgresAuthState() {
+  // Garante que a tabela existe
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS whatsapp_session (
+      chave TEXT PRIMARY KEY,
+      valor TEXT NOT NULL,
+      atualizado_em TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  async function readData(key) {
+    try {
+      const res = await db.query(
+        'SELECT valor FROM whatsapp_session WHERE chave = $1',
+        [key]
+      );
+      if (res.rows.length === 0) return null;
+      return JSON.parse(res.rows[0].valor, BufferJSON.reviver);
+    } catch {
+      return null;
+    }
+  }
+
+  async function writeData(key, data) {
+    const valor = JSON.stringify(data, BufferJSON.replacer);
+    await db.query(
+      `INSERT INTO whatsapp_session (chave, valor, atualizado_em)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (chave) DO UPDATE SET valor = $2, atualizado_em = NOW()`,
+      [key, valor]
+    );
+  }
+
+  async function removeData(key) {
+    await db.query('DELETE FROM whatsapp_session WHERE chave = $1', [key]);
+  }
+
+  // Carrega ou cria credenciais
+  const creds = (await readData('creds')) || initAuthCreds();
+
+  return {
+    state: {
+      creds,
+      keys: makeCacheableSignalKeyStore(
+        {
+          get: async (type, ids) => {
+            const data = {};
+            for (const id of ids) {
+              const val = await readData(`key-${type}-${id}`);
+              if (val) data[id] = val;
+            }
+            return data;
+          },
+          set: async (data) => {
+            for (const [type, ids] of Object.entries(data)) {
+              for (const [id, val] of Object.entries(ids)) {
+                if (val) {
+                  await writeData(`key-${type}-${id}`, val);
+                } else {
+                  await removeData(`key-${type}-${id}`);
+                }
+              }
+            }
+          },
+        },
+        // logger silencioso
+        { level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({ level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({}) }) }
+      ),
+    },
+    saveCreds: async () => {
+      await writeData('creds', creds);
+    },
+  };
+}
+
+// ─── Classe principal ─────────────────────────────────────────
 class BotGranaZen {
   constructor() {
     this.socket = null;
     this.conectado = false;
     this.qrAtual = null;
 
-    // Callbacks para o server.js repassar ao socket.io
     this.onQR = null;
     this.onConnected = null;
     this.onDisconnected = null;
     this.onNovaTransacao = null;
   }
 
-  // ── Logger silencioso com child corrigido ─────────────
+  // ── Logger silencioso ─────────────────────────────────
   get _logger() {
     const silent = () => {};
     const base = {
@@ -74,15 +144,16 @@ class BotGranaZen {
 
   // ── Inicia o Baileys ──────────────────────────────────────
   async iniciar() {
-    const { state, saveCreds } = await useMultiFileAuthState(SESSAO_DIR);
+    // Usa PostgreSQL para armazenar sessão (funciona no Railway)
+    const { state, saveCreds } = await usePostgresAuthState();
 
-this.socket = makeWASocket({
-  auth: state,
-  printQRInTerminal: true,
-  browser: ['GranaZen', 'Chrome', '120.0.0'],
-  logger: this._logger,
-  // Baileys busca a versão certa sozinho
-});
+    this.socket = makeWASocket({
+      auth: state,
+      printQRInTerminal: true,
+      browser: ['GranaZen', 'Chrome', '120.0.0'],
+      logger: this._logger,
+      // Sem version hardcoded — Baileys detecta automaticamente
+    });
 
     this.socket.ev.on('creds.update', saveCreds);
 
@@ -335,7 +406,6 @@ this.socket = makeWASocket({
 
   // ── Interpreta texto como transação ──────────────────
   async interpretarTransacao(texto) {
-    // Regex rápido (sem custo de API)
     const padroesGasto = [
       /(?:gastei|paguei|comprei|saiu|debitou?)\s+(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?|r\$)?\s*(?:de\s+|no?\s+|na\s+|em\s+)?(.*)/i,
       /(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+)(.+)/i,
@@ -367,7 +437,6 @@ this.socket = makeWASocket({
       }
     }
 
-    // GPT-4o-mini como fallback
     if (!process.env.OPENAI_API_KEY) return null;
 
     try {
@@ -433,7 +502,6 @@ this.socket = makeWASocket({
        categoriaId, contaId, textoOriginal]
     );
 
-    // Atualiza saldo da conta
     if (contaId) {
       const sinal = transacao.tipo === 'receita' ? 1 : -1;
       await db.query(
@@ -442,7 +510,6 @@ this.socket = makeWASocket({
       );
     }
 
-    // Notifica dashboard via socket
     if (this.onNovaTransacao) {
       this.onNovaTransacao({
         id: rows[0].id,

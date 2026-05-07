@@ -53,7 +53,6 @@
             min-height: 100vh;
         }
 
-        /* Geometric background pattern */
         .left-panel::before {
             content: '';
             position: absolute;
@@ -83,16 +82,8 @@
             max-width: 480px;
         }
 
-        .left-logo {
-            margin-bottom: 48px;
-        }
-
-        .left-logo img {
-            height: 52px;
-            width: auto;
-            filter: brightness(0) invert(1);
-            opacity: 0.95;
-        }
+        .left-logo { margin-bottom: 48px; }
+        .left-logo img { height: 52px; width: auto; filter: brightness(0) invert(1); opacity: 0.95; }
 
         .left-headline {
             font-family: 'DM Serif Display', serif;
@@ -103,9 +94,7 @@
             letter-spacing: -0.5px;
         }
 
-        .left-headline span {
-            color: var(--gold-lite);
-        }
+        .left-headline span { color: var(--gold-lite); }
 
         .left-subtitle {
             font-size: 15px;
@@ -114,13 +103,7 @@
             margin-bottom: 48px;
         }
 
-        /* Feature pills */
-        .features {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            text-align: left;
-        }
+        .features { display: flex; flex-direction: column; gap: 14px; text-align: left; }
 
         .feature-item {
             display: flex;
@@ -141,444 +124,163 @@
         }
 
         .feature-icon {
-            width: 36px;
-            height: 36px;
+            width: 36px; height: 36px;
             border-radius: 9px;
             background: rgba(184,148,86,0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
 
-        .feature-text {
-            font-size: 13.5px;
-            color: rgba(255,255,255,0.75);
-            font-weight: 400;
-            line-height: 1.4;
-        }
+        .feature-text { font-size: 13.5px; color: rgba(255,255,255,0.75); font-weight: 400; line-height: 1.4; }
+        .feature-text strong { color: white; font-weight: 600; display: block; margin-bottom: 1px; }
 
-        .feature-text strong {
-            color: white;
-            font-weight: 600;
-            display: block;
-            margin-bottom: 1px;
-        }
+        .accent-circle { position: absolute; border-radius: 50%; pointer-events: none; z-index: 1; }
+        .accent-1 { width: 260px; height: 260px; top: -80px; right: -80px; background: radial-gradient(circle, rgba(184,148,86,0.12) 0%, transparent 70%); }
+        .accent-2 { width: 200px; height: 200px; bottom: -60px; left: -40px; background: radial-gradient(circle, rgba(30,64,96,0.5) 0%, transparent 70%); }
 
-        /* Floating accent elements */
-        .accent-circle {
-            position: absolute;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .accent-1 {
-            width: 260px; height: 260px;
-            top: -80px; right: -80px;
-            background: radial-gradient(circle, rgba(184,148,86,0.12) 0%, transparent 70%);
-        }
-
-        .accent-2 {
-            width: 200px; height: 200px;
-            bottom: -60px; left: -40px;
-            background: radial-gradient(circle, rgba(30,64,96,0.5) 0%, transparent 70%);
-        }
-
-        /* Bottom bar left */
         .left-footer {
-            position: absolute;
-            bottom: 28px;
-            left: 0; right: 0;
-            text-align: center;
-            font-size: 11px;
-            color: rgba(255,255,255,0.3);
-            z-index: 2;
+            position: absolute; bottom: 28px; left: 0; right: 0;
+            text-align: center; font-size: 11px; color: rgba(255,255,255,0.3); z-index: 2;
         }
 
         /* ── RIGHT PANEL ── */
         .right-panel {
             width: 50%;
             background: var(--white);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             padding: 48px 64px;
             min-height: 100vh;
             overflow-y: auto;
         }
 
-        .form-container {
-            width: 100%;
-            max-width: 440px;
-        }
+        .form-container { width: 100%; max-width: 440px; }
 
-        /* Top lang selector */
-        .lang-bar {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 36px;
-        }
+        .lang-bar { display: flex; justify-content: flex-end; margin-bottom: 36px; }
 
         .lang-btn {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            padding: 7px 14px;
-            border: 1px solid var(--gray-200);
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--gray-700);
-            background: var(--white);
-            cursor: pointer;
-            transition: all 0.15s;
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 14px; border: 1px solid var(--gray-200); border-radius: 20px;
+            font-size: 13px; font-weight: 500; color: var(--gray-700); background: var(--white);
+            cursor: pointer; transition: all 0.15s;
         }
-
-        .lang-btn:hover {
-            border-color: var(--navy);
-            color: var(--navy);
-        }
+        .lang-btn:hover { border-color: var(--navy); color: var(--navy); }
 
         /* STEPPER */
-        .stepper {
-            display: flex;
-            align-items: center;
-            gap: 0;
-            margin-bottom: 36px;
-        }
+        .stepper { display: flex; align-items: center; gap: 0; margin-bottom: 36px; }
 
-        .step {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            flex: 1;
-            position: relative;
-        }
+        .step { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; position: relative; }
 
         .step-circle {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            width: 40px; height: 40px; border-radius: 50%;
             border: 2px solid var(--gray-200);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: white;
-            transition: all 0.3s;
-            z-index: 2;
-            position: relative;
+            display: flex; align-items: center; justify-content: center;
+            background: white; transition: all 0.3s; z-index: 2; position: relative;
         }
 
-        .step.active .step-circle {
-            border-color: var(--navy);
-            background: var(--navy);
-        }
-
-        .step.completed .step-circle {
-            border-color: var(--green);
-            background: var(--green);
-        }
+        .step.active .step-circle { border-color: var(--navy); background: var(--navy); }
+        .step.completed .step-circle { border-color: var(--green); background: var(--green); }
 
         .step-label {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--gray-400);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            white-space: nowrap;
+            font-size: 11px; font-weight: 600; color: var(--gray-400);
+            text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
         }
-
-        .step.active .step-label {
-            color: var(--navy);
-        }
-
-        .step.completed .step-label {
-            color: var(--green);
-        }
+        .step.active .step-label { color: var(--navy); }
+        .step.completed .step-label { color: var(--green); }
 
         .step-line {
-            flex: 1;
-            height: 2px;
-            background: var(--gray-200);
-            margin-top: -24px;
-            z-index: 1;
-            transition: background 0.3s;
+            flex: 1; height: 2px; background: var(--gray-200);
+            margin-top: -24px; z-index: 1; transition: background 0.3s;
         }
+        .step-line.completed { background: var(--green); }
 
-        .step-line.completed {
-            background: var(--green);
-        }
-
-        /* FORM HEADING */
+        /* FORM */
         .form-heading {
             font-family: 'DM Serif Display', serif;
-            font-size: 26px;
-            color: var(--navy);
-            margin-bottom: 6px;
-            letter-spacing: -0.3px;
+            font-size: 26px; color: var(--navy); margin-bottom: 6px; letter-spacing: -0.3px;
         }
 
-        .form-subtitle {
-            font-size: 13.5px;
-            color: var(--gray-400);
-            margin-bottom: 28px;
-            line-height: 1.5;
-        }
+        .form-subtitle { font-size: 13.5px; color: var(--gray-400); margin-bottom: 28px; line-height: 1.5; }
 
-        /* FORM ELEMENTS */
-        .form-group {
-            margin-bottom: 18px;
-        }
+        .form-group { margin-bottom: 18px; }
 
-        .form-label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--gray-700);
-            margin-bottom: 7px;
-        }
+        .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 7px; }
 
         .form-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1.5px solid var(--gray-200);
-            border-radius: 10px;
-            font-size: 14px;
-            font-family: 'DM Sans', sans-serif;
-            background: var(--gray-50);
-            color: var(--gray-900);
-            transition: all 0.2s;
-            outline: none;
+            width: 100%; padding: 12px 16px;
+            border: 1.5px solid var(--gray-200); border-radius: 10px;
+            font-size: 14px; font-family: 'DM Sans', sans-serif;
+            background: var(--gray-50); color: var(--gray-900);
+            transition: all 0.2s; outline: none;
         }
+        .form-input::placeholder { color: var(--gray-300); }
+        .form-input:focus { border-color: var(--navy); background: var(--white); box-shadow: 0 0 0 4px rgba(15,34,55,0.07); }
+        .form-input.error { border-color: var(--red); background: var(--red-bg); }
+        .form-input.success { border-color: var(--green); }
 
-        .form-input::placeholder {
-            color: var(--gray-300);
-        }
+        .field-error { font-size: 11.5px; color: var(--red); margin-top: 5px; display: none; }
+        .field-error.show { display: block; }
+        .field-hint { font-size: 11.5px; color: var(--gray-400); margin-top: 5px; line-height: 1.4; }
 
-        .form-input:focus {
-            border-color: var(--navy);
-            background: var(--white);
-            box-shadow: 0 0 0 4px rgba(15,34,55,0.07);
-        }
-
-        .form-input.error {
-            border-color: var(--red);
-            background: var(--red-bg);
-        }
-
-        .form-input.success {
-            border-color: var(--green);
-        }
-
-        .field-error {
-            font-size: 11.5px;
-            color: var(--red);
-            margin-top: 5px;
-            display: none;
-        }
-
-        .field-error.show {
-            display: block;
-        }
-
-        /* PHONE INPUT */
-        .phone-wrap {
-            display: flex;
-            gap: 8px;
-        }
+        .phone-wrap { display: flex; gap: 8px; }
 
         .phone-prefix {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 14px;
-            border: 1.5px solid var(--gray-200);
-            border-radius: 10px;
-            background: var(--gray-50);
-            cursor: pointer;
-            white-space: nowrap;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--gray-700);
-            font-family: 'DM Sans', sans-serif;
-            transition: all 0.2s;
-            min-width: 100px;
-            position: relative;
+            display: flex; align-items: center; gap: 8px;
+            padding: 12px 14px; border: 1.5px solid var(--gray-200); border-radius: 10px;
+            background: var(--gray-50); cursor: default; white-space: nowrap;
+            font-size: 14px; font-weight: 500; color: var(--gray-700);
+            font-family: 'DM Sans', sans-serif; min-width: 100px;
         }
 
-        .phone-prefix:hover {
-            border-color: var(--navy);
-        }
+        .flag { font-size: 18px; line-height: 1; }
+        .prefix-code { font-size: 13.5px; font-weight: 600; }
 
-        .flag {
-            font-size: 18px;
-            line-height: 1;
-        }
-
-        .prefix-code {
-            font-size: 13.5px;
-            font-weight: 600;
-        }
-
-        .prefix-arrow {
-            margin-left: 4px;
-            opacity: 0.5;
-        }
-
-        /* TERMS TOGGLE */
         .terms-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 24px;
-            padding: 14px 16px;
-            background: var(--gray-50);
-            border-radius: 10px;
-            border: 1.5px solid var(--gray-200);
+            display: flex; align-items: flex-start; gap: 12px;
+            margin-bottom: 24px; padding: 14px 16px;
+            background: var(--gray-50); border-radius: 10px; border: 1.5px solid var(--gray-200);
         }
 
-        .toggle {
-            position: relative;
-            width: 44px;
-            height: 24px;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-
-        .toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-            position: absolute;
-        }
-
+        .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; margin-top: 1px; }
+        .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
         .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            inset: 0;
-            background: var(--gray-300);
-            border-radius: 24px;
-            transition: 0.3s;
+            position: absolute; cursor: pointer; inset: 0;
+            background: var(--gray-300); border-radius: 24px; transition: 0.3s;
         }
-
         .toggle-slider::before {
-            content: '';
-            position: absolute;
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background: white;
-            border-radius: 50%;
-            transition: 0.3s;
+            content: ''; position: absolute;
+            height: 18px; width: 18px; left: 3px; bottom: 3px;
+            background: white; border-radius: 50%; transition: 0.3s;
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
+        .toggle input:checked + .toggle-slider { background: var(--green); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
 
-        .toggle input:checked + .toggle-slider {
-            background: var(--green);
-        }
+        .terms-text { font-size: 13px; color: var(--gray-500); line-height: 1.5; }
+        .terms-text a { color: var(--navy); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
-        .toggle input:checked + .toggle-slider::before {
-            transform: translateX(20px);
-        }
-
-        .terms-text {
-            font-size: 13px;
-            color: var(--gray-500);
-            line-height: 1.5;
-        }
-
-        .terms-text a {
-            color: var(--navy);
-            font-weight: 600;
-            text-decoration: underline;
-            text-underline-offset: 2px;
-        }
-
-        /* HINT TEXT */
-        .field-hint {
-            font-size: 11.5px;
-            color: var(--gray-400);
-            margin-top: 5px;
-            line-height: 1.4;
-        }
-
-        /* SUBMIT BTN */
         .btn-submit {
-            width: 100%;
-            padding: 15px;
-            background: var(--navy);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            font-family: 'DM Sans', sans-serif;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            transition: all 0.2s;
-            letter-spacing: 0.01em;
-            margin-bottom: 20px;
+            width: 100%; padding: 15px; background: var(--navy); color: white;
+            border: none; border-radius: 10px; font-size: 15px; font-weight: 600;
+            font-family: 'DM Sans', sans-serif; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: all 0.2s; letter-spacing: 0.01em; margin-bottom: 20px;
         }
+        .btn-submit:hover { background: var(--navy-lite); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(15,34,55,0.25); }
+        .btn-submit:active { transform: translateY(0); }
+        .btn-submit svg { transition: transform 0.2s; }
+        .btn-submit:hover svg { transform: translateX(3px); }
+        .btn-submit.loading { background: var(--navy-mid); pointer-events: none; }
 
-        .btn-submit:hover {
-            background: var(--navy-lite);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(15,34,55,0.25);
-        }
-
-        .btn-submit:active {
-            transform: translateY(0);
-        }
-
-        .btn-submit svg {
-            transition: transform 0.2s;
-        }
-
-        .btn-submit:hover svg {
-            transform: translateX(3px);
-        }
-
-        /* LOGIN LINK */
         .login-link {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 13.5px;
-            color: var(--gray-500);
-            text-decoration: none;
-            cursor: pointer;
-            transition: color 0.15s;
-            padding: 8px;
-            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 13.5px; color: var(--gray-500); text-decoration: none;
+            cursor: pointer; transition: color 0.15s; padding: 8px; border-radius: 8px;
         }
+        .login-link:hover { color: var(--navy); }
+        .login-link span { font-weight: 600; color: var(--navy); text-decoration: underline; text-underline-offset: 2px; }
 
-        .login-link:hover {
-            color: var(--navy);
-        }
-
-        .login-link span {
-            font-weight: 600;
-            color: var(--navy);
-            text-decoration: underline;
-            text-underline-offset: 2px;
-        }
-
-        /* STEP PANELS */
-        .step-panel {
-            display: none;
-        }
-        .step-panel.active {
-            display: block;
-            animation: fadeSlideIn 0.3s ease;
-        }
+        .step-panel { display: none; }
+        .step-panel.active { display: block; animation: fadeSlideIn 0.3s ease; }
 
         @keyframes fadeSlideIn {
             from { opacity: 0; transform: translateX(12px); }
@@ -586,166 +288,68 @@
         }
 
         /* PLAN CARDS */
-        .plan-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
+        .plan-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
 
         .plan-card {
-            border: 2px solid var(--gray-200);
-            border-radius: 12px;
-            padding: 18px 20px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            position: relative;
+            border: 2px solid var(--gray-200); border-radius: 12px; padding: 18px 20px;
+            cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; gap: 16px; position: relative;
         }
-
-        .plan-card:hover {
-            border-color: var(--navy-lite);
-            background: var(--gray-50);
-        }
-
-        .plan-card.selected {
-            border-color: var(--navy);
-            background: #f0f4f8;
-        }
-
-        .plan-card.featured {
-            border-color: var(--gold);
-        }
-
-        .plan-card.featured.selected {
-            background: #fdfaf5;
-        }
+        .plan-card:hover { border-color: var(--navy-lite); background: var(--gray-50); }
+        .plan-card.selected { border-color: var(--navy); background: #f0f4f8; }
+        .plan-card.featured { border-color: var(--gold); }
+        .plan-card.featured.selected { background: #fdfaf5; }
 
         .plan-badge-pill {
-            position: absolute;
-            top: -11px; right: 16px;
-            background: var(--gold);
-            color: var(--navy-dark);
-            font-size: 10px;
-            font-weight: 700;
-            padding: 3px 12px;
-            border-radius: 20px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            position: absolute; top: -11px; right: 16px;
+            background: var(--gold); color: var(--navy-dark);
+            font-size: 10px; font-weight: 700; padding: 3px 12px; border-radius: 20px;
+            letter-spacing: 0.08em; text-transform: uppercase;
         }
 
         .plan-radio {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 2px solid var(--gray-300);
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
+            width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--gray-300);
+            flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
         }
-
-        .plan-card.selected .plan-radio {
-            border-color: var(--navy);
-            background: var(--navy);
-        }
-
-        .plan-card.selected .plan-radio::after {
-            content: '';
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: white;
-        }
+        .plan-card.selected .plan-radio { border-color: var(--navy); background: var(--navy); }
+        .plan-card.selected .plan-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: white; }
 
         .plan-info { flex: 1; }
+        .plan-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+        .plan-name { font-size: 15px; font-weight: 700; color: var(--navy); }
+        .plan-desc { font-size: 12px; color: var(--gray-400); }
+        .plan-price-tag { text-align: right; flex-shrink: 0; }
+        .plan-price-val { font-size: 18px; font-weight: 800; color: var(--navy); line-height: 1; }
+        .plan-price-period { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
 
-        .plan-name-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 3px;
-        }
-
-        .plan-name {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--navy);
-        }
-
-        .plan-desc {
-            font-size: 12px;
-            color: var(--gray-400);
-        }
-
-        .plan-price-tag {
-            text-align: right;
-            flex-shrink: 0;
-        }
-
-        .plan-price-val {
-            font-size: 18px;
-            font-weight: 800;
-            color: var(--navy);
-            line-height: 1;
-        }
-
-        .plan-price-period {
-            font-size: 11px;
-            color: var(--gray-400);
-            margin-top: 2px;
-        }
-
-        /* CONFIRM PANEL */
+        /* CONFIRM */
         .confirm-card {
-            background: var(--gray-50);
-            border: 1.5px solid var(--gray-200);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
+            background: var(--gray-50); border: 1.5px solid var(--gray-200);
+            border-radius: 12px; padding: 20px; margin-bottom: 20px;
         }
-
         .confirm-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--gray-200);
-            font-size: 13.5px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; border-bottom: 1px solid var(--gray-200); font-size: 13.5px;
         }
-
-        .confirm-row:last-child {
-            border-bottom: none;
-        }
-
-        .confirm-label {
-            color: var(--gray-500);
-        }
-
-        .confirm-value {
-            font-weight: 600;
-            color: var(--navy);
-        }
+        .confirm-row:last-child { border-bottom: none; }
+        .confirm-label { color: var(--gray-500); }
+        .confirm-value { font-weight: 600; color: var(--navy); }
 
         /* PASSWORD STRENGTH */
-        .pwd-strength {
-            display: flex;
-            gap: 4px;
-            margin-top: 8px;
+        .pwd-strength { display: flex; gap: 4px; margin-top: 8px; }
+        .pwd-bar { height: 3px; flex: 1; border-radius: 2px; background: var(--gray-200); transition: background 0.3s; }
+
+        /* SUCCESS */
+        .success-screen { display: none; text-align: center; padding: 20px 0; }
+        .success-screen.show { display: block; animation: fadeSlideIn 0.4s ease; }
+        .success-icon {
+            width: 72px; height: 72px; border-radius: 50%;
+            background: var(--green-bg); border: 2px solid var(--green);
+            display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
         }
 
-        .pwd-bar {
-            height: 3px;
-            flex: 1;
-            border-radius: 2px;
-            background: var(--gray-200);
-            transition: background 0.3s;
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* RESPONSIVE */
         @media (max-width: 900px) {
             body { flex-direction: column; }
             .left-panel { width: 100%; min-height: 220px; padding: 32px; }
@@ -753,32 +357,6 @@
             .left-headline { font-size: 26px; }
             .features { display: none; }
             .right-panel { width: 100%; padding: 32px 24px; }
-        }
-
-        /* PROGRESS animation for button */
-        .btn-submit.loading {
-            background: var(--navy-mid);
-            pointer-events: none;
-        }
-
-        /* Success screen */
-        .success-screen {
-            display: none;
-            text-align: center;
-            padding: 20px 0;
-        }
-
-        .success-screen.show { display: block; animation: fadeSlideIn 0.4s ease; }
-
-        .success-icon {
-            width: 72px; height: 72px;
-            border-radius: 50%;
-            background: var(--green-bg);
-            border: 2px solid var(--green);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
         }
     </style>
 </head>
@@ -833,9 +411,7 @@
         </div>
     </div>
 
-    <div class="left-footer">
-        © 2026 Seu Bolso · Todos os direitos reservados
-    </div>
+    <div class="left-footer">© 2026 Seu Bolso · Todos os direitos reservados</div>
 </div>
 
 <!-- ── RIGHT PANEL ── -->
@@ -891,11 +467,12 @@
                     <div class="phone-prefix">
                         <span class="flag">🇧🇷</span>
                         <span class="prefix-code">+55</span>
-                        <svg class="prefix-arrow" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                     </div>
-                    <input class="form-input" type="tel" id="f-phone" placeholder="(11) 99999-0000" style="flex:1" autocomplete="tel">
+                    <input class="form-input" type="tel" id="f-phone" placeholder="(11) 99999-0000" style="flex:1" autocomplete="tel"
+                        oninput="formatarTelefone(this)">
                 </div>
-                <div class="field-error" id="err-phone">Informe um número de WhatsApp válido.</div>
+                <div class="field-hint">Será usado para receber notificações e acessar o bot.</div>
+                <div class="field-error" id="err-phone">Informe um número de WhatsApp válido com DDD.</div>
             </div>
 
             <div class="form-group">
@@ -907,16 +484,20 @@
             <div class="form-group">
                 <label class="form-label">Confirmar e-mail</label>
                 <input class="form-input" type="email" id="f-email2" placeholder="Confirme seu e-mail">
-                <div class="field-hint">Preste atenção ao digitar seu e-mail, pois ele será utilizado para enviar informações importantes.</div>
+                <div class="field-hint">Preste atenção ao digitar — será usado para informações importantes.</div>
                 <div class="field-error" id="err-email2">Os e-mails não coincidem.</div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Senha</label>
                 <div style="position:relative">
-                    <input class="form-input" type="password" id="f-pass" placeholder="Mínimo 8 caracteres" style="padding-right:44px" oninput="checkPwdStrength(this.value)">
-                    <button type="button" onclick="togglePass('f-pass', this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray-400);padding:4px;">
-                        <svg id="eye-f-pass" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <input class="form-input" type="password" id="f-pass" placeholder="Mínimo 8 caracteres"
+                        style="padding-right:44px" oninput="checkPwdStrength(this.value)">
+                    <button type="button" onclick="togglePass('f-pass', this)"
+                        style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--gray-400);padding:4px;">
+                        <svg id="eye-f-pass" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
                     </button>
                 </div>
                 <div class="pwd-strength" id="pwd-bars">
@@ -943,7 +524,7 @@
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </button>
 
-            <a class="login-link" href="#">
+            <a class="login-link" href="dashboard.html">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                 Já tenho uma conta — <span>Fazer login</span>
             </a>
@@ -958,9 +539,7 @@
                 <div class="plan-card" onclick="selectPlan(this,'gratuito')" data-plan="gratuito">
                     <div class="plan-radio"></div>
                     <div class="plan-info">
-                        <div class="plan-name-row">
-                            <div class="plan-name">Gratuito</div>
-                        </div>
+                        <div class="plan-name-row"><div class="plan-name">Gratuito</div></div>
                         <div class="plan-desc">Ideal para começar · Sem cartão de crédito</div>
                     </div>
                     <div class="plan-price-tag">
@@ -973,9 +552,7 @@
                     <div class="plan-badge-pill">✦ POPULAR</div>
                     <div class="plan-radio"></div>
                     <div class="plan-info">
-                        <div class="plan-name-row">
-                            <div class="plan-name">Premium Mensal</div>
-                        </div>
+                        <div class="plan-name-row"><div class="plan-name">Premium Mensal</div></div>
                         <div class="plan-desc">Recursos ilimitados · Cancele quando quiser</div>
                     </div>
                     <div class="plan-price-tag">
@@ -988,9 +565,7 @@
                     <div class="plan-badge-pill" style="background:var(--green);color:white">2 MESES GRÁTIS</div>
                     <div class="plan-radio"></div>
                     <div class="plan-info">
-                        <div class="plan-name-row">
-                            <div class="plan-name">Premium Anual</div>
-                        </div>
+                        <div class="plan-name-row"><div class="plan-name">Premium Anual</div></div>
                         <div class="plan-desc">Melhor custo-benefício · R$ 299,00/ano</div>
                     </div>
                     <div class="plan-price-tag">
@@ -1030,339 +605,17 @@
                     <span class="confirm-value" id="c-phone">—</span>
                 </div>
                 <div class="confirm-row">
+                    <span class="confirm-label">Telefone (sistema)</span>
+                    <span class="confirm-value" id="c-phone-raw">—</span>
+                </div>
+                <div class="confirm-row">
                     <span class="confirm-label">Plano</span>
                     <span class="confirm-value" id="c-plan">—</span>
                 </div>
             </div>
 
-            <div style="display:flex;gap:10px;margin-bottom:0">
+            <div style="display:flex;gap:10px">
                 <button class="btn-submit" style="background:var(--gray-100);color:var(--navy);flex:0 0 auto;width:48px;padding:0;justify-content:center;box-shadow:none;" onclick="goStep(2)">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                 </button>
-                <button class="btn-submit" style="flex:1" id="btn-final" onclick="finalizarCadastro()">
-                    Criar minha conta
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- ── SUCCESS ── -->
-        <div class="success-screen" id="success-screen">
-            <div class="success-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div style="font-family:'DM Serif Display',serif;font-size:26px;color:var(--navy);margin-bottom:10px">Conta criada!</div>
-            <div style="font-size:14px;color:var(--gray-400);margin-bottom:28px;line-height:1.6">Bem-vindo ao Seu Bolso.<br>Verifique seu e-mail para ativar sua conta.</div>
-            <a href="dashboard.html" class="btn-submit" style="text-decoration:none;display:flex">
-                Ir para o painel
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-            </a>
-        </div>
-
-    </div>
-</div>
-
-<script>
-    let currentStep = 1;
-    let selectedPlan = 'gratuito';
-
-    const planLabels = {
-        gratuito: 'Gratuito',
-        mensal:   'Premium Mensal — R$ 29,90/mês',
-        anual:    'Premium Anual — R$ 24,90/mês'
-    };
-
-    function goStep(n) {
-        if (n > currentStep && !validateStep(currentStep)) return;
-
-        // Update panels
-        document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
-        document.getElementById('panel-' + n).classList.add('active');
-
-        // Update stepper
-        for (let i = 1; i <= 3; i++) {
-            const s = document.getElementById('step-' + i);
-            s.classList.remove('active', 'completed');
-            const circle = s.querySelector('.step-circle');
-            if (i < n) {
-                s.classList.add('completed');
-                circle.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-            } else if (i === n) {
-                s.classList.add('active');
-                const icons = [
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'
-                ];
-                circle.innerHTML = icons[i-1];
-            } else {
-                const grayIcons = [
-                    '',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'
-                ];
-                circle.innerHTML = grayIcons[i-1];
-            }
-        }
-
-        // Update lines
-        for (let i = 1; i <= 2; i++) {
-            const line = document.getElementById('line-' + i);
-            line.className = 'step-line' + (i < n ? ' completed' : '');
-        }
-
-        // Populate confirm
-        if (n === 3) {
-            document.getElementById('c-name').textContent  = document.getElementById('f-name').value || '—';
-            document.getElementById('c-email').textContent = document.getElementById('f-email').value || '—';
-            document.getElementById('c-phone').textContent = '+55 ' + (document.getElementById('f-phone').value || '—');
-            document.getElementById('c-plan').textContent  = planLabels[selectedPlan];
-        }
-
-        currentStep = n;
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    }
-
-    function validateStep(step) {
-        if (step === 1) {
-            let ok = true;
-            const name  = document.getElementById('f-name').value.trim();
-            const phone = document.getElementById('f-phone').value.trim();
-            const email = document.getElementById('f-email').value.trim();
-            const email2 = document.getElementById('f-email2').value.trim();
-            const pass  = document.getElementById('f-pass').value;
-            const terms = document.getElementById('f-terms').checked;
-
-            const setErr = (id, show) => {
-                const el = document.getElementById(id);
-                el.classList.toggle('show', show);
-                const input = document.getElementById(id.replace('err-','f-'));
-                if (input) input.classList.toggle('error', show);
-            };
-
-            if (name.length < 3)   { setErr('err-name', true);   ok = false; } else setErr('err-name', false);
-            if (phone.length < 8)  { setErr('err-phone', true);  ok = false; } else setErr('err-phone', false);
-            if (!email.includes('@') || !email.includes('.')) { setErr('err-email', true); ok = false; } else setErr('err-email', false);
-            if (email !== email2)  { setErr('err-email2', true); ok = false; } else setErr('err-email2', false);
-            if (pass.length < 8)   { setErr('err-pass', true);   ok = false; } else setErr('err-pass', false);
-
-            if (!terms) { alert('Aceite os termos de uso para continuar.'); ok = false; }
-            return ok;
-        }
-        return true;
-    }
-
-    function selectPlan(card, plan) {
-        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        selectedPlan = plan;
-    }
-
-    function checkPwdStrength(val) {
-        const bars = ['bar-1','bar-2','bar-3','bar-4'];
-        const colors = ['var(--red)', '#e67e22', 'var(--gold)', 'var(--green)'];
-        let score = 0;
-        if (val.length >= 8) score++;
-        if (/[A-Z]/.test(val)) score++;
-        if (/[0-9]/.test(val)) score++;
-        if (/[^A-Za-z0-9]/.test(val)) score++;
-        bars.forEach((b, i) => {
-            document.getElementById(b).style.background = i < score ? colors[Math.max(0, score-1)] : 'var(--gray-200)';
-        });
-    }
-
-    function togglePass(inputId, btn) {
-        const inp = document.getElementById(inputId);
-        const showing = inp.type === 'text';
-        inp.type = showing ? 'password' : 'text';
-        btn.querySelector('svg').innerHTML = showing
-            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
-            : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
-    }
-
-    function finalizarCadastro() {
-        const btn = document.getElementById('btn-final');
-        btn.classList.add('loading');
-        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-5.6"/></svg> Criando conta...';
-        setTimeout(() => {
-            document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('stepper').style.display = 'none';
-            document.getElementById('success-screen').classList.add('show');
-        }, 1800);
-    }
-
-    // Preselect gratuito
-    selectPlan(document.querySelector('.plan-card[data-plan="gratuito"]'), 'gratuito');
-</script>
-
-<style>
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to   { transform: rotate(360deg); }
-    }
-</style>
-<!-- ✅ ADICIONE ISTO ANTES DE </body> NO cadastro.html -->
-<script src="/api.js"></script>
-<script>
-    let currentStep = 1;
-    let selectedPlan = 'gratuito';
-
-    const planLabels = {
-        gratuito: 'Gratuito',
-        mensal:   'Premium Mensal — R$ 29,90/mês',
-        anual:    'Premium Anual — R$ 24,90/mês'
-    };
-
-    function goStep(n) {
-        if (n > currentStep && !validateStep(currentStep)) return;
-
-        // Update panels
-        document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
-        document.getElementById('panel-' + n).classList.add('active');
-
-        // Update stepper
-        for (let i = 1; i <= 3; i++) {
-            const s = document.getElementById('step-' + i);
-            s.classList.remove('active', 'completed');
-            const circle = s.querySelector('.step-circle');
-            if (i < n) {
-                s.classList.add('completed');
-                circle.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-            } else if (i === n) {
-                s.classList.add('active');
-                const icons = [
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'
-                ];
-                circle.innerHTML = icons[i-1];
-            } else {
-                const grayIcons = [
-                    '',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
-                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'
-                ];
-                circle.innerHTML = grayIcons[i-1];
-            }
-        }
-
-        // Update lines
-        for (let i = 1; i <= 2; i++) {
-            const line = document.getElementById('line-' + i);
-            line.className = 'step-line' + (i < n ? ' completed' : '');
-        }
-
-        // Populate confirm
-        if (n === 3) {
-            document.getElementById('c-name').textContent  = document.getElementById('f-name').value || '—';
-            document.getElementById('c-email').textContent = document.getElementById('f-email').value || '—';
-            document.getElementById('c-phone').textContent = '+55 ' + (document.getElementById('f-phone').value || '—');
-            document.getElementById('c-plan').textContent  = planLabels[selectedPlan];
-        }
-
-        currentStep = n;
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    }
-
-    function validateStep(step) {
-        if (step === 1) {
-            let ok = true;
-            const name  = document.getElementById('f-name').value.trim();
-            const phone = document.getElementById('f-phone').value.trim();
-            const email = document.getElementById('f-email').value.trim();
-            const email2 = document.getElementById('f-email2').value.trim();
-            const pass  = document.getElementById('f-pass').value;
-            const terms = document.getElementById('f-terms').checked;
-
-            const setErr = (id, show) => {
-                const el = document.getElementById(id);
-                el.classList.toggle('show', show);
-                const input = document.getElementById(id.replace('err-','f-'));
-                if (input) input.classList.toggle('error', show);
-            };
-
-            if (name.length < 3)   { setErr('err-name', true);   ok = false; } else setErr('err-name', false);
-            if (phone.length < 8)  { setErr('err-phone', true);  ok = false; } else setErr('err-phone', false);
-            if (!email.includes('@') || !email.includes('.')) { setErr('err-email', true); ok = false; } else setErr('err-email', false);
-            if (email !== email2)  { setErr('err-email2', true); ok = false; } else setErr('err-email2', false);
-            if (pass.length < 8)   { setErr('err-pass', true);   ok = false; } else setErr('err-pass', false);
-
-            if (!terms) { alert('Aceite os termos de uso para continuar.'); ok = false; }
-            return ok;
-        }
-        return true;
-    }
-
-    function selectPlan(card, plan) {
-        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        selectedPlan = plan;
-    }
-
-    function checkPwdStrength(val) {
-        const bars = ['bar-1','bar-2','bar-3','bar-4'];
-        const colors = ['var(--red)', '#e67e22', 'var(--gold)', 'var(--green)'];
-        let score = 0;
-        if (val.length >= 8) score++;
-        if (/[A-Z]/.test(val)) score++;
-        if (/[0-9]/.test(val)) score++;
-        if (/[^A-Za-z0-9]/.test(val)) score++;
-        bars.forEach((b, i) => {
-            document.getElementById(b).style.background = i < score ? colors[Math.max(0, score-1)] : 'var(--gray-200)';
-        });
-    }
-
-    function togglePass(inputId, btn) {
-        const inp = document.getElementById(inputId);
-        const showing = inp.type === 'text';
-        inp.type = showing ? 'password' : 'text';
-        btn.querySelector('svg').innerHTML = showing
-            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
-            : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
-    }
-
-    // ✅ FUNÇÃO CORRIGIDA PARA CADASTRO
-    async function finalizarCadastro() {
-        const btn = document.getElementById('btn-final');
-        const nome = document.getElementById('f-name').value.trim();
-        const email = document.getElementById('f-email').value.trim();
-        const senha = document.getElementById('f-pass').value;
-        const telefone = document.getElementById('f-phone').value.trim();
-
-        btn.classList.add('loading');
-        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-5.6"/></svg> Criando conta...';
-
-        try {
-            // ✅ Chama GZ.cadastro() com TELEFONE
-            await GZ.cadastro(nome, email, senha, telefone, selectedPlan);
-
-            // Mostra tela de sucesso
-            document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('stepper').style.display = 'none';
-            document.getElementById('success-screen').classList.add('show');
-
-            // Redireciona após 3s
-            setTimeout(() => {
-                window.location.href = '/dashboard.html';
-            }, 3000);
-
-        } catch (err) {
-            btn.classList.remove('loading');
-            btn.innerHTML = 'Criar minha conta <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-            alert('❌ Erro: ' + err.message);
-        }
-    }
-
-    // Preselect gratuito
-    selectPlan(document.querySelector('.plan-card[data-plan="gratuito"]'), 'gratuito');
-</script>
-
-<style>
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to   { transform: rotate(360deg); }
-    }
-</style>
-    
-</body>
-</html>
+                <button class="btn

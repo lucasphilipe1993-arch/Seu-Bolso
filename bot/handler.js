@@ -79,7 +79,6 @@ async function usePostgresAuthState() {
     await db.query('DELETE FROM whatsapp_session WHERE chave = $1', [key]);
   }
 
-  // ✅ FIX: state é um objeto mutável — saveCreds deve referenciar state.creds
   const state = {
     creds: (await readData('creds')) || initAuthCreds(),
     keys: makeCacheableSignalKeyStore(
@@ -121,8 +120,6 @@ async function usePostgresAuthState() {
   return {
     state,
     saveCreds: async () => {
-      // ✅ FIX: salva state.creds (referência atualizada pelo Baileys)
-      // antes era: await writeData('creds', creds) — variável do closure desatualizada
       await writeData('creds', state.creds);
     },
   };
@@ -136,6 +133,8 @@ class BotGranaZen {
     this.qrAtual = null;
     this._tentativas = 0;
     this._reconectando = false;
+    // FIX: flag para evitar múltiplos timers de reconexão simultâneos
+    this._timerReconexao = null;
 
     this.onQR = null;
     this.onConnected = null;
@@ -154,6 +153,46 @@ class BotGranaZen {
     return base;
   }
 
+  // FIX: fecha o socket anterior de forma segura e aguarda antes de recriar
+  async _fecharSocket() {
+    if (!this.socket) return;
+    try {
+      this.socket.ev.removeAllListeners();
+      // ws.close() com código 1000 (encerramento limpo) evita o erro 515
+      if (this.socket.ws?.readyState === 1 /* OPEN */) {
+        this.socket.ws.close(1000);
+        // Aguarda até 2s para o websocket fechar de fato
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    } catch {}
+    this.socket = null;
+  }
+
+  // FIX: agenda reconexão sem duplicar timers
+  _agendarReconexao() {
+    if (this._timerReconexao) {
+      clearTimeout(this._timerReconexao);
+      this._timerReconexao = null;
+    }
+
+    this._tentativas += 1;
+
+    if (this._tentativas > 10) {
+      console.error('❌ Máximo de tentativas de reconexão atingido (10). Reconexão suspensa.');
+      console.error('   Reinicie o serviço manualmente ou via Railway para tentar novamente.');
+      return;
+    }
+
+    // Backoff exponencial: 5s, 10s, 20s, 40s... até 60s
+    const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
+    console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
+
+    this._timerReconexao = setTimeout(async () => {
+      this._timerReconexao = null;
+      await this.iniciar();
+    }, delay);
+  }
+
   async iniciar() {
     if (this._reconectando) {
       console.log('⏳ Reconexão já em andamento, ignorando chamada duplicada.');
@@ -161,13 +200,8 @@ class BotGranaZen {
     }
     this._reconectando = true;
 
-    if (this.socket) {
-      try {
-        this.socket.ev.removeAllListeners();
-        this.socket.ws?.close();
-      } catch {}
-      this.socket = null;
-    }
+    // FIX: fecha socket anterior de forma limpa antes de criar um novo
+    await this._fecharSocket();
 
     try {
       const { state, saveCreds } = await usePostgresAuthState();
@@ -194,7 +228,7 @@ class BotGranaZen {
       this.socket.ev.on('creds.update', saveCreds);
 
       // ── Conexão ──────────────────────────────────────────
-      this.socket.ev.on('connection.update', (update) => {
+      this.socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
@@ -216,23 +250,25 @@ class BotGranaZen {
         if (connection === 'close') {
           this.conectado = false;
           this._reconectando = false;
+
           const codigo = lastDisconnect?.error?.output?.statusCode;
-          const deverReconectar = codigo !== DisconnectReason.loggedOut;
-          console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${deverReconectar}`);
+          const loggedOut = codigo === DisconnectReason.loggedOut;
+
+          console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${!loggedOut}`);
           if (this.onDisconnected) this.onDisconnected();
 
-          if (deverReconectar) {
-            this._tentativas += 1;
-
-            if (this._tentativas > 10) {
-              console.error('❌ Máximo de tentativas de reconexão atingido (10). Reconexão suspensa.');
-              console.error('   Reinicie o serviço manualmente ou via Railway para tentar novamente.');
-              return;
-            }
-
-            const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
-            console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
-            setTimeout(() => this.iniciar(), delay);
+          if (loggedOut) {
+            // Sessão revogada: limpa creds do banco para forçar novo QR
+            console.warn('🚪 Sessão encerrada pelo WhatsApp. Limpando sessão salva...');
+            try {
+              await db.query(`DELETE FROM whatsapp_session`);
+            } catch {}
+            // FIX: reseta tentativas para permitir novo login via QR
+            this._tentativas = 0;
+            this._agendarReconexao();
+          } else {
+            // FIX: erro 515 e outros erros transitórios — apenas reagenda
+            this._agendarReconexao();
           }
         }
       });
@@ -267,15 +303,7 @@ class BotGranaZen {
     } catch (err) {
       console.error('❌ Erro ao iniciar bot:', err.message);
       this._reconectando = false;
-
-      this._tentativas += 1;
-      if (this._tentativas <= 10) {
-        const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
-        console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
-        setTimeout(() => this.iniciar(), delay);
-      } else {
-        console.error('❌ Máximo de tentativas atingido. Reconexão suspensa.');
-      }
+      this._agendarReconexao();
     }
   }
 
@@ -647,14 +675,12 @@ class BotGranaZen {
 
   async reconectar() {
     this._tentativas = 0;
-    if (this.socket) {
-      try {
-        this.socket.ev.removeAllListeners();
-        this.socket.ws?.close();
-      } catch {}
-      this.socket = null;
-    }
     this._reconectando = false;
+    if (this._timerReconexao) {
+      clearTimeout(this._timerReconexao);
+      this._timerReconexao = null;
+    }
+    await this._fecharSocket();
     await this.iniciar();
   }
 

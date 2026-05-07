@@ -141,7 +141,21 @@ class BotGranaZen {
   _normalizarTelefone(telefone) {
     if (!telefone) return null;
     let digits = telefone.replace(/\D/g, '');
+
+    // Remove DDI 55 se presente
     if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
+
+    // Se tem 10 digitos e celular antigo sem o 9 - adiciona apos o DDD
+    // Ex: "3192037032" -> "31992037032"
+    if (digits.length === 10) {
+      const ddd = digits.slice(0, 2);
+      const numero = digits.slice(2);
+      if (['6','7','8','9'].includes(numero[0])) {
+        digits = ddd + '9' + numero;
+        console.log('Numero normalizado (10->11 digitos): ' + telefone + ' -> ' + digits);
+      }
+    }
+
     if (digits.length < 10 || digits.length > 11) return digits;
     return digits;
   }

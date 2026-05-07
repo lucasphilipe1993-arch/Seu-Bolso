@@ -15,6 +15,7 @@ const BotGranaZen = require('./bot/handler');
 const authRoutes = require('./routes/auth');
 const transactionRoutes = require('./routes/transactions');
 const whatsappRoute = require('./routes/whatsapp');
+const adminRoute = require('./routes/admin'); // ✅ NOVO
 
 const app = express();
 const server = http.createServer(app);
@@ -25,8 +26,9 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const bot = new BotGranaZen();
 
-// Injeta a instância do bot na rota de whatsapp
+// Injeta a instância do bot nas rotas
 whatsappRoute.setBotInstance(bot);
+adminRoute.setBotInstance(bot); // ✅ NOVO
 
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({ origin: '*' }));
@@ -77,6 +79,7 @@ bot.onNovaTransacao = (data) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/whatsapp', whatsappRoute.router);
+app.use('/api/admin', adminRoute.router); // ✅ NOVO
 
 // Health check
 app.get('/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
@@ -99,7 +102,6 @@ server.listen(PORT, async () => {
 ╚══════════════════════════════════════╝
   `);
 
-  // Inicia o bot automaticamente se AUTO_CONNECT=true
   if (process.env.AUTO_CONNECT === 'true') {
     console.log('🔄 Auto-conectando WhatsApp...');
     bot.iniciar().catch(console.error);

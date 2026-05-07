@@ -3,54 +3,389 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Entrar — GranaZen</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Entrar — Seu Bolso</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --green: #16a34a; --green-light: #22c55e; --green-dark: #15803d;
-    --gray-900: #111827; --gray-500: #6b7280; --gray-200: #e5e7eb;
-    --gray-100: #f3f4f6; --white: #ffffff; --red: #ef4444;
+    --navy: #1a2744;
+    --navy-dark: #111b33;
+    --navy-light: #243259;
+    --gold: #b8943f;
+    --gold-light: #d4af6a;
+    --gold-xlight: #f5ead8;
+    --white: #ffffff;
+    --gray-50: #f8f9fb;
+    --gray-100: #f0f2f7;
+    --gray-300: #c8cdd8;
+    --gray-500: #7a8299;
+    --gray-700: #3d4560;
+    --red: #e05252;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Inter',sans-serif; background:var(--gray-100); color:var(--gray-900); min-height:100vh; display:flex; align-items:center; justify-content:center; }
-  h1,h2,h3 { font-family:'Syne',sans-serif; }
 
-  .container { width:100%; max-width:420px; padding:24px 16px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  .logo { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:32px; }
-  .logo-circle { width:40px; height:40px; background:var(--green); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
-  .logo-text { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--gray-900); }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--gray-50);
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
 
-  .card { background:white; border-radius:16px; padding:32px; box-shadow:0 4px 24px rgba(0,0,0,.08); }
-  .card h2 { font-size:22px; margin-bottom:4px; }
-  .card p { color:var(--gray-500); font-size:14px; margin-bottom:24px; }
+  /* ── LADO ESQUERDO ── */
+  .left-panel {
+    background: var(--navy-dark);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 48px;
+    position: relative;
+    overflow: hidden;
+  }
 
-  .field { margin-bottom:16px; }
-  label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
-  input { width:100%; padding:11px 14px; border:1.5px solid var(--gray-200); border-radius:10px; font-size:15px; font-family:'Inter',sans-serif; transition:border .2s; outline:none; }
-  input:focus { border-color:var(--green); }
+  .left-panel::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(184,148,63,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
 
-  .btn { width:100%; padding:13px; background:var(--green); color:white; border:none; border-radius:10px; font-size:15px; font-weight:600; font-family:'Syne',sans-serif; cursor:pointer; transition:background .2s; margin-top:8px; }
-  .btn:hover { background:var(--green-dark); }
-  .btn:disabled { opacity:.6; cursor:not-allowed; }
+  .left-panel::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -80px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(184,148,63,0.1) 0%, transparent 70%);
+    pointer-events: none;
+  }
 
-  .erro { background:#fef2f2; color:var(--red); border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:16px; display:none; }
-  .link-row { text-align:center; margin-top:20px; font-size:14px; color:var(--gray-500); }
-  .link-row a { color:var(--green); text-decoration:none; font-weight:600; }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+  }
 
-  .tabs { display:flex; background:var(--gray-100); border-radius:10px; padding:3px; margin-bottom:24px; }
-  .tab { flex:1; text-align:center; padding:8px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; color:var(--gray-500); transition:.2s; }
-  .tab.ativo { background:white; color:var(--gray-900); box-shadow:0 1px 4px rgba(0,0,0,.1); }
+  .brand-logo {
+    width: 44px; height: 44px;
+  }
+
+  .brand-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 0.5px;
+  }
+
+  .left-content {
+    position: relative; z-index: 1;
+  }
+
+  .left-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(184,148,63,0.15);
+    border: 1px solid rgba(184,148,63,0.3);
+    color: var(--gold-light);
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+  }
+
+  .left-tag span {
+    width: 6px; height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+  }
+
+  .left-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.2;
+    margin-bottom: 20px;
+  }
+
+  .left-title em {
+    font-style: normal;
+    color: var(--gold-light);
+  }
+
+  .left-sub {
+    color: rgba(255,255,255,0.5);
+    font-size: 16px;
+    line-height: 1.7;
+    max-width: 360px;
+    margin-bottom: 40px;
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--gold-light);
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  .testimonial {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 12px 12px 0;
+    padding: 20px 24px;
+  }
+
+  .testimonial p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.6;
+    font-style: italic;
+    margin-bottom: 12px;
+  }
+
+  .testimonial-author {
+    font-size: 13px;
+    color: var(--gold-light);
+    font-weight: 500;
+  }
+
+  /* ── LADO DIREITO ── */
+  .right-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 32px;
+  }
+
+  .form-container {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .form-header {
+    margin-bottom: 32px;
+  }
+
+  .form-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 8px;
+  }
+
+  .form-header p {
+    color: var(--gray-500);
+    font-size: 15px;
+  }
+
+  .tabs {
+    display: flex;
+    background: var(--gray-100);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--gray-500);
+    transition: all 0.2s;
+  }
+
+  .tab.ativo {
+    background: var(--white);
+    color: var(--navy);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .erro {
+    background: #fef2f2;
+    color: var(--red);
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 7px;
+    letter-spacing: 0.3px;
+  }
+
+  input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--navy);
+    background: var(--white);
+    transition: all 0.2s;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(26,39,68,0.08);
+  }
+
+  input::placeholder {
+    color: var(--gray-300);
+  }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 6px;
+    letter-spacing: 0.3px;
+  }
+
+  .btn:hover {
+    background: var(--navy-light);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(26,39,68,0.2);
+  }
+
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .divider {
+    text-align: center;
+    margin: 20px 0;
+    position: relative;
+    color: var(--gray-300);
+    font-size: 13px;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    position: absolute;
+    top: 50%; width: calc(50% - 20px);
+    height: 1px; background: var(--gray-100);
+  }
+  .divider::before { left: 0; }
+  .divider::after { right: 0; }
+
+  .back-link {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 14px;
+    color: var(--gray-500);
+  }
+
+  .back-link a {
+    color: var(--gold);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .back-link a:hover { color: var(--gold-light); }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; }
+    .left-panel { display: none; }
+    .right-panel { padding: 32px 24px; }
+  }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="logo">
-    <div class="logo-circle">💰</div>
-    <span class="logo-text">GranaZen</span>
+
+<!-- LADO ESQUERDO -->
+<div class="left-panel">
+  <a href="/" class="brand">
+    <svg class="brand-logo" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="12" fill="#b8943f" fill-opacity="0.15"/>
+      <path d="M10 28C10 24 13 20 18 19L22 18L26 19C31 20 34 24 34 28V32C34 33.1 33.1 34 32 34H12C10.9 34 10 33.1 10 32V28Z" fill="#b8943f" fill-opacity="0.3"/>
+      <path d="M22 10C18.7 10 16 12.7 16 16C16 19.3 18.7 22 22 22C25.3 22 28 19.3 28 16C28 12.7 25.3 10 22 10Z" fill="#b8943f"/>
+      <path d="M20 16H24M22 14V18" stroke="#1a2744" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <span class="brand-name">Seu Bolso</span>
+  </a>
+
+  <div class="left-content">
+    <div class="left-tag"><span></span> Controle financeiro inteligente</div>
+    <h1 class="left-title">Suas finanças,<br><em>organizadas</em><br>de verdade.</h1>
+    <p class="left-sub">Registre gastos pelo WhatsApp, visualize relatórios e nunca mais perca o controle do seu dinheiro.</p>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value">+38k</div>
+        <div class="stat-label">Usuários ativos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">4.9★</div>
+        <div class="stat-label">Avaliação média</div>
+      </div>
+    </div>
   </div>
 
-  <div class="card">
+  <div class="testimonial">
+    <p>"Finalmente entendi para onde meu dinheiro ia. O Seu Bolso mudou minha relação com as finanças."</p>
+    <div class="testimonial-author">— Jéssica C., Engenheira de Dados</div>
+  </div>
+</div>
+
+<!-- LADO DIREITO -->
+<div class="right-panel">
+  <div class="form-container">
+    <div class="form-header">
+      <h2>Bem-vindo de volta</h2>
+      <p>Entre na sua conta para continuar</p>
+    </div>
+
     <div class="tabs">
       <div class="tab ativo" onclick="trocarAba('login')">Entrar</div>
       <div class="tab" onclick="trocarAba('cadastro')">Criar conta</div>
@@ -58,10 +393,8 @@
 
     <div id="erro" class="erro"></div>
 
-    <!-- ── FORMULÁRIO LOGIN ── -->
+    <!-- LOGIN -->
     <div id="form-login">
-      <h2>Bem-vindo de volta 👋</h2>
-      <p>Entre com seu e-mail e senha</p>
       <div class="field">
         <label>E-mail</label>
         <input id="l-email" type="email" placeholder="seu@email.com">
@@ -70,13 +403,11 @@
         <label>Senha</label>
         <input id="l-senha" type="password" placeholder="••••••••">
       </div>
-      <button class="btn" onclick="login()">Entrar</button>
+      <button class="btn" onclick="login()">Entrar na conta</button>
     </div>
 
-    <!-- ── FORMULÁRIO CADASTRO ── -->
+    <!-- CADASTRO -->
     <div id="form-cadastro" style="display:none">
-      <h2>Crie sua conta 🚀</h2>
-      <p>Comece a controlar suas finanças gratuitamente</p>
       <div class="field">
         <label>Nome completo</label>
         <input id="c-nome" type="text" placeholder="João Silva">
@@ -89,10 +420,10 @@
         <label>Senha</label>
         <input id="c-senha" type="password" placeholder="Mínimo 6 caracteres">
       </div>
-      <button class="btn" onclick="cadastrar()">Criar conta grátis</button>
+      <button class="btn" onclick="cadastrar()">Criar minha conta</button>
     </div>
 
-    <div class="link-row">
+    <div class="back-link">
       <a href="/">← Voltar ao início</a>
     </div>
   </div>
@@ -108,6 +439,10 @@ function trocarAba(aba) {
   document.getElementById('form-login').style.display    = aba==='login'    ? 'block' : 'none';
   document.getElementById('form-cadastro').style.display = aba==='cadastro' ? 'block' : 'none';
   mostrarErro('');
+  const h = document.querySelector('.form-header h2');
+  const p = document.querySelector('.form-header p');
+  if (aba === 'login') { h.textContent = 'Bem-vindo de volta'; p.textContent = 'Entre na sua conta para continuar'; }
+  else { h.textContent = 'Crie sua conta'; p.textContent = 'Comece a controlar suas finanças hoje'; }
 }
 
 function mostrarErro(msg) {
@@ -120,7 +455,6 @@ async function login() {
   const email = document.getElementById('l-email').value;
   const senha = document.getElementById('l-senha').value;
   if (!email || !senha) return mostrarErro('Preencha e-mail e senha');
-
   try {
     const r = await fetch(`${API}/auth/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -131,9 +465,7 @@ async function login() {
     localStorage.setItem('gz_token', data.token);
     localStorage.setItem('gz_usuario', JSON.stringify(data.usuario));
     window.location.href = '/dashboard';
-  } catch {
-    mostrarErro('Erro de conexão. Tente novamente.');
-  }
+  } catch { mostrarErro('Erro de conexão. Tente novamente.'); }
 }
 
 async function cadastrar() {
@@ -142,7 +474,6 @@ async function cadastrar() {
   const senha = document.getElementById('c-senha').value;
   if (!nome || !email || !senha) return mostrarErro('Preencha todos os campos');
   if (senha.length < 6) return mostrarErro('Senha deve ter pelo menos 6 caracteres');
-
   try {
     const r = await fetch(`${API}/auth/cadastro`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -153,12 +484,9 @@ async function cadastrar() {
     localStorage.setItem('gz_token', data.token);
     localStorage.setItem('gz_usuario', JSON.stringify(data.usuario));
     window.location.href = '/dashboard';
-  } catch {
-    mostrarErro('Erro de conexão. Tente novamente.');
-  }
+  } catch { mostrarErro('Erro de conexão. Tente novamente.'); }
 }
 
-// Enter nos inputs
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     if (document.getElementById('form-login').style.display !== 'none') login();
@@ -166,7 +494,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Redireciona se já logado
 if (localStorage.getItem('gz_token')) window.location.href = '/dashboard';
 </script>
 </body>

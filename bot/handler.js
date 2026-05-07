@@ -284,7 +284,7 @@ this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
 
           const remoteJid = msg.key.remoteJid || '';
 
-if (remoteJid.endsWith('@g.us')) continue;
+remoteJid.endsWith('@g.us')
 
           const telefone = remoteJid.replace('@s.whatsapp.net', '');
           if (!telefone) continue;

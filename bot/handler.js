@@ -151,15 +151,19 @@ class BotGranaZen {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
 
-    this.socket = makeWASocket({
-      version,                          // ✅ versão explícita evita 405
-      auth: state,
-      printQRInTerminal: true,
-      browser: ['GranaZen', 'Chrome', '120.0.0'],
-      logger: this._logger,
-      syncFullHistory: false,           // ✅ economiza memória no Railway
-      getMessage: async () => ({ conversation: '' }), // ✅ evita crash em msg antiga
-    });
+this.socket = makeWASocket({
+  version,
+  auth: state,
+  printQRInTerminal: true,
+  browser: ['GranaZen', 'Chrome', '120.0.0'],
+  logger: this._logger,
+  syncFullHistory: false,
+  connectTimeoutMs: 60000,        // ✅ 60s para conectar (padrão é 20s)
+  defaultQueryTimeoutMs: 60000,   // ✅ 60s para queries iniciais
+  keepAliveIntervalMs: 25000,     // ✅ mantém conexão viva no Railway
+  retryRequestDelayMs: 2000,      // ✅ espera 2s entre retries
+  getMessage: async () => ({ conversation: '' }),
+});
 
     this.socket.ev.on('creds.update', saveCreds);
 
@@ -187,7 +191,9 @@ class BotGranaZen {
         const deverReconectar = codigo !== DisconnectReason.loggedOut;
         console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${deverReconectar}`);
         if (this.onDisconnected) this.onDisconnected();
-        if (deverReconectar) setTimeout(() => this.iniciar(), 5000);
+       if (deverReconectar) {
+       const delay = codigo === 408 ? 15000 : 5000; // ✅ timeout = espera 15s
+       setTimeout(() => this.iniciar(), delay);
       }
     });
 

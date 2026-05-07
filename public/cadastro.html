@@ -855,7 +855,7 @@ async function submeter() {
     };
 
     try {
-        const resp = await fetch('/api/auth/register', {
+        const resp = await fetch('/api/auth/cadastro', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify(payload),
@@ -864,7 +864,7 @@ async function submeter() {
         const data = await resp.json().catch(() => ({}));
 
         if (!resp.ok) {
-            throw new Error(data.mensagem || data.message || data.error || 'Erro ao criar conta. Tente novamente.');
+            throw new Error(data.erro || data.mensagem || data.message || 'Erro ao criar conta. Tente novamente.');
         }
 
         // Sucesso: esconde tudo e mostra tela de sucesso

@@ -125,10 +125,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Triggers (DROP IF EXISTS para ser idempotente)
+DROP TRIGGER IF EXISTS tg_usuarios_atualizado ON usuarios;
 CREATE TRIGGER tg_usuarios_atualizado
   BEFORE UPDATE ON usuarios
   FOR EACH ROW EXECUTE FUNCTION atualizar_timestamp();
 
+DROP TRIGGER IF EXISTS tg_transacoes_atualizado ON transacoes;
 CREATE TRIGGER tg_transacoes_atualizado
   BEFORE UPDATE ON transacoes
   FOR EACH ROW EXECUTE FUNCTION atualizar_timestamp();

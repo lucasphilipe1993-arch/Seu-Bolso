@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database/db');
+const autenticar = require('../middleware/auth');
 
 // ── Normaliza telefone → sempre sem DDI, 10 ou 11 dígitos ────
 function normalizarTelefone(telefone) {
@@ -19,7 +20,6 @@ let _botInstance = null;
 function setBotInstance(bot) { _botInstance = bot; }
 
 // ── Resolve o JID real do WhatsApp para o telefone ───────────
-// Retorna: { jid, lid } onde lid só existe se o WhatsApp usar LID
 async function resolverJidWhatsApp(telefoneLimpo) {
   if (!_botInstance || !_botInstance.conectado) return null;
 
@@ -30,10 +30,9 @@ async function resolverJidWhatsApp(telefoneLimpo) {
       const [info] = await _botInstance.socket.onWhatsApp(jidConsulta);
       if (!info?.exists) return null;
 
-      const jidReal = info.jid; // pode ser @s.whatsapp.net ou @lid
+      const jidReal = info.jid;
 
       if (jidReal.endsWith('@lid')) {
-        // WhatsApp usa LID para esse número — salva o mapeamento
         await _botInstance._garantirTabelaLidMap();
         await db.query(
           `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2)
@@ -56,6 +55,14 @@ async function resolverJidWhatsApp(telefoneLimpo) {
   return null;
 }
 
+function gerarToken(usuario) {
+  return jwt.sign(
+    { id: usuario.id, email: usuario.email },
+    process.env.JWT_SECRET || 'seu-segredo-super-secreto-aqui',
+    { expiresIn: '30d' }
+  );
+}
+
 // ── POST /api/auth/cadastro ──────────────────────────────────
 router.post('/cadastro', async (req, res) => {
   const { nome, email, senha, telefone, plano } = req.body;
@@ -66,12 +73,10 @@ router.post('/cadastro', async (req, res) => {
   const telefoneLimpo = normalizarTelefone(telefone);
 
   try {
-    // Verifica e-mail duplicado
     const existe = await db.query('SELECT id FROM usuarios WHERE email = $1', [email.toLowerCase()]);
     if (existe.rows.length > 0)
       return res.status(409).json({ erro: 'E-mail já cadastrado' });
 
-    // Verifica telefone duplicado
     if (telefoneLimpo) {
       const telExiste = await db.query('SELECT id FROM usuarios WHERE telefone = $1', [telefoneLimpo]);
       if (telExiste.rows.length > 0)
@@ -80,7 +85,6 @@ router.post('/cadastro', async (req, res) => {
 
     const senha_hash = await bcrypt.hash(senha, 12);
 
-    // Insere o usuário
     const { rows: usuariosInseridos } = await db.query(
       `INSERT INTO usuarios (nome, email, senha_hash, telefone, plano, whatsapp_ativo)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -96,13 +100,11 @@ router.post('/cadastro', async (req, res) => {
       [usuario.id]
     );
 
-    // ── Vincula WhatsApp ──────────────────────────────────────
+    // Vincula WhatsApp
     if (telefoneLimpo) {
-      // Tenta resolver o JID real (pode ser LID) na hora do cadastro
       const jidInfo = await resolverJidWhatsApp(telefoneLimpo);
       const lidParaSalvar = jidInfo?.lid || null;
 
-      // Garante que a coluna lid existe na tabela
       await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
       await db.query(`CREATE INDEX IF NOT EXISTS idx_sessoes_bot_lid ON sessoes_bot(lid)`).catch(() => {});
 
@@ -114,13 +116,11 @@ router.post('/cadastro', async (req, res) => {
         [telefoneLimpo, usuario.id, lidParaSalvar]
       );
 
-      console.log(`✅ Sessão criada para WhatsApp: ${telefoneLimpo} (Usuário: ${usuario.id})${lidParaSalvar ? ` | LID: ${lidParaSalvar}` : ''}`);
+      console.log(`✅ Sessão criada para WhatsApp: ${telefoneLimpo} (Usuário: ${usuario.id})`);
 
-      // Envia boas-vindas e captura o LID real na resposta do sendMessage
-      // Faz isso em background para não atrasar a resposta do cadastro
       setImmediate(async () => {
         try {
-          await _botInstance.enviarBoasVindasECapturarLid(telefoneLimpo, usuario.id, usuario.nome.split(' ')[0]);
+          await _botInstance?.enviarBoasVindasECapturarLid(telefoneLimpo, usuario.id, usuario.nome.split(' ')[0]);
         } catch (err) {
           console.warn('Erro ao enviar boas-vindas:', err.message);
         }
@@ -160,9 +160,9 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       usuario: {
-        id: usuario.id, nome: usuario.nome,
+        id: usuario.id, nome: usuario.nome, sobrenome: usuario.sobrenome,
         email: usuario.email, plano: usuario.plano,
-        whatsapp_ativo: usuario.whatsapp_ativo
+        whatsapp_ativo: usuario.whatsapp_ativo,
       }
     });
   } catch (err) {
@@ -172,11 +172,11 @@ router.post('/login', async (req, res) => {
 });
 
 // ── GET /api/auth/me ─────────────────────────────────────────
-const autenticar = require('../middleware/auth');
 router.get('/me', autenticar, async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT id, nome, email, telefone, plano, whatsapp_ativo, criado_em FROM usuarios WHERE id = $1',
+      `SELECT id, nome, sobrenome, email, telefone, plano, whatsapp_ativo, criado_em
+       FROM usuarios WHERE id = $1`,
       [req.usuarioId]
     );
     if (rows.length === 0) return res.status(404).json({ erro: 'Usuário não encontrado' });
@@ -186,13 +186,88 @@ router.get('/me', autenticar, async (req, res) => {
   }
 });
 
-function gerarToken(usuario) {
-  return jwt.sign(
-    { id: usuario.id, email: usuario.email },
-    process.env.JWT_SECRET || 'seu-segredo-super-secreto-aqui',
-    { expiresIn: '30d' }
-  );
-}
+// ── PUT /api/auth/perfil ─────────────────────────────────────
+// Chamado pelo dashboard em: API.salvarPerfil({ nome, sobrenome, telefone })
+router.put('/perfil', autenticar, async (req, res) => {
+  const { nome, sobrenome, telefone } = req.body;
+
+  if (!nome || !nome.trim())
+    return res.status(400).json({ erro: 'Nome é obrigatório' });
+
+  const telefoneLimpo = normalizarTelefone(telefone) || telefone || null;
+
+  try {
+    // Garante coluna sobrenome existe
+    await db.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS sobrenome TEXT`).catch(() => {});
+
+    // Verifica se novo telefone já pertence a outro usuário
+    if (telefoneLimpo) {
+      const { rows } = await db.query(
+        'SELECT id FROM usuarios WHERE telefone = $1 AND id != $2',
+        [telefoneLimpo, req.usuarioId]
+      );
+      if (rows.length > 0)
+        return res.status(409).json({ erro: 'Número de WhatsApp já cadastrado por outro usuário' });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE usuarios
+       SET nome = $1, sobrenome = $2, telefone = $3, whatsapp_ativo = $4
+       WHERE id = $5
+       RETURNING id, nome, sobrenome, email, telefone, plano, whatsapp_ativo`,
+      [nome.trim(), sobrenome?.trim() || null, telefoneLimpo,
+       telefoneLimpo ? true : false, req.usuarioId]
+    );
+
+    // Atualiza sessão do bot se telefone mudou
+    if (telefoneLimpo) {
+      await db.query(
+        `INSERT INTO sessoes_bot (telefone, usuario_id, estado)
+         VALUES ($1, $2, 'ativo')
+         ON CONFLICT (telefone) DO UPDATE SET usuario_id = $2, estado = 'ativo', atualizado_em = NOW()`,
+        [telefoneLimpo, req.usuarioId]
+      );
+    }
+
+    res.json({ usuario: rows[0] });
+  } catch (err) {
+    console.error('❌ Erro salvar perfil:', err);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// ── PUT /api/auth/senha ──────────────────────────────────────
+// Chamado pelo dashboard em: API.trocarSenha({ senhaAtual, novaSenha })
+router.put('/senha', autenticar, async (req, res) => {
+  const { senhaAtual, novaSenha } = req.body;
+
+  if (!senhaAtual || !novaSenha)
+    return res.status(400).json({ erro: 'Senha atual e nova senha são obrigatórias' });
+
+  if (novaSenha.length < 6)
+    return res.status(400).json({ erro: 'A nova senha deve ter pelo menos 6 caracteres' });
+
+  try {
+    const { rows } = await db.query(
+      'SELECT senha_hash FROM usuarios WHERE id = $1',
+      [req.usuarioId]
+    );
+    if (rows.length === 0)
+      return res.status(404).json({ erro: 'Usuário não encontrado' });
+
+    const senhaOk = await bcrypt.compare(senhaAtual, rows[0].senha_hash);
+    if (!senhaOk)
+      return res.status(401).json({ erro: 'Senha atual incorreta' });
+
+    const novoHash = await bcrypt.hash(novaSenha, 12);
+    await db.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [novoHash, req.usuarioId]);
+
+    res.json({ mensagem: 'Senha alterada com sucesso' });
+  } catch (err) {
+    console.error('❌ Erro trocar senha:', err);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
 
 module.exports = router;
 module.exports.setBotInstance = setBotInstance;

@@ -1,3 +1,8 @@
-.env
 node_modules/
+.env
+*.log
+npm-debug.log*
+dist/
+.DS_Store
+/tmp/wa_session_*
 tmp/

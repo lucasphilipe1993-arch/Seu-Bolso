@@ -139,6 +139,24 @@ class BotGranaZen {
     return base;
   }
 
+  // ─── Normaliza telefone → sempre sem DDI, 10 ou 11 dígitos ──
+  // Ex: "5531991003389" → "31991003389"
+  //     "31991003389"   → "31991003389"  (já está certo)
+  _normalizarTelefone(telefone) {
+    if (!telefone) return null;
+    let digits = telefone.replace(/\D/g, '');
+
+    // Remove DDI 55 se presente
+    if (digits.startsWith('55') && digits.length > 11) {
+      digits = digits.slice(2);
+    }
+
+    // Valida: deve ter 10 (fixo) ou 11 dígitos (celular com 9)
+    if (digits.length < 10 || digits.length > 11) return digits; // retorna mesmo assim como fallback
+
+    return digits; // ex: "31991003389"
+  }
+
   async _fecharSocket() {
     if (!this.socket) return;
     try {
@@ -174,12 +192,12 @@ class BotGranaZen {
     `);
   }
 
-  // ─── Resolve LID → telefone numérico automaticamente ─────────
+  // ─── Resolve LID → telefone numérico normalizado ──────────────
   // Fluxo: cache em memória → banco lid_map → onWhatsApp() do Baileys
-  // Após descobrir, salva no banco para próximas mensagens.
   async _resolverTelefone(remoteJid) {
     if (remoteJid.endsWith('@s.whatsapp.net')) {
-      return remoteJid.replace('@s.whatsapp.net', '');
+      const raw = remoteJid.replace('@s.whatsapp.net', '');
+      return this._normalizarTelefone(raw); // ← normaliza antes de retornar
     }
 
     // Verifica cache em memória
@@ -189,8 +207,9 @@ class BotGranaZen {
     try {
       const res = await db.query('SELECT telefone FROM lid_map WHERE lid = $1', [remoteJid]);
       if (res.rows.length > 0) {
-        lidCache.set(remoteJid, res.rows[0].telefone);
-        return res.rows[0].telefone;
+        const telefone = this._normalizarTelefone(res.rows[0].telefone);
+        lidCache.set(remoteJid, telefone);
+        return telefone;
       }
     } catch {}
 
@@ -199,7 +218,9 @@ class BotGranaZen {
       try {
         const [info] = await this.socket.onWhatsApp(remoteJid);
         if (info?.jid?.endsWith('@s.whatsapp.net')) {
-          const telefone = info.jid.replace('@s.whatsapp.net', '');
+          const telefone = this._normalizarTelefone(
+            info.jid.replace('@s.whatsapp.net', '')
+          );
           lidCache.set(remoteJid, telefone);
           await this._garantirTabelaLidMap();
           await db.query(
@@ -214,7 +235,7 @@ class BotGranaZen {
       }
     }
 
-    // Fallback: usa o LID como chave (permite cadastro manual se necessário)
+    // Fallback: usa o LID como chave
     return remoteJid;
   }
 
@@ -285,7 +306,7 @@ class BotGranaZen {
           if (remoteJid === 'status@broadcast') continue;
           if (!remoteJid.endsWith('@s.whatsapp.net') && !remoteJid.endsWith('@lid')) continue;
 
-          // Resolve automaticamente LID → telefone numérico
+          // Resolve e normaliza automaticamente LID → telefone
           const telefone = await this._resolverTelefone(remoteJid);
           console.log(`📩 mensagem de: ${telefone} | pushName: ${msg.pushName}`);
 
@@ -345,11 +366,34 @@ class BotGranaZen {
   }
 
   async _buscarSessao(telefone) {
-    const res = await db.query(
+    // Busca primeiro pelo telefone exato (já normalizado)
+    let res = await db.query(
       `SELECT s.usuario_id, u.nome FROM sessoes_bot s
        JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
       [telefone]
     );
+
+    // Fallback: tenta com DDI 55 na frente (para sessões antigas mal formatadas)
+    if (res.rows.length === 0 && !telefone.startsWith('55')) {
+      res = await db.query(
+        `SELECT s.usuario_id, u.nome FROM sessoes_bot s
+         JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
+        ['55' + telefone]
+      );
+      if (res.rows.length > 0) {
+        // Corrige o registro desatualizado no banco
+        console.log(`🔧 Corrigindo telefone no banco: 55${telefone} → ${telefone}`);
+        await db.query(
+          `UPDATE sessoes_bot SET telefone = $1 WHERE telefone = $2`,
+          [telefone, '55' + telefone]
+        );
+        await db.query(
+          `UPDATE usuarios SET telefone = $1 WHERE telefone = $2`,
+          [telefone, '55' + telefone]
+        );
+      }
+    }
+
     if (res.rows.length === 0) return null;
     return { usuarioId: res.rows[0].usuario_id, nome: res.rows[0].nome.split(' ')[0] };
   }

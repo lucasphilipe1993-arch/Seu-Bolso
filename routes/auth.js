@@ -5,6 +5,24 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database/db');
 
+// ── Normaliza telefone → sempre sem DDI, 10 ou 11 dígitos ────
+// Ex: "5531991003389" → "31991003389"
+//     "(31) 99100-3389" → "31991003389"
+function normalizarTelefone(telefone) {
+  if (!telefone) return null;
+  let digits = telefone.replace(/\D/g, '');
+
+  // Remove DDI 55 se o frontend já tiver enviado com ele
+  if (digits.startsWith('55') && digits.length > 11) {
+    digits = digits.slice(2);
+  }
+
+  // Valida: deve ter 10 (fixo) ou 11 dígitos (celular com 9)
+  if (digits.length < 10 || digits.length > 11) return null;
+
+  return digits; // ex: "31991003389"
+}
+
 // ── POST /api/auth/cadastro ──────────────────────────────
 router.post('/cadastro', async (req, res) => {
   const { nome, email, senha, telefone, plano } = req.body;
@@ -12,10 +30,7 @@ router.post('/cadastro', async (req, res) => {
   if (!nome || !email || !senha)
     return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios' });
 
-  // Formata telefone: remove caracteres especiais
-  const telefoneLimpo = telefone 
-    ? telefone.replace(/\D/g, '') 
-    : null;
+  const telefoneLimpo = normalizarTelefone(telefone);
 
   try {
     // Verifica se e-mail já existe
@@ -23,26 +38,33 @@ router.post('/cadastro', async (req, res) => {
     if (existe.rows.length > 0)
       return res.status(409).json({ erro: 'E-mail já cadastrado' });
 
+    // Verifica se telefone já está em uso (se informado)
+    if (telefoneLimpo) {
+      const telExiste = await db.query('SELECT id FROM usuarios WHERE telefone = $1', [telefoneLimpo]);
+      if (telExiste.rows.length > 0)
+        return res.status(409).json({ erro: 'Número de WhatsApp já cadastrado' });
+    }
+
     const senha_hash = await bcrypt.hash(senha, 12);
 
-    // ✅ INSERE O USUÁRIO com o PLANO
+    // Insere o usuário com o plano
     const { rows: usuariosInseridos } = await db.query(
       `INSERT INTO usuarios (nome, email, senha_hash, telefone, plano, whatsapp_ativo)
-       VALUES ($1, $2, $3, $4, $5, $6) 
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, nome, email, plano`,
       [nome, email.toLowerCase(), senha_hash, telefoneLimpo, plano || 'gratuito', telefoneLimpo ? true : false]
     );
 
     const usuario = usuariosInseridos[0];
 
-    // ✅ CRIA CONTA BANCÁRIA PADRÃO
+    // Cria conta bancária padrão
     await db.query(
       `INSERT INTO contas (usuario_id, nome, padrao, saldo)
        VALUES ($1, 'Carteira', true, 0)`,
       [usuario.id]
     );
 
-    // ✅ **CRIA A SESSÃO DO BOT** (conecta WhatsApp ao usuário)
+    // Cria a sessão do bot (vincula WhatsApp ao usuário)
     if (telefoneLimpo) {
       await db.query(
         `INSERT INTO sessoes_bot (telefone, usuario_id, estado)

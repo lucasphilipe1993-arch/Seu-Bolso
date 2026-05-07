@@ -274,8 +274,9 @@ class BotGranaZen {
       });
 
       // ── Mensagens recebidas ──────────────────────────────
-      this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
-        if (type !== 'notify') return;
+this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
+  console.log(`📨 upsert recebido: type=${type}, qtd=${messages.length}, jids=${messages.map(m => m.key.remoteJid).join(',')}`);
+  if (type !== 'notify') return;
 
         for (const msg of messages) {
           if (msg.key.fromMe) continue;

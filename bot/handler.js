@@ -8,6 +8,7 @@ const {
   downloadMediaMessage,
   initAuthCreds,
   BufferJSON,
+  fetchLatestBaileysVersion, // ✅ CORRIGIDO: importa função de versão
 } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
@@ -144,15 +145,20 @@ class BotGranaZen {
 
   // ── Inicia o Baileys ──────────────────────────────────────
   async iniciar() {
-    // Usa PostgreSQL para armazenar sessão (funciona no Railway)
     const { state, saveCreds } = await usePostgresAuthState();
 
+    // ✅ CORRIGIDO: busca a versão mais recente do WA Web (evita erro 405)
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
+
     this.socket = makeWASocket({
+      version,                          // ✅ versão explícita evita 405
       auth: state,
       printQRInTerminal: true,
       browser: ['GranaZen', 'Chrome', '120.0.0'],
       logger: this._logger,
-      // Sem version hardcoded — Baileys detecta automaticamente
+      syncFullHistory: false,           // ✅ economiza memória no Railway
+      getMessage: async () => ({ conversation: '' }), // ✅ evita crash em msg antiga
     });
 
     this.socket.ev.on('creds.update', saveCreds);
@@ -578,8 +584,10 @@ class BotGranaZen {
 
   // ── Reconecta ────────────────────────────────────────
   async reconectar() {
+    // ✅ CORRIGIDO: usa socket.end() em vez de logout() para não apagar a sessão do PostgreSQL
     if (this.socket) {
-      try { await this.socket.logout(); } catch {}
+      try { this.socket.end(); } catch {}
+      this.socket = null;
     }
     await this.iniciar();
   }

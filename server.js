@@ -1,13 +1,11 @@
 global.crypto = require('crypto');
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 const path = require('path');
-
 const db = require('./database/db');
 const BotGranaZen = require('./bot/handler');
 
@@ -15,7 +13,7 @@ const BotGranaZen = require('./bot/handler');
 const authRoutes = require('./routes/auth');
 const transactionRoutes = require('./routes/transactions');
 const whatsappRoute = require('./routes/whatsapp');
-const adminRoute = require('./routes/admin'); // ✅ NOVO
+const adminRoute = require('./routes/admin');
 
 const app = express();
 const server = http.createServer(app);
@@ -28,7 +26,7 @@ const bot = new BotGranaZen();
 
 // Injeta a instância do bot nas rotas
 whatsappRoute.setBotInstance(bot);
-adminRoute.setBotInstance(bot); // ✅ NOVO
+adminRoute.setBotInstance(bot);
 
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({ origin: '*' }));
@@ -41,15 +39,12 @@ app.use(express.static(DASHBOARD_PATH));
 // ─── Socket.io ────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log('📡 Dashboard conectado via socket');
-
   socket.emit('status', { status: bot.conectado ? 'connected' : 'disconnected' });
-
   if (bot.qrAtual) {
     QRCode.toDataURL(bot.qrAtual)
       .then(url => socket.emit('qr', { url }))
       .catch(() => {});
   }
-
   socket.on('disconnect', () => console.log('📡 Dashboard desconectado'));
 });
 
@@ -61,16 +56,13 @@ bot.onQR = async (qr) => {
     io.emit('status', { status: 'qr' });
   } catch {}
 };
-
 bot.onConnected = () => {
   io.emit('status', { status: 'connected' });
   io.emit('qr_clear');
 };
-
 bot.onDisconnected = () => {
   io.emit('status', { status: 'disconnected' });
 };
-
 bot.onNovaTransacao = (data) => {
   io.emit('nova_transacao', data);
 };
@@ -79,7 +71,7 @@ bot.onNovaTransacao = (data) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/whatsapp', whatsappRoute.router);
-app.use('/api/admin', adminRoute.router); // ✅ NOVO
+app.use('/api/admin', adminRoute.router);
 
 // Health check
 app.get('/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
@@ -92,6 +84,27 @@ app.get('*', (req, res) => {
   res.json({ message: 'GranaZen Bot API', conectado: bot.conectado });
 });
 
+// ─── Encerramento limpo (SIGTERM enviado pelo Railway no shutdown) ────────────
+// FIX: garante que o socket do WhatsApp fecha ANTES do processo morrer,
+// evitando que o próximo deploy herde uma sessão "zumbi" e receba erro 440.
+let encerrando = false;
+async function encerrarLimpo(sinal) {
+  if (encerrando) return;
+  encerrando = true;
+  console.log(`\n🛑 Sinal ${sinal} recebido. Encerrando conexão WhatsApp...`);
+  try {
+    await bot._fecharSocket();
+    console.log('✅ Socket WhatsApp fechado com sucesso.');
+  } catch (err) {
+    console.warn('⚠️  Erro ao fechar socket:', err.message);
+  }
+  // Dá 1s para o log ser escrito antes de matar o processo
+  setTimeout(() => process.exit(0), 1000);
+}
+
+process.on('SIGTERM', () => encerrarLimpo('SIGTERM'));
+process.on('SIGINT',  () => encerrarLimpo('SIGINT'));
+
 // ─── Start ────────────────────────────────────────────────────
 server.listen(PORT, async () => {
   console.log(`
@@ -103,7 +116,13 @@ server.listen(PORT, async () => {
   `);
 
   if (process.env.AUTO_CONNECT === 'true') {
-    console.log('🔄 Auto-conectando WhatsApp...');
-    bot.iniciar().catch(console.error);
+    // FIX: aguarda 5s antes de conectar ao WhatsApp.
+    // No Railway, isso dá tempo do deploy anterior encerrar completamente
+    // e evita o erro 440 (conflito de sessão / duas instâncias simultâneas).
+    const delayInicio = parseInt(process.env.WA_START_DELAY_MS || '5000', 10);
+    console.log(`🔄 Auto-conectando WhatsApp em ${delayInicio / 1000}s...`);
+    setTimeout(() => {
+      bot.iniciar().catch(console.error);
+    }, delayInicio);
   }
 });

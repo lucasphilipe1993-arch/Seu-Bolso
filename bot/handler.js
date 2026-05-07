@@ -133,7 +133,6 @@ class BotGranaZen {
     this.qrAtual = null;
     this._tentativas = 0;
     this._reconectando = false;
-    // FIX: flag para evitar múltiplos timers de reconexão simultâneos
     this._timerReconexao = null;
 
     this.onQR = null;
@@ -153,22 +152,18 @@ class BotGranaZen {
     return base;
   }
 
-  // FIX: fecha o socket anterior de forma segura e aguarda antes de recriar
   async _fecharSocket() {
     if (!this.socket) return;
     try {
       this.socket.ev.removeAllListeners();
-      // ws.close() com código 1000 (encerramento limpo) evita o erro 515
-      if (this.socket.ws?.readyState === 1 /* OPEN */) {
+      if (this.socket.ws?.readyState === 1) {
         this.socket.ws.close(1000);
-        // Aguarda até 2s para o websocket fechar de fato
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     } catch {}
     this.socket = null;
   }
 
-  // FIX: agenda reconexão sem duplicar timers
   _agendarReconexao() {
     if (this._timerReconexao) {
       clearTimeout(this._timerReconexao);
@@ -179,11 +174,9 @@ class BotGranaZen {
 
     if (this._tentativas > 10) {
       console.error('❌ Máximo de tentativas de reconexão atingido (10). Reconexão suspensa.');
-      console.error('   Reinicie o serviço manualmente ou via Railway para tentar novamente.');
       return;
     }
 
-    // Backoff exponencial: 5s, 10s, 20s, 40s... até 60s
     const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
     console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
 
@@ -200,7 +193,6 @@ class BotGranaZen {
     }
     this._reconectando = true;
 
-    // FIX: fecha socket anterior de forma limpa antes de criar um novo
     await this._fecharSocket();
 
     try {
@@ -258,25 +250,20 @@ class BotGranaZen {
           if (this.onDisconnected) this.onDisconnected();
 
           if (loggedOut) {
-            // Sessão revogada: limpa creds do banco para forçar novo QR
             console.warn('🚪 Sessão encerrada pelo WhatsApp. Limpando sessão salva...');
-            try {
-              await db.query(`DELETE FROM whatsapp_session`);
-            } catch {}
-            // FIX: reseta tentativas para permitir novo login via QR
+            try { await db.query(`DELETE FROM whatsapp_session`); } catch {}
             this._tentativas = 0;
             this._agendarReconexao();
           } else {
-            // FIX: erro 515 e outros erros transitórios — apenas reagenda
             this._agendarReconexao();
           }
         }
       });
 
       // ── Mensagens recebidas ──────────────────────────────
-this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
-  console.log(`📨 upsert recebido: type=${type}, qtd=${messages.length}, jids=${messages.map(m => m.key.remoteJid).join(',')}`);
-  if (type !== 'notify') return;
+      this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
+        console.log(`📨 upsert recebido: type=${type}, qtd=${messages.length}, jids=${messages.map(m => m.key.remoteJid).join(',')}`);
+        if (type !== 'notify') return;
 
         for (const msg of messages) {
           if (msg.key.fromMe) continue;
@@ -284,19 +271,33 @@ this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
 
           const remoteJid = msg.key.remoteJid || '';
 
-remoteJid.endsWith('@g.us')
+          // Ignora grupos e broadcast
+          if (remoteJid.endsWith('@g.us')) continue;
+          if (remoteJid === 'status@broadcast') continue;
 
-          const telefone = remoteJid.replace('@s.whatsapp.net', '');
-          if (!telefone) continue;
+          // FIX: suporte a @lid (novo sistema de IDs do WhatsApp)
+          // Usa o remoteJid como chave de busca — funciona tanto com @s.whatsapp.net quanto @lid
+          let chaveIdentificacao = '';
+          if (remoteJid.endsWith('@s.whatsapp.net')) {
+            chaveIdentificacao = remoteJid.replace('@s.whatsapp.net', '');
+          } else if (remoteJid.endsWith('@lid')) {
+            // Tenta buscar sessão pelo LID completo (ex: "124910634582052@lid")
+            chaveIdentificacao = remoteJid;
+          } else {
+            continue;
+          }
+
+          if (!chaveIdentificacao) continue;
+
+          console.log(`📩 mensagem de: ${chaveIdentificacao} | pushName: ${msg.pushName}`);
 
           const tipoMsg = this._tipoMensagem(msg);
-          console.log(`📩 [${tipoMsg}] de ${telefone}`);
 
           try {
-            await this._roteador(telefone, tipoMsg, msg);
+            await this._roteador(chaveIdentificacao, remoteJid, tipoMsg, msg);
           } catch (err) {
-            console.error(`Erro ao processar msg de ${telefone}:`, err.message);
-            await this.enviar(telefone, '⚠️ Ocorreu um erro. Tente novamente em instantes.');
+            console.error(`Erro ao processar msg de ${chaveIdentificacao}:`, err.message);
+            await this.enviar(remoteJid, '⚠️ Ocorreu um erro. Tente novamente em instantes.');
           }
         }
       });
@@ -317,10 +318,12 @@ remoteJid.endsWith('@g.us')
     return 'outro';
   }
 
-  async _roteador(telefone, tipo, msg) {
-    const sessao = await this._buscarSessao(telefone);
+  // FIX: agora recebe remoteJid separado para envio correto
+  async _roteador(chaveIdentificacao, remoteJid, tipo, msg) {
+    const sessao = await this._buscarSessao(chaveIdentificacao);
     if (!sessao) {
-      return this.enviar(telefone,
+      console.log(`⚠️ Sessão não encontrada para: ${chaveIdentificacao}`);
+      return this.enviar(remoteJid,
         `Olá! 👋\n\nEste número não está vinculado a nenhuma conta GranaZen.\n\nAcesse o painel em *${process.env.APP_URL}* e vincule seu WhatsApp nas configurações.`
       );
     }
@@ -329,40 +332,41 @@ remoteJid.endsWith('@g.us')
 
     if (tipo === 'texto') {
       const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-      await this.processarTexto(telefone, usuarioId, nome, texto);
+      await this.processarTexto(remoteJid, usuarioId, nome, texto);
 
     } else if (tipo === 'audio') {
-      await this.enviar(telefone, '🎵 Recebi seu áudio! Transcrevendo...');
+      await this.enviar(remoteJid, '🎵 Recebi seu áudio! Transcrevendo...');
       const transcricao = await this._transcreverAudio(msg);
       if (!transcricao) {
-        return this.enviar(telefone, '❌ Não consegui entender o áudio. Tente enviar texto.');
+        return this.enviar(remoteJid, '❌ Não consegui entender o áudio. Tente enviar texto.');
       }
       console.log(`🎙️ Transcrição: ${transcricao}`);
-      await this.enviar(telefone, `🎙️ _Entendi: "${transcricao}"_`);
-      await this.processarTexto(telefone, usuarioId, nome, transcricao);
+      await this.enviar(remoteJid, `🎙️ _Entendi: "${transcricao}"_`);
+      await this.processarTexto(remoteJid, usuarioId, nome, transcricao);
 
     } else if (tipo === 'imagem') {
-      await this.enviar(telefone, '🖼️ Recebi sua imagem! Analisando...');
+      await this.enviar(remoteJid, '🖼️ Recebi sua imagem! Analisando...');
       const resultado = await this._analisarImagem(msg);
       if (!resultado) {
-        return this.enviar(telefone, '❌ Não consegui extrair informações desta imagem. Tente enviar o valor em texto.');
+        return this.enviar(remoteJid, '❌ Não consegui extrair informações desta imagem. Tente enviar o valor em texto.');
       }
-      await this.registrarTransacao(telefone, usuarioId, resultado, '[imagem]');
+      await this.registrarTransacao(remoteJid, usuarioId, resultado, '[imagem]');
 
     } else {
-      await this.enviar(telefone,
+      await this.enviar(remoteJid,
         `Só consigo processar *texto*, *áudio* e *imagens* (fotos de nota fiscal/comprovante).\n\nDigite *ajuda* para ver como usar.`
       );
     }
   }
 
-  async _buscarSessao(telefone) {
+  async _buscarSessao(chave) {
+    // Busca por telefone numérico ou por LID completo (ex: "124910634582052@lid")
     const res = await db.query(
       `SELECT s.usuario_id, u.nome
        FROM sessoes_bot s
        JOIN usuarios u ON u.id = s.usuario_id
        WHERE s.telefone = $1`,
-      [telefone]
+      [chave]
     );
     if (res.rows.length === 0) return null;
     return {
@@ -371,24 +375,24 @@ remoteJid.endsWith('@g.us')
     };
   }
 
-  async processarTexto(telefone, usuarioId, nome, texto) {
+  async processarTexto(remoteJid, usuarioId, nome, texto) {
     const textoLower = texto.toLowerCase().trim();
 
     if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello'].includes(textoLower)) {
-      return this.enviar(telefone, this.msgBemVindo(nome));
+      return this.enviar(remoteJid, this.msgBemVindo(nome));
     }
     if (['resumo', 'saldo', 'extrato'].includes(textoLower)) {
-      return this.enviarResumo(telefone, usuarioId, nome);
+      return this.enviarResumo(remoteJid, usuarioId, nome);
     }
     if (['ajuda', 'help', '?'].includes(textoLower)) {
-      return this.enviar(telefone, this.msgAjuda());
+      return this.enviar(remoteJid, this.msgAjuda());
     }
 
     const transacao = await this.interpretarTransacao(texto);
     if (transacao) {
-      await this.registrarTransacao(telefone, usuarioId, transacao, texto);
+      await this.registrarTransacao(remoteJid, usuarioId, transacao, texto);
     } else {
-      await this.enviar(telefone,
+      await this.enviar(remoteJid,
         `❓ Não entendi essa mensagem como uma transação financeira.\n\nTente algo como:\n• _Gastei 50 no mercado_\n• _Recebi 3000 de salário_\n• _Conta de luz 120 reais_\n\nOu envie uma *foto* de nota fiscal/comprovante, ou um *áudio* descrevendo o gasto.\n\nDigite *ajuda* para mais opções.`
       );
     }
@@ -564,7 +568,7 @@ remoteJid.endsWith('@g.us')
     }
   }
 
-  async registrarTransacao(telefone, usuarioId, transacao, textoOriginal) {
+  async registrarTransacao(remoteJid, usuarioId, transacao, textoOriginal) {
     let categoriaId = null;
     if (transacao.categoria) {
       const catRes = await db.query(
@@ -616,7 +620,7 @@ remoteJid.endsWith('@g.us')
     const label = transacao.tipo === 'despesa' ? 'Despesa' : 'Receita';
     const valorFmt = transacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-    await this.enviar(telefone,
+    await this.enviar(remoteJid,
       `${emoji} *${label} registrada!*\n\n` +
       `📝 ${transacao.descricao}\n` +
       `💵 ${valorFmt}\n` +
@@ -625,7 +629,7 @@ remoteJid.endsWith('@g.us')
     );
   }
 
-  async enviarResumo(telefone, usuarioId, nome) {
+  async enviarResumo(remoteJid, usuarioId, nome) {
     const mes = new Date().getMonth() + 1;
     const ano = new Date().getFullYear();
 
@@ -646,7 +650,7 @@ remoteJid.endsWith('@g.us')
     const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-    await this.enviar(telefone,
+    await this.enviar(remoteJid,
       `📊 *Resumo de ${meses[mes - 1]}/${ano}* — ${nome}\n\n` +
       `✅ Receitas:   ${fmt(r)}\n` +
       `❌ Despesas:  ${fmt(d)}\n` +
@@ -656,12 +660,14 @@ remoteJid.endsWith('@g.us')
     );
   }
 
-  async enviar(telefone, texto) {
+  // FIX: enviar aceita tanto @s.whatsapp.net quanto @lid como jid completo
+  async enviar(remoteJid, texto) {
     if (!this.socket || !this.conectado) {
-      console.warn(`Bot desconectado, não enviou para ${telefone}`);
+      console.warn(`Bot desconectado, não enviou para ${remoteJid}`);
       return;
     }
-    const jid = `${telefone}@s.whatsapp.net`;
+    // Se já vier com @, usa direto; senão adiciona @s.whatsapp.net
+    const jid = remoteJid.includes('@') ? remoteJid : `${remoteJid}@s.whatsapp.net`;
     try {
       await Promise.race([
         this.socket.sendMessage(jid, { text: texto }),
@@ -670,7 +676,7 @@ remoteJid.endsWith('@g.us')
         ),
       ]);
     } catch (err) {
-      console.warn(`Falha ao enviar para ${telefone}: ${err.message}`);
+      console.warn(`Falha ao enviar para ${jid}: ${err.message}`);
     }
   }
 

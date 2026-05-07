@@ -8,6 +8,20 @@ const path = require('path');
 const cron = require('node-cron');
 const db = require('./database/db');
 
+// ── Roda o schema automaticamente na primeira inicialização ──
+const fs = require('fs');
+const path = require('path');
+async function inicializarBanco() {
+  try {
+    const schema = fs.readFileSync(path.join(__dirname, 'database/schema.sql'), 'utf8');
+    await db.query(schema);
+    console.log('✅ Schema do banco aplicado com sucesso');
+  } catch (err) {
+    console.error('⚠️  Erro ao aplicar schema (pode ser normal se já existir):', err.message);
+  }
+}
+inicializarBanco();
+
 const authRoutes = require('./routes/auth');
 const transactionRoutes = require('./routes/transactions');
 const { router: whatsappRouter, setBotInstance } = require('./routes/whatsapp');

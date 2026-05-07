@@ -1,4 +1,4 @@
-// bot/handler.js — Bot WhatsApp GranaZen
+// bot/handler.js — Bot WhatsApp Seu Bolso
 // IA: OpenAI (GPT-4o-mini para texto/imagem, Whisper para áudio)
 
 const {
@@ -320,7 +320,7 @@ class BotGranaZen {
     if (!sessao) {
       console.log(`⚠️ Sessão não encontrada para: ${telefone}`);
       return this.enviar(remoteJid,
-        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta GranaZen.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
+        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Bolso.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
       );
     }
     const { usuarioId, nome } = sessao;

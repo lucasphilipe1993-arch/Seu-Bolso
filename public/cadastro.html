@@ -1201,5 +1201,168 @@
         to   { transform: rotate(360deg); }
     }
 </style>
+<!-- ✅ ADICIONE ISTO ANTES DE </body> NO cadastro.html -->
+<script src="/api.js"></script>
+<script>
+    let currentStep = 1;
+    let selectedPlan = 'gratuito';
+
+    const planLabels = {
+        gratuito: 'Gratuito',
+        mensal:   'Premium Mensal — R$ 29,90/mês',
+        anual:    'Premium Anual — R$ 24,90/mês'
+    };
+
+    function goStep(n) {
+        if (n > currentStep && !validateStep(currentStep)) return;
+
+        // Update panels
+        document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + n).classList.add('active');
+
+        // Update stepper
+        for (let i = 1; i <= 3; i++) {
+            const s = document.getElementById('step-' + i);
+            s.classList.remove('active', 'completed');
+            const circle = s.querySelector('.step-circle');
+            if (i < n) {
+                s.classList.add('completed');
+                circle.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            } else if (i === n) {
+                s.classList.add('active');
+                const icons = [
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'
+                ];
+                circle.innerHTML = icons[i-1];
+            } else {
+                const grayIcons = [
+                    '',
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>'
+                ];
+                circle.innerHTML = grayIcons[i-1];
+            }
+        }
+
+        // Update lines
+        for (let i = 1; i <= 2; i++) {
+            const line = document.getElementById('line-' + i);
+            line.className = 'step-line' + (i < n ? ' completed' : '');
+        }
+
+        // Populate confirm
+        if (n === 3) {
+            document.getElementById('c-name').textContent  = document.getElementById('f-name').value || '—';
+            document.getElementById('c-email').textContent = document.getElementById('f-email').value || '—';
+            document.getElementById('c-phone').textContent = '+55 ' + (document.getElementById('f-phone').value || '—');
+            document.getElementById('c-plan').textContent  = planLabels[selectedPlan];
+        }
+
+        currentStep = n;
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    function validateStep(step) {
+        if (step === 1) {
+            let ok = true;
+            const name  = document.getElementById('f-name').value.trim();
+            const phone = document.getElementById('f-phone').value.trim();
+            const email = document.getElementById('f-email').value.trim();
+            const email2 = document.getElementById('f-email2').value.trim();
+            const pass  = document.getElementById('f-pass').value;
+            const terms = document.getElementById('f-terms').checked;
+
+            const setErr = (id, show) => {
+                const el = document.getElementById(id);
+                el.classList.toggle('show', show);
+                const input = document.getElementById(id.replace('err-','f-'));
+                if (input) input.classList.toggle('error', show);
+            };
+
+            if (name.length < 3)   { setErr('err-name', true);   ok = false; } else setErr('err-name', false);
+            if (phone.length < 8)  { setErr('err-phone', true);  ok = false; } else setErr('err-phone', false);
+            if (!email.includes('@') || !email.includes('.')) { setErr('err-email', true); ok = false; } else setErr('err-email', false);
+            if (email !== email2)  { setErr('err-email2', true); ok = false; } else setErr('err-email2', false);
+            if (pass.length < 8)   { setErr('err-pass', true);   ok = false; } else setErr('err-pass', false);
+
+            if (!terms) { alert('Aceite os termos de uso para continuar.'); ok = false; }
+            return ok;
+        }
+        return true;
+    }
+
+    function selectPlan(card, plan) {
+        document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedPlan = plan;
+    }
+
+    function checkPwdStrength(val) {
+        const bars = ['bar-1','bar-2','bar-3','bar-4'];
+        const colors = ['var(--red)', '#e67e22', 'var(--gold)', 'var(--green)'];
+        let score = 0;
+        if (val.length >= 8) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+        bars.forEach((b, i) => {
+            document.getElementById(b).style.background = i < score ? colors[Math.max(0, score-1)] : 'var(--gray-200)';
+        });
+    }
+
+    function togglePass(inputId, btn) {
+        const inp = document.getElementById(inputId);
+        const showing = inp.type === 'text';
+        inp.type = showing ? 'password' : 'text';
+        btn.querySelector('svg').innerHTML = showing
+            ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+            : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    }
+
+    // ✅ FUNÇÃO CORRIGIDA PARA CADASTRO
+    async function finalizarCadastro() {
+        const btn = document.getElementById('btn-final');
+        const nome = document.getElementById('f-name').value.trim();
+        const email = document.getElementById('f-email').value.trim();
+        const senha = document.getElementById('f-pass').value;
+        const telefone = document.getElementById('f-phone').value.trim();
+
+        btn.classList.add('loading');
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-5.6"/></svg> Criando conta...';
+
+        try {
+            // ✅ Chama GZ.cadastro() com TELEFONE
+            await GZ.cadastro(nome, email, senha, telefone, selectedPlan);
+
+            // Mostra tela de sucesso
+            document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('stepper').style.display = 'none';
+            document.getElementById('success-screen').classList.add('show');
+
+            // Redireciona após 3s
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 3000);
+
+        } catch (err) {
+            btn.classList.remove('loading');
+            btn.innerHTML = 'Criar minha conta <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+            alert('❌ Erro: ' + err.message);
+        }
+    }
+
+    // Preselect gratuito
+    selectPlan(document.querySelector('.plan-card[data-plan="gratuito"]'), 'gratuito');
+</script>
+
+<style>
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+</style>
+    
 </body>
 </html>

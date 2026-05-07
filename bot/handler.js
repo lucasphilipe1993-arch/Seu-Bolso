@@ -121,6 +121,8 @@ class BotGranaZen {
     this.socket = null;
     this.conectado = false;
     this.qrAtual = null;
+    this._tentativas = 0;          // ✅ contador de reconexões
+    this._reconectando = false;    // ✅ flag para evitar reconexões paralelas
 
     this.onQR = null;
     this.onConnected = null;
@@ -140,86 +142,132 @@ class BotGranaZen {
   }
 
   async iniciar() {
-    const { state, saveCreds } = await usePostgresAuthState();
+    // ✅ Evita múltiplas reconexões simultâneas
+    if (this._reconectando) {
+      console.log('⏳ Reconexão já em andamento, ignorando chamada duplicada.');
+      return;
+    }
+    this._reconectando = true;
 
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
+    // ✅ Destrói socket anterior corretamente antes de criar novo
+    if (this.socket) {
+      try {
+        this.socket.ev.removeAllListeners();
+        this.socket.ws?.close();
+      } catch {}
+      this.socket = null;
+    }
 
-    this.socket = makeWASocket({
-      version,
-      auth: state,
-      printQRInTerminal: true,
-      browser: ['GranaZen', 'Chrome', '120.0.0'],
-      logger: this._logger,
-      syncFullHistory: false,
-      connectTimeoutMs: 60000,
-      defaultQueryTimeoutMs: 60000,
-      keepAliveIntervalMs: 25000,
-      retryRequestDelayMs: 2000,
-      generateHighQualityLinkPreview: false, // ✅ desativa preview de links (evita erro 500)
-      getMessage: async () => ({ conversation: '' }),
-    });
+    try {
+      const { state, saveCreds } = await usePostgresAuthState();
 
-    this.socket.ev.on('creds.update', saveCreds);
+      const { version, isLatest } = await fetchLatestBaileysVersion();
+      console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
 
-    // ── Conexão ──────────────────────────────────────────
-    this.socket.ev.on('connection.update', (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      this.socket = makeWASocket({
+        version,
+        auth: state,
+        printQRInTerminal: true,
+        browser: ['GranaZen', 'Chrome', '120.0.0'],
+        logger: this._logger,
+        syncFullHistory: false,
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        keepAliveIntervalMs: 25000,
+        retryRequestDelayMs: 2000,
+        generateHighQualityLinkPreview: false,
+        getMessage: async () => ({ conversation: '' }),
+      });
 
-      if (qr) {
-        this.qrAtual = qr;
-        qrcode.generate(qr, { small: true });
-        console.log('📱 Escaneie o QR Code acima para conectar o WhatsApp');
-        if (this.onQR) this.onQR(qr);
-      }
+      this.socket.ev.on('creds.update', saveCreds);
 
-      if (connection === 'open') {
-        this.conectado = true;
-        this.qrAtual = null;
-        console.log('✅ WhatsApp Bot conectado!');
-        if (this.onConnected) this.onConnected();
-      }
+      // ── Conexão ──────────────────────────────────────────
+      this.socket.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-      if (connection === 'close') {
-        this.conectado = false;
-        const codigo = lastDisconnect?.error?.output?.statusCode;
-        const deverReconectar = codigo !== DisconnectReason.loggedOut;
-        console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${deverReconectar}`);
-        if (this.onDisconnected) this.onDisconnected();
-        if (deverReconectar) {
-          const delay = codigo === 408 ? 15000 : 5000; // ✅ timeout espera mais
-          setTimeout(() => this.iniciar(), delay);
+        if (qr) {
+          this.qrAtual = qr;
+          qrcode.generate(qr, { small: true });
+          console.log('📱 Escaneie o QR Code acima para conectar o WhatsApp');
+          if (this.onQR) this.onQR(qr);
         }
-      }
-    });
 
-    // ── Mensagens recebidas ──────────────────────────────
-    this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (type !== 'notify') return;
-
-      for (const msg of messages) {
-        if (msg.key.fromMe) continue;
-        if (!msg.message) continue;
-
-        const remoteJid = msg.key.remoteJid || '';
-
-        // ✅ Ignora grupos e JIDs do tipo @lid (identificador interno do WhatsApp)
-        if (remoteJid.endsWith('@g.us') || remoteJid.endsWith('@lid')) continue;
-
-        const telefone = remoteJid.replace('@s.whatsapp.net', '');
-        if (!telefone) continue;
-
-        const tipoMsg = this._tipoMensagem(msg);
-        console.log(`📩 [${tipoMsg}] de ${telefone}`);
-
-        try {
-          await this._roteador(telefone, tipoMsg, msg);
-        } catch (err) {
-          console.error(`Erro ao processar msg de ${telefone}:`, err.message);
-          await this.enviar(telefone, '⚠️ Ocorreu um erro. Tente novamente em instantes.');
+        if (connection === 'open') {
+          this.conectado = true;
+          this.qrAtual = null;
+          this._tentativas = 0;        // ✅ reseta contador ao conectar com sucesso
+          this._reconectando = false;
+          console.log('✅ WhatsApp Bot conectado!');
+          if (this.onConnected) this.onConnected();
         }
+
+        if (connection === 'close') {
+          this.conectado = false;
+          this._reconectando = false;
+          const codigo = lastDisconnect?.error?.output?.statusCode;
+          const deverReconectar = codigo !== DisconnectReason.loggedOut;
+          console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${deverReconectar}`);
+          if (this.onDisconnected) this.onDisconnected();
+
+          if (deverReconectar) {
+            this._tentativas += 1;
+
+            // ✅ Limite de 10 tentativas para evitar loop infinito
+            if (this._tentativas > 10) {
+              console.error('❌ Máximo de tentativas de reconexão atingido (10). Reconexão suspensa.');
+              console.error('   Reinicie o serviço manualmente ou via Railway para tentar novamente.');
+              return;
+            }
+
+            // ✅ Backoff exponencial: 5s, 10s, 20s, 40s... máx 60s
+            const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
+            console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
+            setTimeout(() => this.iniciar(), delay);
+          }
+        }
+      });
+
+      // ── Mensagens recebidas ──────────────────────────────
+      this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
+        if (type !== 'notify') return;
+
+        for (const msg of messages) {
+          if (msg.key.fromMe) continue;
+          if (!msg.message) continue;
+
+          const remoteJid = msg.key.remoteJid || '';
+
+          // ✅ Ignora grupos e JIDs do tipo @lid (identificador interno do WhatsApp)
+          if (remoteJid.endsWith('@g.us') || remoteJid.endsWith('@lid')) continue;
+
+          const telefone = remoteJid.replace('@s.whatsapp.net', '');
+          if (!telefone) continue;
+
+          const tipoMsg = this._tipoMensagem(msg);
+          console.log(`📩 [${tipoMsg}] de ${telefone}`);
+
+          try {
+            await this._roteador(telefone, tipoMsg, msg);
+          } catch (err) {
+            console.error(`Erro ao processar msg de ${telefone}:`, err.message);
+            await this.enviar(telefone, '⚠️ Ocorreu um erro. Tente novamente em instantes.');
+          }
+        }
+      });
+
+    } catch (err) {
+      console.error('❌ Erro ao iniciar bot:', err.message);
+      this._reconectando = false;
+
+      this._tentativas += 1;
+      if (this._tentativas <= 10) {
+        const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
+        console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
+        setTimeout(() => this.iniciar(), delay);
+      } else {
+        console.error('❌ Máximo de tentativas atingido. Reconexão suspensa.');
       }
-    });
+    }
   }
 
   _tipoMensagem(msg) {
@@ -570,20 +618,35 @@ class BotGranaZen {
     );
   }
 
+  // ✅ enviar() com timeout próprio para não travar a aplicação
   async enviar(telefone, texto) {
     if (!this.socket || !this.conectado) {
       console.warn(`Bot desconectado, não enviou para ${telefone}`);
       return;
     }
     const jid = `${telefone}@s.whatsapp.net`;
-    await this.socket.sendMessage(jid, { text: texto });
+    try {
+      await Promise.race([
+        this.socket.sendMessage(jid, { text: texto }),
+        new Promise((_, rej) =>
+          setTimeout(() => rej(new Error('enviar() timeout após 15s')), 15000)
+        ),
+      ]);
+    } catch (err) {
+      console.warn(`Falha ao enviar para ${telefone}: ${err.message}`);
+    }
   }
 
   async reconectar() {
+    this._tentativas = 0; // ✅ reseta contador ao reconectar manualmente
     if (this.socket) {
-      try { this.socket.end(); } catch {}
+      try {
+        this.socket.ev.removeAllListeners();
+        this.socket.ws?.close();
+      } catch {}
       this.socket = null;
     }
+    this._reconectando = false;
     await this.iniciar();
   }
 

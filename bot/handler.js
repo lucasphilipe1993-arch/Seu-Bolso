@@ -1,4 +1,4 @@
-// bot/handler.js — Bot WhatsApp com suporte a texto, áudio e imagem
+// bot/handler.js — Bot WhatsApp GranaZen
 // IA: OpenAI (GPT-4o-mini para texto/imagem, Whisper para áudio)
 
 const {
@@ -17,8 +17,8 @@ const db = require('../database/db');
 const SESSAO_DIR = path.join(process.cwd(), 'sessao_whatsapp');
 const TMP_DIR = path.join(process.cwd(), 'tmp');
 
-// Garante que a pasta tmp existe
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+if (!fs.existsSync(SESSAO_DIR)) fs.mkdirSync(SESSAO_DIR, { recursive: true });
 
 // ─── Prompt do sistema ────────────────────────────────────────
 const SYSTEM_PROMPT = `Você é o assistente financeiro do GranaZen.
@@ -47,6 +47,24 @@ class BotGranaZen {
     this.socket = null;
     this.conectado = false;
     this.qrAtual = null;
+
+    // Callbacks para o server.js repassar ao socket.io
+    this.onQR = null;
+    this.onConnected = null;
+    this.onDisconnected = null;
+    this.onNovaTransacao = null;
+  }
+
+  // ── Logger silencioso com child corrigido ─────────────
+  get _logger() {
+    const silent = () => {};
+    const base = {
+      level: 'silent',
+      trace: silent, debug: silent, info: silent,
+      warn: console.warn, error: console.error, fatal: console.error,
+    };
+    base.child = () => ({ ...base, child: base.child });
+    return base;
   }
 
   // ── Inicia o Baileys ──────────────────────────────────────
@@ -57,12 +75,7 @@ class BotGranaZen {
       auth: state,
       printQRInTerminal: true,
       browser: ['GranaZen Bot', 'Chrome', '1.0'],
-      logger: {
-        level: 'silent',
-        trace: () => {}, debug: () => {}, info: () => {},
-        warn: console.warn, error: console.error, fatal: console.error,
-        child: () => this.logger,
-      },
+      logger: this._logger,
     });
 
     this.socket.ev.on('creds.update', saveCreds);
@@ -75,12 +88,14 @@ class BotGranaZen {
         this.qrAtual = qr;
         qrcode.generate(qr, { small: true });
         console.log('📱 Escaneie o QR Code acima para conectar o WhatsApp');
+        if (this.onQR) this.onQR(qr);
       }
 
       if (connection === 'open') {
         this.conectado = true;
         this.qrAtual = null;
         console.log('✅ WhatsApp Bot conectado!');
+        if (this.onConnected) this.onConnected();
       }
 
       if (connection === 'close') {
@@ -88,6 +103,7 @@ class BotGranaZen {
         const codigo = lastDisconnect?.error?.output?.statusCode;
         const deverReconectar = codigo !== DisconnectReason.loggedOut;
         console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${deverReconectar}`);
+        if (this.onDisconnected) this.onDisconnected();
         if (deverReconectar) setTimeout(() => this.iniciar(), 5000);
       }
     });
@@ -101,7 +117,7 @@ class BotGranaZen {
         if (!msg.message) continue;
 
         const telefone = msg.key.remoteJid?.replace('@s.whatsapp.net', '');
-        if (!telefone || msg.key.remoteJid?.endsWith('@g.us')) continue; // ignora grupos
+        if (!telefone || msg.key.remoteJid?.endsWith('@g.us')) continue;
 
         const tipoMsg = this._tipoMensagem(msg);
         console.log(`📩 [${tipoMsg}] de ${telefone}`);
@@ -128,7 +144,6 @@ class BotGranaZen {
 
   // ── Roteador principal ───────────────────────────────
   async _roteador(telefone, tipo, msg) {
-    // Verifica se o número tem conta vinculada
     const sessao = await this._buscarSessao(telefone);
     if (!sessao) {
       return this.enviar(telefone,
@@ -187,7 +202,6 @@ class BotGranaZen {
   async processarTexto(telefone, usuarioId, nome, texto) {
     const textoLower = texto.toLowerCase().trim();
 
-    // Comandos especiais
     if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello'].includes(textoLower)) {
       return this.enviar(telefone, this.msgBemVindo(nome));
     }
@@ -198,7 +212,6 @@ class BotGranaZen {
       return this.enviar(telefone, this.msgAjuda());
     }
 
-    // Tenta regex rápido primeiro, depois IA
     const transacao = await this.interpretarTransacao(texto);
     if (transacao) {
       await this.registrarTransacao(telefone, usuarioId, transacao, texto);
@@ -212,20 +225,16 @@ class BotGranaZen {
   // ── Transcreve áudio com Whisper ─────────────────────
   async _transcreverAudio(msg) {
     if (!process.env.OPENAI_API_KEY) {
-      console.warn('OPENAI_API_KEY não definida, não é possível transcrever áudio');
+      console.warn('OPENAI_API_KEY não definida');
       return null;
     }
 
     let tmpFile = null;
     try {
-      // Baixa o áudio do WhatsApp
       const buffer = await downloadMediaMessage(msg, 'buffer', {});
-      
-      // Salva temporariamente como .ogg
       tmpFile = path.join(TMP_DIR, `audio_${Date.now()}.ogg`);
       fs.writeFileSync(tmpFile, buffer);
 
-      // Envia pro Whisper
       const form = new FormData();
       form.append('file', fs.createReadStream(tmpFile), {
         filename: 'audio.ogg',
@@ -253,7 +262,6 @@ class BotGranaZen {
       console.error('Erro ao transcrever áudio:', err.response?.data || err.message);
       return null;
     } finally {
-      // Limpa arquivo temporário
       if (tmpFile && fs.existsSync(tmpFile)) {
         try { fs.unlinkSync(tmpFile); } catch {}
       }
@@ -263,12 +271,11 @@ class BotGranaZen {
   // ── Analisa imagem com GPT-4o Vision ─────────────────
   async _analisarImagem(msg) {
     if (!process.env.OPENAI_API_KEY) {
-      console.warn('OPENAI_API_KEY não definida, não é possível analisar imagem');
+      console.warn('OPENAI_API_KEY não definida');
       return null;
     }
 
     try {
-      // Baixa a imagem do WhatsApp
       const buffer = await downloadMediaMessage(msg, 'buffer', {});
       const base64 = buffer.toString('base64');
       const mimetype = msg.message.imageMessage?.mimetype || 'image/jpeg';
@@ -278,11 +285,9 @@ class BotGranaZen {
         {
           model: 'gpt-4o-mini',
           max_tokens: 300,
+          temperature: 0,
           messages: [
-            {
-              role: 'system',
-              content: SYSTEM_PROMPT,
-            },
+            { role: 'system', content: SYSTEM_PROMPT },
             {
               role: 'user',
               content: [
@@ -290,7 +295,7 @@ class BotGranaZen {
                   type: 'image_url',
                   image_url: {
                     url: `data:${mimetype};base64,${base64}`,
-                    detail: 'low', // economiza tokens, suficiente para notas fiscais
+                    detail: 'low',
                   },
                 },
                 {
@@ -300,7 +305,6 @@ class BotGranaZen {
               ],
             },
           ],
-          temperature: 0,
         },
         {
           headers: {
@@ -325,7 +329,7 @@ class BotGranaZen {
 
   // ── Interpreta texto como transação ──────────────────
   async interpretarTransacao(texto) {
-    // ── Regex rápido (sem custo de API) ──────────────
+    // Regex rápido (sem custo de API)
     const padroesGasto = [
       /(?:gastei|paguei|comprei|saiu|debitou?)\s+(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?|r\$)?\s*(?:de\s+|no?\s+|na\s+|em\s+)?(.*)/i,
       /(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+)(.+)/i,
@@ -357,7 +361,7 @@ class BotGranaZen {
       }
     }
 
-    // ── GPT-4o-mini como fallback ─────────────────────
+    // GPT-4o-mini como fallback
     if (!process.env.OPENAI_API_KEY) return null;
 
     try {
@@ -395,7 +399,6 @@ class BotGranaZen {
 
   // ── Salva transação no banco e responde ──────────────
   async registrarTransacao(telefone, usuarioId, transacao, textoOriginal) {
-    // Busca categoria
     let categoriaId = null;
     if (transacao.categoria) {
       const catRes = await db.query(
@@ -408,19 +411,18 @@ class BotGranaZen {
       if (catRes.rows.length > 0) categoriaId = catRes.rows[0].id;
     }
 
-    // Busca conta padrão
     const contaRes = await db.query(
       'SELECT id FROM contas WHERE usuario_id = $1 AND padrao = true LIMIT 1',
       [usuarioId]
     );
     const contaId = contaRes.rows[0]?.id || null;
 
-    // Insere transação
-    await db.query(
+    const { rows } = await db.query(
       `INSERT INTO transacoes
          (usuario_id, tipo, descricao, valor, categoria_id, conta_id,
-          data_vencimento, pago, origem, mensagem_raw)
-       VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,true,'whatsapp',$7)`,
+          data_vencimento, data_pagamento, pago, origem, mensagem_raw)
+       VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,CURRENT_DATE,true,'whatsapp',$7)
+       RETURNING id`,
       [usuarioId, transacao.tipo, transacao.descricao, transacao.valor,
        categoriaId, contaId, textoOriginal]
     );
@@ -432,6 +434,18 @@ class BotGranaZen {
         'UPDATE contas SET saldo = saldo + $1 WHERE id = $2',
         [sinal * transacao.valor, contaId]
       );
+    }
+
+    // Notifica dashboard via socket
+    if (this.onNovaTransacao) {
+      this.onNovaTransacao({
+        id: rows[0].id,
+        tipo: transacao.tipo,
+        valor: transacao.valor,
+        descricao: transacao.descricao,
+        categoria: transacao.categoria,
+        origem: 'whatsapp',
+      });
     }
 
     const emoji = transacao.tipo === 'despesa' ? '💸' : '💰';
@@ -458,8 +472,8 @@ class BotGranaZen {
          COALESCE(SUM(CASE WHEN tipo='despesa' AND pago=true THEN valor END), 0) AS despesas
        FROM transacoes
        WHERE usuario_id = $1
-         AND EXTRACT(MONTH FROM data_vencimento) = $2
-         AND EXTRACT(YEAR FROM data_vencimento) = $3`,
+         AND EXTRACT(MONTH FROM data_pagamento) = $2
+         AND EXTRACT(YEAR  FROM data_pagamento) = $3`,
       [usuarioId, mes, ano]
     );
 
@@ -489,7 +503,7 @@ class BotGranaZen {
     await this.socket.sendMessage(jid, { text: texto });
   }
 
-  // ── Reconecta (chamado pela rota /api/whatsapp/reconectar) ──
+  // ── Reconecta ────────────────────────────────────────
   async reconectar() {
     if (this.socket) {
       try { await this.socket.logout(); } catch {}

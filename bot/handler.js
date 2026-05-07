@@ -76,12 +76,13 @@ class BotGranaZen {
   async iniciar() {
     const { state, saveCreds } = await useMultiFileAuthState(SESSAO_DIR);
 
-    this.socket = makeWASocket({
-      auth: state,
-      printQRInTerminal: true,
-      browser: ['GranaZen Bot', 'Chrome', '1.0'],
-      logger: this._logger,
-    });
+this.socket = makeWASocket({
+  auth: state,
+  printQRInTerminal: true,
+  browser: ['Ubuntu', 'Chrome', '22.0.0.0'],
+  logger: this._logger,
+  version: [2, 3000, 1015901307],
+});
 
     this.socket.ev.on('creds.update', saveCreds);
 

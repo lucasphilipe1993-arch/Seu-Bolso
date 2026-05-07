@@ -8,7 +8,7 @@ const {
   downloadMediaMessage,
   initAuthCreds,
   BufferJSON,
-  fetchLatestBaileysVersion, // ✅ CORRIGIDO: importa função de versão
+  fetchLatestBaileysVersion,
 } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
@@ -44,7 +44,6 @@ Categorias:
 
 // ─── Auth State no PostgreSQL (substitui useMultiFileAuthState) ───────────────
 async function usePostgresAuthState() {
-  // Garante que a tabela existe
   await db.query(`
     CREATE TABLE IF NOT EXISTS whatsapp_session (
       chave TEXT PRIMARY KEY,
@@ -80,7 +79,6 @@ async function usePostgresAuthState() {
     await db.query('DELETE FROM whatsapp_session WHERE chave = $1', [key]);
   }
 
-  // Carrega ou cria credenciais
   const creds = (await readData('creds')) || initAuthCreds();
 
   return {
@@ -108,7 +106,6 @@ async function usePostgresAuthState() {
             }
           },
         },
-        // logger silencioso
         { level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({ level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}, fatal: () => {}, child: () => ({}) }) }
       ),
     },
@@ -131,7 +128,6 @@ class BotGranaZen {
     this.onNovaTransacao = null;
   }
 
-  // ── Logger silencioso ─────────────────────────────────
   get _logger() {
     const silent = () => {};
     const base = {
@@ -143,27 +139,26 @@ class BotGranaZen {
     return base;
   }
 
-  // ── Inicia o Baileys ──────────────────────────────────────
   async iniciar() {
     const { state, saveCreds } = await usePostgresAuthState();
 
-    // ✅ CORRIGIDO: busca a versão mais recente do WA Web (evita erro 405)
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
 
-this.socket = makeWASocket({
-  version,
-  auth: state,
-  printQRInTerminal: true,
-  browser: ['GranaZen', 'Chrome', '120.0.0'],
-  logger: this._logger,
-  syncFullHistory: false,
-  connectTimeoutMs: 60000,        // ✅ 60s para conectar (padrão é 20s)
-  defaultQueryTimeoutMs: 60000,   // ✅ 60s para queries iniciais
-  keepAliveIntervalMs: 25000,     // ✅ mantém conexão viva no Railway
-  retryRequestDelayMs: 2000,      // ✅ espera 2s entre retries
-  getMessage: async () => ({ conversation: '' }),
-});
+    this.socket = makeWASocket({
+      version,
+      auth: state,
+      printQRInTerminal: true,
+      browser: ['GranaZen', 'Chrome', '120.0.0'],
+      logger: this._logger,
+      syncFullHistory: false,
+      connectTimeoutMs: 60000,
+      defaultQueryTimeoutMs: 60000,
+      keepAliveIntervalMs: 25000,
+      retryRequestDelayMs: 2000,
+      generateHighQualityLinkPreview: false, // ✅ desativa preview de links (evita erro 500)
+      getMessage: async () => ({ conversation: '' }),
+    });
 
     this.socket.ev.on('creds.update', saveCreds);
 
@@ -192,7 +187,7 @@ this.socket = makeWASocket({
         console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${deverReconectar}`);
         if (this.onDisconnected) this.onDisconnected();
         if (deverReconectar) {
-          const delay = codigo === 408 ? 15000 : 5000;
+          const delay = codigo === 408 ? 15000 : 5000; // ✅ timeout espera mais
           setTimeout(() => this.iniciar(), delay);
         }
       }
@@ -206,8 +201,13 @@ this.socket = makeWASocket({
         if (msg.key.fromMe) continue;
         if (!msg.message) continue;
 
-        const telefone = msg.key.remoteJid?.replace('@s.whatsapp.net', '');
-        if (!telefone || msg.key.remoteJid?.endsWith('@g.us')) continue;
+        const remoteJid = msg.key.remoteJid || '';
+
+        // ✅ Ignora grupos e JIDs do tipo @lid (identificador interno do WhatsApp)
+        if (remoteJid.endsWith('@g.us') || remoteJid.endsWith('@lid')) continue;
+
+        const telefone = remoteJid.replace('@s.whatsapp.net', '');
+        if (!telefone) continue;
 
         const tipoMsg = this._tipoMensagem(msg);
         console.log(`📩 [${tipoMsg}] de ${telefone}`);
@@ -222,7 +222,6 @@ this.socket = makeWASocket({
     });
   }
 
-  // ── Identifica o tipo da mensagem ────────────────────
   _tipoMensagem(msg) {
     const m = msg.message;
     if (m.conversation || m.extendedTextMessage) return 'texto';
@@ -232,7 +231,6 @@ this.socket = makeWASocket({
     return 'outro';
   }
 
-  // ── Roteador principal ───────────────────────────────
   async _roteador(telefone, tipo, msg) {
     const sessao = await this._buscarSessao(telefone);
     if (!sessao) {
@@ -272,7 +270,6 @@ this.socket = makeWASocket({
     }
   }
 
-  // ── Busca sessão/usuário pelo telefone ───────────────
   async _buscarSessao(telefone) {
     const res = await db.query(
       `SELECT s.usuario_id, u.nome
@@ -288,7 +285,6 @@ this.socket = makeWASocket({
     };
   }
 
-  // ── Processa mensagem de texto ───────────────────────
   async processarTexto(telefone, usuarioId, nome, texto) {
     const textoLower = texto.toLowerCase().trim();
 
@@ -312,7 +308,6 @@ this.socket = makeWASocket({
     }
   }
 
-  // ── Transcreve áudio com Whisper ─────────────────────
   async _transcreverAudio(msg) {
     if (!process.env.OPENAI_API_KEY) {
       console.warn('OPENAI_API_KEY não definida');
@@ -358,7 +353,6 @@ this.socket = makeWASocket({
     }
   }
 
-  // ── Analisa imagem com GPT-4o Vision ─────────────────
   async _analisarImagem(msg) {
     if (!process.env.OPENAI_API_KEY) {
       console.warn('OPENAI_API_KEY não definida');
@@ -417,7 +411,6 @@ this.socket = makeWASocket({
     }
   }
 
-  // ── Interpreta texto como transação ──────────────────
   async interpretarTransacao(texto) {
     const padroesGasto = [
       /(?:gastei|paguei|comprei|saiu|debitou?)\s+(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?|r\$)?\s*(?:de\s+|no?\s+|na\s+|em\s+)?(.*)/i,
@@ -485,7 +478,6 @@ this.socket = makeWASocket({
     }
   }
 
-  // ── Salva transação no banco e responde ──────────────
   async registrarTransacao(telefone, usuarioId, transacao, textoOriginal) {
     let categoriaId = null;
     if (transacao.categoria) {
@@ -547,7 +539,6 @@ this.socket = makeWASocket({
     );
   }
 
-  // ── Resumo financeiro do mês ──────────────────────────
   async enviarResumo(telefone, usuarioId, nome) {
     const mes = new Date().getMonth() + 1;
     const ano = new Date().getFullYear();
@@ -579,7 +570,6 @@ this.socket = makeWASocket({
     );
   }
 
-  // ── Envia mensagem via Baileys ────────────────────────
   async enviar(telefone, texto) {
     if (!this.socket || !this.conectado) {
       console.warn(`Bot desconectado, não enviou para ${telefone}`);
@@ -589,9 +579,7 @@ this.socket = makeWASocket({
     await this.socket.sendMessage(jid, { text: texto });
   }
 
-  // ── Reconecta ────────────────────────────────────────
   async reconectar() {
-    // ✅ CORRIGIDO: usa socket.end() em vez de logout() para não apagar a sessão do PostgreSQL
     if (this.socket) {
       try { this.socket.end(); } catch {}
       this.socket = null;
@@ -599,7 +587,6 @@ this.socket = makeWASocket({
     await this.iniciar();
   }
 
-  // ── Mensagens padrão ─────────────────────────────────
   msgBemVindo(nome) {
     return (
       `Olá, *${nome}*! 👋\n\n` +

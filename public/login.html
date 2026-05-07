@@ -129,7 +129,7 @@ async function login() {
     if (!r.ok) return mostrarErro(data.erro || 'Erro ao fazer login');
     localStorage.setItem('gz_token', data.token);
     localStorage.setItem('gz_usuario', JSON.stringify(data.usuario));
-    window.location.href = '/dashboard';
+    window.location.href = '/dashboard.html';
   } catch {
     mostrarErro('Erro de conexão. Tente novamente.');
   }
@@ -151,7 +151,7 @@ async function cadastrar() {
     if (!r.ok) return mostrarErro(data.erro || 'Erro ao criar conta');
     localStorage.setItem('gz_token', data.token);
     localStorage.setItem('gz_usuario', JSON.stringify(data.usuario));
-    window.location.href = '/dashboard';
+    window.location.href = '/dashboard.html';
   } catch {
     mostrarErro('Erro de conexão. Tente novamente.');
   }
@@ -166,7 +166,7 @@ document.addEventListener('keydown', e => {
 });
 
 // Redireciona se já estiver logado
-if (localStorage.getItem('gz_token')) window.location.href = '/dashboard';
+if (localStorage.getItem('gz_token')) window.location.href = '/dashboard.html';
 </script>
 </body>
 </html>

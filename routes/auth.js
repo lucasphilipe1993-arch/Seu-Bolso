@@ -1,4 +1,4 @@
-// routes/auth.js — Cadastro e login
+// routes/auth.js — Cadastro e login (CORRIGIDO)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -7,37 +7,67 @@ const db = require('../database/db');
 
 // ── POST /api/auth/cadastro ──────────────────────────────
 router.post('/cadastro', async (req, res) => {
-  const { nome, email, senha, telefone } = req.body;
+  const { nome, email, senha, telefone, plano } = req.body;
 
   if (!nome || !email || !senha)
     return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios' });
 
+  // Formata telefone: remove caracteres especiais
+  const telefoneLimpo = telefone 
+    ? telefone.replace(/\D/g, '') 
+    : null;
+
   try {
     // Verifica se e-mail já existe
-    const existe = await db.query('SELECT id FROM usuarios WHERE email = $1', [email]);
+    const existe = await db.query('SELECT id FROM usuarios WHERE email = $1', [email.toLowerCase()]);
     if (existe.rows.length > 0)
       return res.status(409).json({ erro: 'E-mail já cadastrado' });
 
     const senha_hash = await bcrypt.hash(senha, 12);
 
-    const { rows } = await db.query(
-      `INSERT INTO usuarios (nome, email, senha_hash, telefone)
-       VALUES ($1, $2, $3, $4) RETURNING id, nome, email`,
-      [nome, email.toLowerCase(), senha_hash, telefone || null]
+    // ✅ INSERE O USUÁRIO com o PLANO
+    const { rows: usuariosInseridos } = await db.query(
+      `INSERT INTO usuarios (nome, email, senha_hash, telefone, plano, whatsapp_ativo)
+       VALUES ($1, $2, $3, $4, $5, $6) 
+       RETURNING id, nome, email, plano`,
+      [nome, email.toLowerCase(), senha_hash, telefoneLimpo, plano || 'gratuito', telefoneLimpo ? true : false]
     );
 
-    const usuario = rows[0];
-    const token = gerarToken(usuario);
+    const usuario = usuariosInseridos[0];
 
-    // Cria conta bancária padrão
+    // ✅ CRIA CONTA BANCÁRIA PADRÃO
     await db.query(
-      `INSERT INTO contas (usuario_id, nome, padrao) VALUES ($1, 'Carteira', true)`,
+      `INSERT INTO contas (usuario_id, nome, padrao, saldo)
+       VALUES ($1, 'Carteira', true, 0)`,
       [usuario.id]
     );
 
-    res.status(201).json({ token, usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email } });
+    // ✅ **CRIA A SESSÃO DO BOT** (conecta WhatsApp ao usuário)
+    if (telefoneLimpo) {
+      await db.query(
+        `INSERT INTO sessoes_bot (telefone, usuario_id, estado)
+         VALUES ($1, $2, 'ativo')
+         ON CONFLICT (telefone) DO UPDATE
+         SET usuario_id = $2, estado = 'ativo', atualizado_em = NOW()`,
+        [telefoneLimpo, usuario.id]
+      );
+      console.log(`✅ Sessão criada para WhatsApp: ${telefoneLimpo} (Usuário: ${usuario.id})`);
+    }
+
+    const token = gerarToken(usuario);
+
+    res.status(201).json({
+      token,
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        plano: usuario.plano
+      }
+    });
+
   } catch (err) {
-    console.error('Erro cadastro:', err);
+    console.error('❌ Erro cadastro:', err);
     res.status(500).json({ erro: 'Erro interno ao criar conta' });
   }
 });
@@ -66,10 +96,16 @@ router.post('/login', async (req, res) => {
     const token = gerarToken(usuario);
     res.json({
       token,
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, plano: usuario.plano }
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        plano: usuario.plano,
+        whatsapp_ativo: usuario.whatsapp_ativo
+      }
     });
   } catch (err) {
-    console.error('Erro login:', err);
+    console.error('❌ Erro login:', err);
     res.status(500).json({ erro: 'Erro interno' });
   }
 });
@@ -92,7 +128,7 @@ router.get('/me', autenticar, async (req, res) => {
 function gerarToken(usuario) {
   return jwt.sign(
     { id: usuario.id, email: usuario.email },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || 'seu-segredo-super-secreto-aqui',
     { expiresIn: '30d' }
   );
 }

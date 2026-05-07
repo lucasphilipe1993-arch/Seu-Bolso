@@ -191,9 +191,10 @@ this.socket = makeWASocket({
         const deverReconectar = codigo !== DisconnectReason.loggedOut;
         console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${deverReconectar}`);
         if (this.onDisconnected) this.onDisconnected();
-       if (deverReconectar) {
-       const delay = codigo === 408 ? 15000 : 5000; // ✅ timeout = espera 15s
-       setTimeout(() => this.iniciar(), delay);
+        if (deverReconectar) {
+          const delay = codigo === 408 ? 15000 : 5000;
+          setTimeout(() => this.iniciar(), delay);
+        }
       }
     });
 

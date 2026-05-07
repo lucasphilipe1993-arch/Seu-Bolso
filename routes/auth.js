@@ -115,6 +115,16 @@ router.post('/cadastro', async (req, res) => {
       );
 
       console.log(`✅ Sessão criada para WhatsApp: ${telefoneLimpo} (Usuário: ${usuario.id})${lidParaSalvar ? ` | LID: ${lidParaSalvar}` : ''}`);
+
+      // Envia boas-vindas e captura o LID real na resposta do sendMessage
+      // Faz isso em background para não atrasar a resposta do cadastro
+      setImmediate(async () => {
+        try {
+          await _botInstance.enviarBoasVindasECapturarLid(telefoneLimpo, usuario.id, usuario.nome.split(' ')[0]);
+        } catch (err) {
+          console.warn('Erro ao enviar boas-vindas:', err.message);
+        }
+      });
     }
 
     const token = gerarToken(usuario);

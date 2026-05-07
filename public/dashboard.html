@@ -710,6 +710,8 @@
             margin-bottom: 10px;
         }
 
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         @media (max-width: 900px) {
             .grid-3 { grid-template-columns: 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
@@ -797,6 +799,17 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     </div>
                     <span>Metas</span>
+                </div>
+            </div>
+
+            <!-- INTEGRAÇÕES -->
+            <div class="nav-section">
+                <div class="nav-section-title">Integrações</div>
+                <div class="nav-item" data-page="whatsapp">
+                    <div class="nav-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    </div>
+                    <span>WhatsApp Bot</span>
                 </div>
             </div>
 
@@ -1672,6 +1685,114 @@
                 </div><!-- /settings-layout -->
             </div>
 
+            <!-- WHATSAPP BOT PAGE -->
+            <div id="whatsapp" class="page">
+
+                <div class="grid grid-2" style="margin-bottom:22px">
+                    <!-- Card de status -->
+                    <div class="stat-box" style="flex-direction:row;align-items:center;gap:16px;padding:22px 24px;">
+                        <div id="wa-status-icon" style="width:48px;height:48px;border-radius:14px;background:#e8f5ef;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2d7a5f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-label">Status da Conexão</div>
+                            <div id="wa-status-text" style="font-size:18px;font-weight:700;color:var(--navy)">Verificando...</div>
+                            <div id="wa-status-sub" class="stat-meta">Aguardando resposta do servidor</div>
+                        </div>
+                    </div>
+                    <!-- Card de número -->
+                    <div class="stat-box" style="flex-direction:row;align-items:center;gap:16px;padding:22px 24px;">
+                        <div style="width:48px;height:48px;border-radius:14px;background:#dde8f2;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.46 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.4a16 16 0 0 0 6.29 6.29l.8-.8a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-label">Número Vinculado</div>
+                            <div id="wa-number-text" style="font-size:18px;font-weight:700;color:var(--navy)">—</div>
+                            <div id="wa-number-sub" class="stat-meta">Nenhum número conectado</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card principal: QR ou conectado -->
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
+                        <h3 class="card-title" style="margin-bottom:0">Conexão WhatsApp</h3>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-secondary" id="wa-btn-reconectar" onclick="waReconectar()" style="display:none;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                                Reconectar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Estado: aguardando QR -->
+                    <div id="wa-state-qr" style="display:none;text-align:center;padding:30px 20px;">
+                        <div style="font-size:14px;color:var(--gray-500);margin-bottom:24px;">
+                            Abra o WhatsApp no seu celular → <strong>Dispositivos conectados</strong> → <strong>Conectar dispositivo</strong> e escaneie o QR abaixo:
+                        </div>
+                        <div style="display:inline-block;padding:16px;background:white;border-radius:16px;border:2px solid var(--gray-200);box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+                            <img id="wa-qr-img" src="" alt="QR Code WhatsApp" style="width:220px;height:220px;display:block;" />
+                        </div>
+                        <div style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:var(--gray-400);">
+                            <span id="wa-qr-spinner" style="display:inline-block;width:14px;height:14px;border:2px solid var(--gray-300);border-top-color:var(--gold);border-radius:50%;animation:spin 0.9s linear infinite;"></span>
+                            Aguardando escaneamento...
+                        </div>
+                    </div>
+
+                    <!-- Estado: conectado -->
+                    <div id="wa-state-connected" style="display:none;text-align:center;padding:40px 20px;">
+                        <div style="width:80px;height:80px;background:#e8f5ef;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2d7a5f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px;">WhatsApp Conectado!</div>
+                        <div style="font-size:14px;color:var(--gray-400);margin-bottom:28px;">O bot está ativo e pronto para receber mensagens.</div>
+                        <button class="btn btn-outline-red" onclick="waReconectar()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            Forçar reconexão
+                        </button>
+                    </div>
+
+                    <!-- Estado: desconectado / inicial -->
+                    <div id="wa-state-disconnected" style="text-align:center;padding:40px 20px;">
+                        <div style="width:72px;height:72px;background:#fdecea;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        </div>
+                        <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px;">Bot Desconectado</div>
+                        <div style="font-size:14px;color:var(--gray-400);margin-bottom:24px;">Clique em "Conectar" para iniciar a autenticação via QR Code.</div>
+                        <button class="btn btn-primary" onclick="waIniciar()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                            Conectar WhatsApp
+                        </button>
+                    </div>
+
+                    <!-- Estado: carregando -->
+                    <div id="wa-state-loading" style="display:none;text-align:center;padding:40px 20px;">
+                        <div style="width:52px;height:52px;border:3px solid var(--gray-200);border-top-color:var(--gold);border-radius:50%;animation:spin 0.9s linear infinite;margin:0 auto 20px;"></div>
+                        <div style="font-size:15px;color:var(--gray-500);">Iniciando conexão com WhatsApp...</div>
+                    </div>
+                </div>
+
+                <!-- Card de instrução -->
+                <div class="card" style="background:linear-gradient(135deg,#f0fdf4,#e8f5ef);border-color:#b7ddd0;">
+                    <h4 class="card-title" style="font-size:15px;color:var(--green);">Como funciona</h4>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+                        <div style="display:flex;gap:12px;align-items:flex-start;">
+                            <div style="width:28px;height:28px;background:#2d7a5f;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:white;">1</div>
+                            <div><div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:2px;">Conecte o WhatsApp</div><div style="font-size:12px;color:var(--gray-500);">Escaneie o QR Code com seu celular</div></div>
+                        </div>
+                        <div style="display:flex;gap:12px;align-items:flex-start;">
+                            <div style="width:28px;height:28px;background:#2d7a5f;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:white;">2</div>
+                            <div><div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:2px;">Registre gastos pelo chat</div><div style="font-size:12px;color:var(--gray-500);">Ex: "Gastei R$ 50 no mercado"</div></div>
+                        </div>
+                        <div style="display:flex;gap:12px;align-items:flex-start;">
+                            <div style="width:28px;height:28px;background:#2d7a5f;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:white;">3</div>
+                            <div><div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:2px;">IA categoriza tudo</div><div style="font-size:12px;color:var(--gray-500);">Aparece automaticamente no painel</div></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /whatsapp page -->
+
         </div><!-- /content -->
     </div><!-- /main -->
 </div><!-- /app -->
@@ -1735,16 +1856,12 @@
 </div>
 
 <script>
-    // Proteção de rota: redireciona para login se não estiver autenticado
-    if (!localStorage.getItem('gz_token')) {
-        window.location.href = '/login';
-    }
-
     const pageTitles = {
         painel: 'Painel sua grana', transacoes: 'Transações', relatorios: 'Relatórios',
         graficos: 'Gráficos', fluxocaixa: 'Fluxo de caixa', contas: 'Contas bancárias',
         cartoes: 'Cartões de crédito', categorias: 'Categorias', limites: 'Limites de gastos',
-        configuracoes: 'Configurações'
+        configuracoes: 'Configurações',
+        whatsapp: 'WhatsApp Bot'
     };
 
     // Nav
@@ -1891,9 +2008,8 @@
         closeModal('modalLogout');
         showToast('Saindo... até logo!', 'success');
         setTimeout(function() {
-            localStorage.removeItem('gz_token');
-            localStorage.removeItem('gz_usuario');
-            window.location.href = '/login';
+            // In production: window.location.href = '/logout';
+            window.location.href = '#logout';
         }, 1500);
     }
 
@@ -1905,6 +2021,142 @@
         closeModal('modalClearData');
         document.getElementById('confirmDelete').value = '';
     }
+</script>
+<!-- Socket.io client — servido automaticamente pelo servidor Express+Socket.io -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// ─── WhatsApp Bot — integração Socket.io ─────────────────────────────────────
+(function () {
+    const WA_STATES = ['wa-state-qr', 'wa-state-connected', 'wa-state-disconnected', 'wa-state-loading'];
+
+    function waShowState(id) {
+        WA_STATES.forEach(s => {
+            const el = document.getElementById(s);
+            if (el) el.style.display = (s === id) ? '' : 'none';
+        });
+    }
+
+    function waSetStatus(text, sub, iconBg, iconStroke) {
+        const t = document.getElementById('wa-status-text');
+        const s = document.getElementById('wa-status-sub');
+        const i = document.getElementById('wa-status-icon');
+        if (t) t.textContent = text;
+        if (s) s.textContent = sub;
+        if (i) {
+            i.style.background = iconBg;
+            i.querySelector('svg').setAttribute('stroke', iconStroke);
+        }
+    }
+
+    function waSetNumber(number) {
+        const t = document.getElementById('wa-number-text');
+        const s = document.getElementById('wa-number-sub');
+        const btn = document.getElementById('wa-btn-reconectar');
+        if (number) {
+            if (t) t.textContent = '+' + number;
+            if (s) s.textContent = 'Número ativo';
+            if (btn) btn.style.display = '';
+        } else {
+            if (t) t.textContent = '—';
+            if (s) s.textContent = 'Nenhum número conectado';
+            if (btn) btn.style.display = 'none';
+        }
+    }
+
+    // Só inicializa o socket quando a página WhatsApp estiver visível
+    let socket = null;
+    let socketIniciado = false;
+
+    function iniciarSocket() {
+        if (socketIniciado) return;
+        socketIniciado = true;
+
+        // Conecta ao mesmo host que serve o dashboard
+        socket = io(window.location.origin, { transports: ['websocket', 'polling'] });
+
+        socket.on('connect', () => {
+            console.log('🔗 Socket conectado ao servidor');
+        });
+
+        socket.on('connect_error', () => {
+            waShowState('wa-state-disconnected');
+            waSetStatus('Erro de Conexão', 'Não foi possível contatar o servidor', '#fdecea', 'var(--red)');
+        });
+
+        // Servidor emite 'status' com { status: 'connected'|'disconnected'|'qr' }
+        socket.on('status', (data) => {
+            const s = data.status;
+            if (s === 'connected') {
+                waShowState('wa-state-connected');
+                waSetStatus('Conectado', 'Bot ativo e recebendo mensagens', '#e8f5ef', '#2d7a5f');
+            } else if (s === 'qr') {
+                waShowState('wa-state-qr');
+                waSetStatus('Aguardando QR', 'Escaneie com seu celular', '#fff9e6', 'var(--gold)');
+                waSetNumber(null);
+            } else {
+                waShowState('wa-state-disconnected');
+                waSetStatus('Desconectado', 'Bot offline', '#fdecea', 'var(--red)');
+                waSetNumber(null);
+            }
+        });
+
+        // Servidor emite 'qr' com { url: 'data:image/png;base64,...' }
+        socket.on('qr', (data) => {
+            const img = document.getElementById('wa-qr-img');
+            if (img && data.url) {
+                img.src = data.url;
+                waShowState('wa-state-qr');
+                waSetStatus('Aguardando QR', 'Escaneie com seu celular', '#fff9e6', 'var(--gold)');
+            }
+        });
+
+        // Servidor emite 'qr_clear' quando conectado
+        socket.on('qr_clear', () => {
+            const img = document.getElementById('wa-qr-img');
+            if (img) img.src = '';
+        });
+
+        // Número conectado (opcional — emita 'numero' do servidor se quiser)
+        socket.on('numero', (data) => {
+            if (data.numero) waSetNumber(data.numero);
+        });
+    }
+
+    // Expõe funções para os botões do HTML
+    window.waIniciar = async function () {
+        waShowState('wa-state-loading');
+        iniciarSocket();
+        try {
+            const token = localStorage.getItem('token');
+            await fetch('/api/whatsapp/reconectar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+                },
+            });
+        } catch (e) {
+            console.warn('Erro ao chamar reconectar:', e);
+        }
+    };
+
+    window.waReconectar = window.waIniciar;
+
+    // Inicializa o socket automaticamente quando navegar para a página WhatsApp
+    const origNavigateTo = window.navigateTo;
+    window.navigateTo = function (pageId) {
+        if (origNavigateTo) origNavigateTo(pageId);
+        if (pageId === 'whatsapp') {
+            iniciarSocket();
+        }
+    };
+
+    // Suporte ao clique direto nos nav-items (que não usam navigateTo)
+    document.addEventListener('click', function (e) {
+        const item = e.target.closest('.nav-item[data-page="whatsapp"]');
+        if (item) iniciarSocket();
+    });
+})();
 </script>
 </body>
 </html>

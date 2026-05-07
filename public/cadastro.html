@@ -269,7 +269,7 @@
         .btn-submit:active { transform: translateY(0); }
         .btn-submit svg { transition: transform 0.2s; }
         .btn-submit:hover svg { transform: translateX(3px); }
-        .btn-submit.loading { background: var(--navy-mid); pointer-events: none; }
+        .btn-submit.loading { background: var(--navy-mid); pointer-events: none; opacity: 0.8; }
 
         .login-link {
             display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -339,6 +339,15 @@
         .pwd-strength { display: flex; gap: 4px; margin-top: 8px; }
         .pwd-bar { height: 3px; flex: 1; border-radius: 2px; background: var(--gray-200); transition: background 0.3s; }
 
+        /* ERROR GLOBAL */
+        .global-error {
+            background: var(--red-bg); border: 1.5px solid var(--red);
+            border-radius: 10px; padding: 12px 16px;
+            font-size: 13px; color: var(--red); margin-bottom: 16px;
+            display: none;
+        }
+        .global-error.show { display: block; }
+
         /* SUCCESS */
         .success-screen { display: none; text-align: center; padding: 20px 0; }
         .success-screen.show { display: block; animation: fadeSlideIn 0.4s ease; }
@@ -347,6 +356,19 @@
             background: var(--green-bg); border: 2px solid var(--green);
             display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
         }
+        .success-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 24px; color: var(--navy); margin-bottom: 10px;
+        }
+        .success-sub { font-size: 14px; color: var(--gray-500); line-height: 1.6; margin-bottom: 28px; }
+        .success-whatsapp {
+            background: #25D366; color: white; border: none; border-radius: 10px;
+            padding: 14px 24px; font-size: 15px; font-weight: 600;
+            font-family: 'DM Sans', sans-serif; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 10px;
+            text-decoration: none; transition: opacity 0.2s;
+        }
+        .success-whatsapp:hover { opacity: 0.9; }
 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
@@ -524,7 +546,7 @@
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </button>
 
-            <a class="login-link" href="dashboard.html">
+            <a class="login-link" href="login.html">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                 Já tenho uma conta — <span>Fazer login</span>
             </a>
@@ -605,17 +627,268 @@
                     <span class="confirm-value" id="c-phone">—</span>
                 </div>
                 <div class="confirm-row">
-                    <span class="confirm-label">Telefone (sistema)</span>
-                    <span class="confirm-value" id="c-phone-raw">—</span>
-                </div>
-                <div class="confirm-row">
                     <span class="confirm-label">Plano</span>
                     <span class="confirm-value" id="c-plan">—</span>
                 </div>
             </div>
 
+            <div class="global-error" id="global-error"></div>
+
             <div style="display:flex;gap:10px">
-                <button class="btn-submit" style="background:var(--gray-100);color:var(--navy);flex:0 0 auto;width:48px;padding:0;justify-content:center;box-shadow:none;" onclick="goStep(2)">
+                <button class="btn-submit" id="btn-back-3" style="background:var(--gray-100);color:var(--navy);flex:0 0 auto;width:48px;padding:0;justify-content:center;box-shadow:none;" onclick="goStep(2)">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                 </button>
-                <button class="btn
+                <button class="btn-submit" id="btn-criar" style="flex:1" onclick="submeter()">
+                    Criar conta
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ── SUCESSO ── -->
+        <div class="success-screen" id="success-screen">
+            <div class="success-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="success-title">Conta criada com sucesso!</div>
+            <p class="success-sub">
+                Bem-vindo ao Seu Bolso! 🎉<br>
+                Agora adicione o nosso número no WhatsApp e comece a registrar suas finanças por lá.
+            </p>
+            <a class="success-whatsapp" id="success-wa-link" href="#" target="_blank">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                Abrir WhatsApp
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// ─── Estado global ────────────────────────────────────────────
+let planoSelecionado = 'gratuito';
+let stepAtual = 1;
+
+// ─── Máscar de telefone → (XX) XXXXX-XXXX ────────────────────
+function formatarTelefone(input) {
+    // Guarda só dígitos
+    let digits = input.value.replace(/\D/g, '').slice(0, 11);
+
+    // Aplica máscara visual
+    let masked = '';
+    if (digits.length === 0) {
+        masked = '';
+    } else if (digits.length <= 2) {
+        masked = '(' + digits;
+    } else if (digits.length <= 7) {
+        masked = '(' + digits.slice(0, 2) + ') ' + digits.slice(2);
+    } else {
+        masked = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 7) + '-' + digits.slice(7);
+    }
+
+    input.value = masked;
+}
+
+// ─── Extrai o telefone numérico com DDI 55 ────────────────────
+// Resultado: "5531991003389" — formato exato para sessoes_bot
+function telefoneRaw() {
+    const digits = document.getElementById('f-phone').value.replace(/\D/g, '');
+    return '55' + digits;
+}
+
+// ─── Força da senha ───────────────────────────────────────────
+function checkPwdStrength(pwd) {
+    const bars = [
+        document.getElementById('bar-1'),
+        document.getElementById('bar-2'),
+        document.getElementById('bar-3'),
+        document.getElementById('bar-4'),
+    ];
+    let score = 0;
+    if (pwd.length >= 8)               score++;
+    if (/[A-Z]/.test(pwd))            score++;
+    if (/[0-9]/.test(pwd))            score++;
+    if (/[^A-Za-z0-9]/.test(pwd))     score++;
+
+    const colors = ['#c0392b', '#e67e22', '#f1c40f', '#2d7a5f'];
+    bars.forEach((b, i) => {
+        b.style.background = i < score ? colors[score - 1] : 'var(--gray-200)';
+    });
+}
+
+// ─── Mostrar/ocultar senha ────────────────────────────────────
+function togglePass(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const isText = input.type === 'text';
+    input.type = isText ? 'password' : 'text';
+    btn.querySelector('svg').innerHTML = isText
+        ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+        : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+}
+
+// ─── Seleção de plano ─────────────────────────────────────────
+function selectPlan(card, plano) {
+    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    planoSelecionado = plano;
+}
+
+// ─── Helpers de validação ─────────────────────────────────────
+function setError(fieldId, errId, show) {
+    const input = document.getElementById(fieldId);
+    const err   = document.getElementById(errId);
+    if (show) {
+        input.classList.add('error');
+        input.classList.remove('success');
+        err.classList.add('show');
+    } else {
+        input.classList.remove('error');
+        input.classList.add('success');
+        err.classList.remove('show');
+    }
+}
+
+function validarStep1() {
+    let ok = true;
+
+    // Nome: pelo menos 2 palavras
+    const nome = document.getElementById('f-name').value.trim();
+    const nomeOk = nome.length >= 3 && nome.includes(' ');
+    setError('f-name', 'err-name', !nomeOk);
+    if (!nomeOk) ok = false;
+
+    // Telefone: 10 ou 11 dígitos (sem DDI)
+    const digits = document.getElementById('f-phone').value.replace(/\D/g, '');
+    const phoneOk = digits.length === 10 || digits.length === 11;
+    setError('f-phone', 'err-phone', !phoneOk);
+    if (!phoneOk) ok = false;
+
+    // E-mail
+    const email  = document.getElementById('f-email').value.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    setError('f-email', 'err-email', !emailOk);
+    if (!emailOk) ok = false;
+
+    // Confirmar e-mail
+    const email2  = document.getElementById('f-email2').value.trim();
+    const email2Ok = email === email2 && email2.length > 0;
+    setError('f-email2', 'err-email2', !email2Ok);
+    if (!email2Ok) ok = false;
+
+    // Senha
+    const senha  = document.getElementById('f-pass').value;
+    const senhaOk = senha.length >= 8;
+    setError('f-pass', 'err-pass', !senhaOk);
+    if (!senhaOk) ok = false;
+
+    // Termos
+    const terms = document.getElementById('f-terms').checked;
+    if (!terms) {
+        const row = document.querySelector('.terms-row');
+        row.style.borderColor = 'var(--red)';
+        setTimeout(() => { row.style.borderColor = ''; }, 2000);
+        ok = false;
+    }
+
+    return ok;
+}
+
+// ─── Navegação entre steps ────────────────────────────────────
+function goStep(destino) {
+    // Validação no Step 1 antes de avançar
+    if (stepAtual === 1 && destino > 1) {
+        if (!validarStep1()) return;
+    }
+
+    // Preenche resumo ao entrar no Step 3
+    if (destino === 3) {
+        const planLabels = {
+            gratuito: 'Gratuito — R$ 0',
+            mensal:   'Premium Mensal — R$ 29,90/mês',
+            anual:    'Premium Anual — R$ 24,90/mês',
+        };
+        document.getElementById('c-name').textContent  = document.getElementById('f-name').value.trim();
+        document.getElementById('c-email').textContent = document.getElementById('f-email').value.trim();
+        document.getElementById('c-phone').textContent = document.getElementById('f-phone').value.trim();
+        document.getElementById('c-plan').textContent  = planLabels[planoSelecionado] || planoSelecionado;
+        document.getElementById('global-error').classList.remove('show');
+    }
+
+    // Atualiza painéis
+    document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + destino).classList.add('active');
+
+    // Atualiza stepper
+    for (let i = 1; i <= 3; i++) {
+        const stepEl = document.getElementById('step-' + i);
+        stepEl.classList.remove('active', 'completed');
+        if (i < destino)       stepEl.classList.add('completed');
+        else if (i === destino) stepEl.classList.add('active');
+    }
+    for (let i = 1; i <= 2; i++) {
+        const lineEl = document.getElementById('line-' + i);
+        lineEl.classList.toggle('completed', i < destino);
+    }
+
+    stepAtual = destino;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── Submissão final ──────────────────────────────────────────
+async function submeter() {
+    const btn = document.getElementById('btn-criar');
+    const errBox = document.getElementById('global-error');
+    const backBtn = document.getElementById('btn-back-3');
+
+    btn.classList.add('loading');
+    btn.textContent = 'Criando conta...';
+    backBtn.disabled = true;
+    errBox.classList.remove('show');
+
+    // Payload — telefone no formato "5531991003389" para sessoes_bot
+    const payload = {
+        nome:     document.getElementById('f-name').value.trim(),
+        email:    document.getElementById('f-email').value.trim(),
+        senha:    document.getElementById('f-pass').value,
+        telefone: telefoneRaw(),   // ← "55" + dígitos, sem formatação
+        plano:    planoSelecionado,
+    };
+
+    try {
+        const resp = await fetch('/api/cadastro', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload),
+        });
+
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok) {
+            throw new Error(data.mensagem || data.message || data.error || 'Erro ao criar conta. Tente novamente.');
+        }
+
+        // Sucesso: esconde tudo e mostra tela de sucesso
+        document.querySelector('.stepper').style.display = 'none';
+        document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+
+        // Monta link do WhatsApp com mensagem pré-preenchida
+        const nome = payload.nome.split(' ')[0];
+        const waMsg = encodeURIComponent(`Oi! Acabei de criar minha conta no Seu Bolso. Meu nome é ${nome} 😊`);
+        document.getElementById('success-wa-link').href = `https://wa.me/55SEUNUMERO?text=${waMsg}`;
+        // ↑ Substitua "SEUNUMERO" pelo DDD + número do bot, ex: 5531999990000
+
+        document.getElementById('success-screen').classList.add('show');
+
+    } catch (err) {
+        errBox.textContent = err.message;
+        errBox.classList.add('show');
+
+        // Restaura botão
+        btn.classList.remove('loading');
+        btn.innerHTML = 'Criar conta <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        backBtn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

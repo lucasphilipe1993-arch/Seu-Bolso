@@ -349,7 +349,9 @@ class BotGranaZen {
           if (remoteJid.endsWith('@g.us')) continue;
           if (remoteJid === 'status@broadcast') continue;
           if (!remoteJid.endsWith('@s.whatsapp.net') && !remoteJid.endsWith('@lid')) continue;
-
+if (remoteJid.endsWith('@lid')) {
+  console.log('🔍 MSG COMPLETA LID:', JSON.stringify(msg, null, 2));
+}
           const telefone = await this._resolverTelefone(remoteJid);
           console.log(`📩 mensagem de: ${telefone} | pushName: ${msg.pushName}`);
 

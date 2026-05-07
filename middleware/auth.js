@@ -2,11 +2,13 @@
 const jwt = require('jsonwebtoken');
 
 module.exports = function autenticar(req, res, next) {
-  const header = req.headers['authorization'];
-  if (!header) return res.status(401).json({ erro: 'Token não fornecido' });
+  const header = req.headers.authorization;
 
-  const token = header.split(' ')[1]; // "Bearer <token>"
-  if (!token) return res.status(401).json({ erro: 'Formato inválido. Use: Bearer <token>' });
+  if (!header || !header.startsWith('Bearer ')) {
+    return res.status(401).json({ erro: 'Token não fornecido' });
+  }
+
+  const token = header.split(' ')[1];
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
@@ -14,7 +16,6 @@ module.exports = function autenticar(req, res, next) {
     req.usuarioEmail = payload.email;
     next();
   } catch (err) {
-    const msg = err.name === 'TokenExpiredError' ? 'Token expirado' : 'Token inválido';
-    return res.status(401).json({ erro: msg });
+    return res.status(401).json({ erro: 'Token inválido ou expirado' });
   }
 };

@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GranaZen — Controle Financeiro pelo WhatsApp</title>
+<meta name="description" content="Registre seus gastos pelo WhatsApp com IA. Categorização automática, gráficos e lembretes de contas a pagar.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #16a34a;
+    --green-light: #22c55e;
+    --green-dark: #15803d;
+    --green-xlight: #f0fdf4;
+    --black: #0a0a0a;
+    --gray-900: #111827;
+    --gray-700: #374151;
+    --gray-500: #6b7280;
+    --gray-200: #e5e7eb;
+    --gray-100: #f3f4f6;
+    --white: #ffffff;
+    --red: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    color: var(--gray-900);
+    background: var(--white);
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4 { font-family: 'Syne', sans-serif; }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 24px;
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 20px;
+    color: var(--green);
+    text-decoration: none;
+  }
+
+  .nav-logo-icon {
+    width: 36px; height: 36px;
+    background: var(--green);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 18px;
+  }
+
+  .nav-links {
+    display: flex; align-items: center; gap: 8px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--gray-700); text-decoration: none;
+    font-size: 14px; font-weight: 500;
+    padding: 8px 16px; border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .nav-links a:hover { background: var(--gray-100); color: var(--gray-900); }
+
+  .btn-primary {
+    background: var(--green); color: white;
+    padding: 10px 20px; border-radius: 10px;
+    font-weight: 600; font-size: 14px;
+    text-decoration: none; border: none; cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+
+  .btn-primary:hover { background: var(--green-dark); transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: white; color: var(--green);
+    padding: 10px 20px; border-radius: 10px;
+    font-weight: 600; font-size: 14px;
+    text-decoration: none; border: 2px solid var(--green); cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+
+  .btn-secondary:hover { background: var(--green-xlight); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    padding: 100px 24px 80px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #fff 60%);
+    position: relative; overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute; top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(22,163,74,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-inner {
+    max-width: 1200px; margin: 0 auto; width: 100%;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--green-xlight); color: var(--green-dark);
+    border: 1px solid rgba(22,163,74,0.2);
+    padding: 6px 14px; border-radius: 100px;
+    font-size: 13px; font-weight: 600; margin-bottom: 24px;
+  }
+
+  .hero-badge span { width: 6px; height: 6px; background: var(--green-light); border-radius: 50%; display: inline-block; }
+
+  h1 {
+    font-size: clamp(36px, 5vw, 58px);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--black);
+    margin-bottom: 24px;
+  }
+
+  h1 em { font-style: normal; color: var(--green); }
+
+  .hero-sub {
+    font-size: 18px; color: var(--gray-500);
+    line-height: 1.7; margin-bottom: 40px;
+    max-width: 480px;
+  }
+
+  .hero-ctas {
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+
+  .btn-hero {
+    background: var(--green); color: white;
+    padding: 16px 32px; border-radius: 14px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 16px;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 8px 24px rgba(22,163,74,0.3);
+  }
+
+  .btn-hero:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(22,163,74,0.4); }
+
+  .hero-trust {
+    margin-top: 48px;
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .trust-avatars {
+    display: flex;
+  }
+
+  .trust-avatars span {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2px solid white;
+    background: var(--green);
+    color: white; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin-left: -8px;
+  }
+
+  .trust-avatars span:first-child { margin-left: 0; background: #16a34a; }
+  .trust-avatars span:nth-child(2) { background: #059669; }
+  .trust-avatars span:nth-child(3) { background: #0284c7; }
+  .trust-avatars span:nth-child(4) { background: #7c3aed; }
+
+  .trust-text { font-size: 13px; color: var(--gray-500); }
+  .trust-text strong { color: var(--gray-900); }
+
+  /* PHONE MOCKUP */
+  .hero-visual {
+    display: flex; justify-content: center; align-items: center;
+    position: relative;
+  }
+
+  .phone-wrap {
+    position: relative;
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-16px); }
+  }
+
+  .phone {
+    width: 280px;
+    background: var(--black);
+    border-radius: 44px;
+    padding: 12px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1) inset;
+  }
+
+  .phone-screen {
+    background: #f1f5f9;
+    border-radius: 34px;
+    overflow: hidden;
+    height: 560px;
+  }
+
+  .phone-header {
+    background: #25d366;
+    padding: 16px;
+    color: white;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .phone-avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .phone-contact strong { display: block; font-size: 14px; font-weight: 600; }
+  .phone-contact span { font-size: 11px; opacity: 0.85; }
+
+  .phone-msgs { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+  .msg { max-width: 85%; font-size: 12px; line-height: 1.5; padding: 8px 12px; border-radius: 12px; }
+
+  .msg-user {
+    background: #dcf8c6;
+    align-self: flex-end;
+    border-radius: 12px 12px 4px 12px;
+    color: #1a1a1a;
+  }
+
+  .msg-bot {
+    background: white;
+    align-self: flex-start;
+    border-radius: 12px 12px 12px 4px;
+    color: #1a1a1a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .msg-bot.confirm {
+    border-left: 3px solid var(--green);
+  }
+
+  .msg-time { font-size: 9px; color: #999; text-align: right; margin-top: 2px; }
+
+  /* FLOATING STATS */
+  .stat-bubble {
+    position: absolute;
+    background: white;
+    border-radius: 16px;
+    padding: 12px 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600;
+    animation: float2 5s ease-in-out infinite;
+    white-space: nowrap;
+  }
+
+  .stat-bubble.left { left: -80px; top: 30%; animation-delay: -2s; }
+  .stat-bubble.right { right: -80px; bottom: 25%; animation-delay: -4s; }
+
+  @keyframes float2 {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .stat-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+
+  /* SECTIONS */
+  section { padding: 100px 24px; }
+
+  .section-inner { max-width: 1200px; margin: 0 auto; }
+
+  .section-tag {
+    display: inline-block;
+    background: var(--green-xlight); color: var(--green-dark);
+    border: 1px solid rgba(22,163,74,0.2);
+    padding: 6px 14px; border-radius: 100px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 20px;
+  }
+
+  h2 {
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800; line-height: 1.15;
+    color: var(--black); margin-bottom: 20px;
+  }
+
+  h2 em { font-style: normal; color: var(--green); }
+
+  .section-sub {
+    font-size: 18px; color: var(--gray-500); line-height: 1.7;
+    max-width: 600px;
+  }
+
+  /* HOW IT WORKS */
+  .how {
+    background: var(--black); color: white;
+  }
+
+  .how .section-tag { background: rgba(22,163,74,0.15); color: #4ade80; border-color: rgba(22,163,74,0.3); }
+  .how h2 { color: white; }
+  .how .section-sub { color: rgba(255,255,255,0.6); }
+
+  .steps-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 64px;
+  }
+
+  .step {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 28px;
+    transition: all 0.3s;
+  }
+
+  .step:hover { background: rgba(255,255,255,0.08); transform: translateY(-4px); }
+
+  .step-num {
+    width: 40px; height: 40px;
+    background: var(--green); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 18px; font-weight: 800; color: white;
+    margin-bottom: 20px;
+  }
+
+  .step h3 { font-size: 18px; font-weight: 700; color: white; margin-bottom: 10px; }
+  .step p { font-size: 14px; color: rgba(255,255,255,0.55); line-height: 1.6; }
+
+  /* FEATURES */
+  .features-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 64px;
+  }
+
+  .feature-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 20px;
+    padding: 28px;
+    transition: all 0.3s;
+  }
+
+  .feature-card:hover { border-color: var(--green-light); box-shadow: 0 8px 32px rgba(22,163,74,0.1); transform: translateY(-2px); }
+
+  .feature-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin-bottom: 18px;
+  }
+
+  .feature-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+  .feature-card p { font-size: 14px; color: var(--gray-500); line-height: 1.6; }
+
+  /* PRICING */
+  .pricing { background: var(--gray-100); }
+
+  .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 64px; max-width: 800px; margin-left: auto; margin-right: auto; }
+
+  .price-card {
+    background: white; border-radius: 24px;
+    padding: 36px; border: 2px solid var(--gray-200);
+    position: relative; transition: all 0.3s;
+  }
+
+  .price-card:hover { transform: translateY(-4px); }
+
+  .price-card.popular {
+    border-color: var(--green);
+    box-shadow: 0 16px 48px rgba(22,163,74,0.15);
+  }
+
+  .popular-badge {
+    position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+    background: var(--green); color: white;
+    padding: 5px 18px; border-radius: 100px;
+    font-size: 12px; font-weight: 700;
+  }
+
+  .price-name { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .price-desc { font-size: 14px; color: var(--gray-500); margin-bottom: 24px; }
+
+  .price-amount {
+    display: flex; align-items: baseline; gap: 4px; margin-bottom: 28px;
+  }
+
+  .price-currency { font-size: 20px; font-weight: 600; color: var(--gray-700); }
+  .price-value { font-family: 'Syne', sans-serif; font-size: 48px; font-weight: 800; color: var(--black); }
+  .price-period { font-size: 14px; color: var(--gray-500); }
+
+  .price-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+
+  .price-features li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 14px; color: var(--gray-700);
+  }
+
+  .price-features li::before {
+    content: '✓'; color: var(--green); font-weight: 700; margin-top: 1px; flex-shrink: 0;
+  }
+
+  .price-features li.no::before { content: '✕'; color: var(--gray-200); }
+  .price-features li.no { color: var(--gray-200); }
+
+  /* TESTIMONIALS */
+  .testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 64px; }
+
+  .testimonial {
+    background: white; border: 1px solid var(--gray-200);
+    border-radius: 20px; padding: 28px; transition: all 0.3s;
+  }
+
+  .testimonial:hover { border-color: var(--green-light); box-shadow: 0 8px 32px rgba(22,163,74,0.08); }
+
+  .stars { color: #fbbf24; font-size: 14px; margin-bottom: 16px; }
+
+  .testimonial-text {
+    font-size: 15px; color: var(--gray-700); line-height: 1.7; margin-bottom: 20px;
+    font-style: italic;
+  }
+
+  .testimonial-author { display: flex; align-items: center; gap: 12px; }
+
+  .author-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--green); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+
+  .author-name { font-size: 14px; font-weight: 600; }
+  .author-role { font-size: 12px; color: var(--gray-500); }
+
+  /* CTA BANNER */
+  .cta-banner {
+    background: var(--green);
+    border-radius: 32px;
+    padding: 80px 60px;
+    text-align: center; margin: 0 24px 100px;
+    max-width: 1200px; margin: 0 auto; position: relative; overflow: hidden;
+  }
+
+  .cta-banner::before {
+    content: '';
+    position: absolute; top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    background: rgba(255,255,255,0.05); border-radius: 50%;
+  }
+
+  .cta-banner h2 { color: white; margin-bottom: 16px; }
+  .cta-banner p { color: rgba(255,255,255,0.8); font-size: 18px; margin-bottom: 40px; }
+
+  .cta-pills {
+    display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap;
+  }
+
+  .cta-pill {
+    background: rgba(255,255,255,0.15); color: white;
+    padding: 8px 18px; border-radius: 100px;
+    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .btn-white {
+    background: white; color: var(--green);
+    padding: 18px 40px; border-radius: 14px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 18px;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: inline-block;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+
+  .btn-white:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.2); }
+
+  /* FOOTER */
+  footer {
+    background: var(--black); color: white;
+    padding: 60px 24px;
+  }
+
+  .footer-inner { max-width: 1200px; margin: 0 auto; }
+
+  .footer-grid {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; margin-bottom: 48px;
+  }
+
+  .footer-brand p { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 16px; line-height: 1.7; }
+
+  .footer-col h4 { font-size: 14px; font-weight: 700; margin-bottom: 20px; color: rgba(255,255,255,0.9); }
+
+  .footer-col a {
+    display: block; color: rgba(255,255,255,0.5); text-decoration: none;
+    font-size: 14px; margin-bottom: 10px; transition: color 0.2s;
+  }
+
+  .footer-col a:hover { color: white; }
+
+  .footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px;
+  }
+
+  .footer-bottom p { font-size: 13px; color: rgba(255,255,255,0.4); }
+
+  /* DASHBOARD PREVIEW */
+  .dashboard-section { background: var(--black); padding: 100px 24px; }
+  .dashboard-section h2 { color: white; }
+  .dashboard-section .section-tag { background: rgba(22,163,74,0.15); color: #4ade80; border-color: rgba(22,163,74,0.3); }
+  .dashboard-section .section-sub { color: rgba(255,255,255,0.6); }
+
+  .dashboard-preview {
+    margin-top: 64px;
+    background: #1a1a2e;
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+  }
+
+  .dashboard-topbar {
+    background: var(--green);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .topbar-logo { font-family: 'Syne', sans-serif; font-weight: 800; color: white; font-size: 16px; }
+
+  .topbar-nav {
+    display: flex; gap: 8px;
+  }
+
+  .topbar-nav span {
+    background: rgba(255,255,255,0.15); color: white;
+    padding: 5px 12px; border-radius: 8px; font-size: 12px;
+    cursor: pointer;
+  }
+
+  .topbar-nav span.active { background: rgba(255,255,255,0.25); }
+
+  .dashboard-body { padding: 28px; }
+
+  .db-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px;
+  }
+
+  .db-stat-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 20px;
+  }
+
+  .db-stat-label { font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .db-stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: white; }
+  .db-stat-value.green { color: #4ade80; }
+  .db-stat-value.red { color: #f87171; }
+
+  .db-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
+
+  .db-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 20px;
+  }
+
+  .db-card h4 { font-size: 14px; font-weight: 600; color: white; margin-bottom: 16px; }
+
+  .db-tx { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .db-tx-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .db-tx-info { flex: 1; }
+  .db-tx-name { font-size: 13px; color: white; font-weight: 500; }
+  .db-tx-cat { font-size: 11px; color: rgba(255,255,255,0.4); }
+  .db-tx-amount { font-size: 14px; font-weight: 700; }
+  .db-tx-amount.neg { color: #f87171; }
+  .db-tx-amount.pos { color: #4ade80; }
+
+  .db-cat { margin-bottom: 12px; }
+  .db-cat-label { display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 6px; }
+  .db-cat-bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 100px; overflow: hidden; }
+  .db-cat-fill { height: 100%; border-radius: 100px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .hero-inner { grid-template-columns: 1fr; gap: 48px; }
+    .hero-visual { display: none; }
+    .steps-grid { grid-template-columns: 1fr 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .testimonials-grid { grid-template-columns: 1fr; }
+    .pricing-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+    .db-row { grid-template-columns: 1fr; }
+    .db-stats { grid-template-columns: 1fr; }
+    .topbar-nav { display: none; }
+  }
+
+  @media (max-width: 600px) {
+    .steps-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+    .cta-banner { padding: 48px 28px; }
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-up { animation: fadeUp 0.6s ease forwards; }
+  .fade-up-2 { animation: fadeUp 0.6s ease 0.15s forwards; opacity: 0; }
+  .fade-up-3 { animation: fadeUp 0.6s ease 0.3s forwards; opacity: 0; }
+  .fade-up-4 { animation: fadeUp 0.6s ease 0.45s forwards; opacity: 0; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">💰</div>
+    GranaZen
+  </a>
+  <ul class="nav-links">
+    <li><a href="#funcionalidades">Funcionalidades</a></li>
+    <li><a href="#como-funciona">Como funciona</a></li>
+    <li><a href="#planos">Planos</a></li>
+    <li><a href="#depoimentos">Depoimentos</a></li>
+  </ul>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <a href="/login" class="btn-secondary" style="padding:8px 18px;font-size:14px;">Entrar</a>
+    <a href="/cadastro" class="btn-primary">Começar grátis →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-badge fade-up">
+        <span></span> +38 mil pessoas já usam
+      </div>
+      <h1 class="fade-up-2">
+        Controle financeiro<br><em>pelo WhatsApp</em><br>com IA
+      </h1>
+      <p class="hero-sub fade-up-3">
+        Mande uma mensagem, foto ou áudio e nossa IA registra, categoriza e organiza tudo. Simples como mandar mensagem para um amigo.
+      </p>
+      <div class="hero-ctas fade-up-4">
+        <a href="/cadastro" class="btn-hero">Teste grátis por 3 dias</a>
+        <a href="#como-funciona" class="btn-secondary" style="padding:16px 28px;font-size:16px;border-radius:14px;">Ver como funciona</a>
+      </div>
+      <div class="hero-trust fade-up-4">
+        <div class="trust-avatars">
+          <span>M</span><span>J</span><span>A</span><span>R</span>
+        </div>
+        <div class="trust-text">
+          <strong>+38.000 pessoas</strong> confiaram no GranaZen
+          <br>para organizar suas finanças
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="phone-wrap">
+        <div class="stat-bubble left">
+          <div class="stat-icon" style="background:#f0fdf4;">🎯</div>
+          <div>
+            <div style="font-size:11px;color:#6b7280;font-weight:500;">Saldo</div>
+            <div style="color:#16a34a;">R$ 3.240,00</div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-header">
+              <div class="phone-avatar">🤖</div>
+              <div class="phone-contact">
+                <strong>GranaZen IA</strong>
+                <span>● Online agora</span>
+              </div>
+            </div>
+            <div class="phone-msgs">
+              <div class="msg msg-user">
+                Paguei 120 reais de mercado hoje
+                <div class="msg-time">14:23 ✓✓</div>
+              </div>
+              <div class="msg msg-bot confirm">
+                ✅ Registrado!<br>
+                <strong>R$ 120,00</strong> em Alimentação<br>
+                Saldo: R$ 3.240,00
+                <div class="msg-time">14:23</div>
+              </div>
+              <div class="msg msg-user">
+                Recebi meu salário de 5000
+                <div class="msg-time">16:01 ✓✓</div>
+              </div>
+              <div class="msg msg-bot confirm">
+                🎉 Receita registrada!<br>
+                <strong>R$ 5.000,00</strong> em Salário<br>
+                Saldo: R$ 8.240,00
+                <div class="msg-time">16:01</div>
+              </div>
+              <div class="msg msg-user">
+                Mostre o resumo do mês
+                <div class="msg-time">18:45 ✓✓</div>
+              </div>
+              <div class="msg msg-bot">
+                📊 <strong>Maio 2026</strong><br>
+                💚 Receitas: R$ 5.000<br>
+                🔴 Despesas: R$ 1.760<br>
+                💰 Saldo: R$ 8.240
+                <div class="msg-time">18:45</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="stat-bubble right">
+          <div class="stat-icon" style="background:#fef9c3;">📊</div>
+          <div>
+            <div style="font-size:11px;color:#6b7280;font-weight:500;">Este mês</div>
+            <div style="color:#16a34a;font-size:13px;">-R$ 1.760</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="como-funciona">
+  <div class="section-inner">
+    <div class="section-tag">Como funciona</div>
+    <h2>Do WhatsApp ao <em>relatório</em><br>em segundos</h2>
+    <p class="section-sub">Sem planilhas, sem apps complicados. Só mande uma mensagem.</p>
+
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Mande uma mensagem</h3>
+        <p>Texto, áudio, foto de nota fiscal ou PDF — o GranaZen entende tudo direto no WhatsApp.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>A IA processa</h3>
+        <p>Nossa inteligência artificial identifica o valor, categoria e subcategoria automaticamente.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Confirmação imediata</h3>
+        <p>Receba uma resposta instantânea confirmando o registro com saldo atualizado.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Veja os gráficos</h3>
+        <p>Acesse o painel web com relatórios, gráficos e fluxo de caixa em tempo real.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD PREVIEW -->
+<section class="dashboard-section">
+  <div class="section-inner">
+    <div class="section-tag">Painel de controle</div>
+    <h2 style="color:white;">Tudo em <em>um lugar</em> só</h2>
+    <p class="section-sub">Gráficos interativos, relatórios detalhados e controle total das suas finanças.</p>
+    
+    <div class="dashboard-preview">
+      <div class="dashboard-topbar">
+        <div class="topbar-logo">💰 GranaZen</div>
+        <div class="topbar-nav">
+          <span class="active">Painel</span>
+          <span>Relatórios</span>
+          <span>Categorias</span>
+          <span>Contas</span>
+          <span>Metas</span>
+        </div>
+        <div style="width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;">M</div>
+      </div>
+      <div class="dashboard-body">
+        <div class="db-stats">
+          <div class="db-stat-card">
+            <div class="db-stat-label">📈 Receitas — Maio</div>
+            <div class="db-stat-value green">R$ 8.500,00</div>
+          </div>
+          <div class="db-stat-card">
+            <div class="db-stat-label">📉 Despesas — Maio</div>
+            <div class="db-stat-value red">R$ 3.240,00</div>
+          </div>
+          <div class="db-stat-card">
+            <div class="db-stat-label">💰 Saldo Disponível</div>
+            <div class="db-stat-value" style="color:#60a5fa;">R$ 5.260,00</div>
+          </div>
+        </div>
+        <div class="db-row">
+          <div class="db-card">
+            <h4>Últimas transações</h4>
+            <div class="db-tx">
+              <div class="db-tx-icon" style="background:rgba(34,197,94,0.15);">🛒</div>
+              <div class="db-tx-info">
+                <div class="db-tx-name">Mercado Extra</div>
+                <div class="db-tx-cat">Alimentação · hoje</div>
+              </div>
+              <div class="db-tx-amount neg">-R$ 142,80</div>
+            </div>
+            <div class="db-tx">
+              <div class="db-tx-icon" style="background:rgba(99,102,241,0.15);">💼</div>
+              <div class="db-tx-info">
+                <div class="db-tx-name">Salário</div>
+                <div class="db-tx-cat">Renda · 05/05</div>
+              </div>
+              <div class="db-tx-amount pos">+R$ 5.000,00</div>
+            </div>
+            <div class="db-tx">
+              <div class="db-tx-icon" style="background:rgba(245,158,11,0.15);">⛽</div>
+              <div class="db-tx-info">
+                <div class="db-tx-name">Posto Shell</div>
+                <div class="db-tx-cat">Transporte · 04/05</div>
+              </div>
+              <div class="db-tx-amount neg">-R$ 180,00</div>
+            </div>
+            <div class="db-tx">
+              <div class="db-tx-icon" style="background:rgba(239,68,68,0.15);">🏠</div>
+              <div class="db-tx-info">
+                <div class="db-tx-name">Aluguel</div>
+                <div class="db-tx-cat">Moradia · 01/05</div>
+              </div>
+              <div class="db-tx-amount neg">-R$ 1.200,00</div>
+            </div>
+          </div>
+          <div class="db-card">
+            <h4>Gastos por categoria</h4>
+            <div class="db-cat">
+              <div class="db-cat-label"><span>🏠 Moradia</span><span>R$ 1.200</span></div>
+              <div class="db-cat-bar"><div class="db-cat-fill" style="width:72%;background:#60a5fa;"></div></div>
+            </div>
+            <div class="db-cat">
+              <div class="db-cat-label"><span>🛒 Alimentação</span><span>R$ 840</span></div>
+              <div class="db-cat-bar"><div class="db-cat-fill" style="width:50%;background:#4ade80;"></div></div>
+            </div>
+            <div class="db-cat">
+              <div class="db-cat-label"><span>⛽ Transporte</span><span>R$ 560</span></div>
+              <div class="db-cat-bar"><div class="db-cat-fill" style="width:33%;background:#fbbf24;"></div></div>
+            </div>
+            <div class="db-cat">
+              <div class="db-cat-label"><span>📺 Assinaturas</span><span>R$ 340</span></div>
+              <div class="db-cat-bar"><div class="db-cat-fill" style="width:20%;background:#a78bfa;"></div></div>
+            </div>
+            <div class="db-cat">
+              <div class="db-cat-label"><span>🎉 Lazer</span><span>R$ 300</span></div>
+              <div class="db-cat-bar"><div class="db-cat-fill" style="width:18%;background:#f87171;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="funcionalidades">
+  <div class="section-inner">
+    <div class="section-tag">Funcionalidades</div>
+    <h2>Tudo que você precisa<br><em>sem o que não precisa</em></h2>
+    <p class="section-sub">Feito para quem quer controlar finanças de forma simples, sem complicação.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f0fdf4;">💬</div>
+        <h3>WhatsApp nativo</h3>
+        <p>Use o app que você já tem. Mande texto, áudio, foto ou PDF. A IA entende e registra automaticamente.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#eff6ff;">🤖</div>
+        <h3>Categorização com IA</h3>
+        <p>Nossa IA identifica a categoria e subcategoria de cada transação sem você precisar escolher nada.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fef3c7;">🔔</div>
+        <h3>Lembretes automáticos</h3>
+        <p>Receba alertas de contas a pagar e receber direto no WhatsApp e email. Nunca mais pague multa.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#f5f3ff;">📊</div>
+        <h3>Gráficos interativos</h3>
+        <p>Visualize para onde seu dinheiro vai com gráficos de pizza, barras e fluxo de caixa em tempo real.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#fff7ed;">🎯</div>
+        <h3>Limites de gastos</h3>
+        <p>Defina limites por categoria e receba alertas antes de estourar o orçamento. Fique no controle.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:#ecfeff;">👥</div>
+        <h3>Gestão compartilhada</h3>
+        <p>Gerencie finanças em família, casal ou empresa. Cada membro usa seu próprio WhatsApp.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section id="depoimentos" style="background: var(--gray-100);">
+  <div class="section-inner">
+    <div class="section-tag">Depoimentos</div>
+    <h2>O que nossos<br><em>usuários dizem</em></h2>
+
+    <div class="testimonials-grid">
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <p class="testimonial-text">"O GranaZen mudou minha relação com dinheiro. Antes eu não sabia pra onde ia, hoje vejo tudo no painel e consigo poupar todo mês."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">J</div>
+          <div>
+            <div class="author-name">Jéssica Caroline</div>
+            <div class="author-role">Engenheira de Dados</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <p class="testimonial-text">"Hoje o GranaZen faz parte do meu dia a dia. Só mando mensagem no WhatsApp e no final do mês tenho o relatório completo. Super prático."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">M</div>
+          <div>
+            <div class="author-name">Matheus Andreatta</div>
+            <div class="author-role">Desenvolvedor de Software</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="stars">★★★★★</div>
+        <p class="testimonial-text">"Incrível! A IA categoriza tudo certinho, registra transações recorrentes e ainda me lembra das contas. O preço é super acessível pra tanto valor."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">A</div>
+          <div>
+            <div class="author-name">Janaina Jaques</div>
+            <div class="author-role">Economista</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="planos">
+  <div class="section-inner">
+    <div class="section-tag">Planos</div>
+    <h2>Simples e<br><em>sem surpresas</em></h2>
+    <p class="section-sub">Comece grátis por 3 dias, sem cartão de crédito. Cancele quando quiser.</p>
+
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Premium</div>
+        <div class="price-desc">Perfeito para controle pessoal</div>
+        <div class="price-amount">
+          <span class="price-currency">R$</span>
+          <span class="price-value">19</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <ul class="price-features">
+          <li>Registros ilimitados via WhatsApp</li>
+          <li>Texto, áudio, foto e PDF</li>
+          <li>Categorização automática com IA</li>
+          <li>Gráficos e relatórios</li>
+          <li>Até 3 contas bancárias</li>
+          <li>Limites de gastos</li>
+          <li>Lembretes de contas</li>
+          <li class="no">Gestão compartilhada</li>
+          <li class="no">Exportação de dados</li>
+        </ul>
+        <a href="/cadastro?plano=premium" class="btn-secondary" style="width:100%;justify-content:center;font-size:16px;padding:14px;">Começar grátis</a>
+      </div>
+      <div class="price-card popular">
+        <div class="popular-badge">Mais popular</div>
+        <div class="price-name">Zen 🏆</div>
+        <div class="price-desc">Para quem quer o máximo</div>
+        <div class="price-amount">
+          <span class="price-currency">R$</span>
+          <span class="price-value">39</span>
+          <span class="price-period">/mês</span>
+        </div>
+        <ul class="price-features">
+          <li>Tudo do Premium</li>
+          <li>Contas bancárias ilimitadas</li>
+          <li>Gestão compartilhada</li>
+          <li>Exportação CSV e Excel</li>
+          <li>Suporte humanizado</li>
+          <li>Metas de investimento</li>
+          <li>Relatório PDF mensal</li>
+        </ul>
+        <a href="/cadastro?plano=zen" class="btn-primary" style="width:100%;justify-content:center;font-size:16px;padding:14px;">Começar grátis</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section style="padding: 100px 24px;">
+  <div class="cta-banner">
+    <h2>Pronto para ter<br>controle real das suas finanças?</h2>
+    <p>Sem planilhas, sem complicação. Só seu WhatsApp.</p>
+    <div class="cta-pills">
+      <div class="cta-pill">✓ 3 dias grátis</div>
+      <div class="cta-pill">✓ Cancele quando quiser</div>
+      <div class="cta-pill">✓ Sem cartão de crédito</div>
+    </div>
+    <a href="/cadastro" class="btn-white">Começar agora — é grátis →</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="nav-logo" style="text-decoration:none;">
+          <div class="nav-logo-icon">💰</div>
+          GranaZen
+        </div>
+        <p>Controle financeiro inteligente pelo WhatsApp. Desenvolvido com carinho para brasileiros que querem organizar as finanças de um jeito simples.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Produto</h4>
+        <a href="#funcionalidades">Funcionalidades</a>
+        <a href="#como-funciona">Como funciona</a>
+        <a href="#planos">Planos e preços</a>
+        <a href="#depoimentos">Depoimentos</a>
+      </div>
+      <div class="footer-col">
+        <h4>Suporte</h4>
+        <a href="#">Central de ajuda</a>
+        <a href="#">Comunidade</a>
+        <a href="https://api.whatsapp.com/send?phone=5541992593302">WhatsApp</a>
+        <a href="mailto:contato@granazen.com">Email</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="/termos">Termos de uso</a>
+        <a href="/privacidade">Privacidade</a>
+        <a href="/cookies">Cookies</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 GranaZen. Todos os direitos reservados.</p>
+      <p>Pagamentos seguros via <span style="background:linear-gradient(135deg,#635bff,#0570de);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;">Stripe</span></p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

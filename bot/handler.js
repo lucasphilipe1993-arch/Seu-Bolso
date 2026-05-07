@@ -349,9 +349,7 @@ class BotGranaZen {
           if (remoteJid.endsWith('@g.us')) continue;
           if (remoteJid === 'status@broadcast') continue;
           if (!remoteJid.endsWith('@s.whatsapp.net') && !remoteJid.endsWith('@lid')) continue;
-if (remoteJid.endsWith('@lid')) {
-  console.log('🔍 MSG COMPLETA LID:', JSON.stringify(msg, null, 2));
-}
+
           const telefone = await this._resolverTelefone(remoteJid);
           console.log(`📩 mensagem de: ${telefone} | pushName: ${msg.pushName}`);
 
@@ -655,6 +653,52 @@ if (remoteJid.endsWith('@lid')) {
       ]);
     } catch (err) {
       console.warn(`Falha ao enviar para ${jid}: ${err.message}`);
+    }
+  }
+
+  // ─── Envia boas-vindas e captura o LID real na resposta ──────
+  // Chamado no cadastro para mapear telefone → LID antes da 1ª mensagem
+  async enviarBoasVindasECapturarLid(telefone, usuarioId, nome) {
+    if (!this.socket || !this.conectado) {
+      console.warn('Bot desconectado, não enviou boas-vindas');
+      return;
+    }
+
+    const jid = `55${telefone}@s.whatsapp.net`;
+
+    try {
+      const resultado = await Promise.race([
+        this.socket.sendMessage(jid, { text: this.msgBemVindo(nome) }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
+      ]);
+
+      console.log('📤 Resposta sendMessage boas-vindas:', JSON.stringify(resultado?.key || resultado, null, 2));
+
+      // O Baileys retorna o JID real (pode ser LID) na chave da mensagem enviada
+      const jidReal = resultado?.key?.remoteJid || resultado?.key?.participant || null;
+
+      if (jidReal && jidReal.endsWith('@lid')) {
+        console.log(`🔗 LID capturado no envio: ${jidReal} → ${telefone}`);
+        lidCache.set(jidReal, telefone);
+        await this._garantirTabelaLidMap();
+        await db.query(
+          `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2)
+           ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+          [jidReal, telefone]
+        );
+        await db.query(
+          `ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`
+        ).catch(() => {});
+        await db.query(
+          `UPDATE sessoes_bot SET lid = $1 WHERE usuario_id = $2`,
+          [jidReal, usuarioId]
+        );
+        console.log(`✅ LID vinculado ao usuário ${usuarioId}: ${jidReal}`);
+      } else {
+        console.log(`ℹ️  JID retornado no envio: ${jidReal} (não é LID, número usa @s.whatsapp.net normal)`);
+      }
+    } catch (err) {
+      console.warn(`Falha ao enviar boas-vindas para ${jid}:`, err.message);
     }
   }
 

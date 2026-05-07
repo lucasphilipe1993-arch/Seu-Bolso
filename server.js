@@ -10,7 +10,7 @@ const db = require('./database/db');
 
 // ── Roda o schema automaticamente na primeira inicialização ──
 const fs = require('fs');
-const path = require('path');
+
 async function inicializarBanco() {
   try {
     const schema = fs.readFileSync(path.join(__dirname, 'database/schema.sql'), 'utf8');

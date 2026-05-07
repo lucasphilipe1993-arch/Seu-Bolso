@@ -27,7 +27,7 @@ class BotGranaZen {
       auth: state,
       printQRInTerminal: true,
       browser: ['GranaZen Bot', 'Chrome', '1.0'],
-      logger: { level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: console.warn, error: console.error, fatal: console.error, child: () => this.logger },
+      logger: { level: 'silent', trace:logger: { level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: console.warn, error: console.error, fatal: console.error, child: () => ({ level: 'silent', trace: () => {}, debug: () => {}, info: () => {}, warn: console.warn, error: console.error, fatal: console.error, child: () => ({}) }) }, () => {}, debug: () => {}, info: () => {}, warn: console.warn, error: console.error, fatal: console.error, child: () => this.logger },
     });
 
     this.socket.ev.on('creds.update', saveCreds);

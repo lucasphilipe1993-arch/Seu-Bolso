@@ -714,6 +714,68 @@
             .grid-3 { grid-template-columns: 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
         }
+
+        /* ══ WHATSAPP IA ══ */
+        .wa-tabs { display:flex; gap:4px; margin-bottom:18px; border-bottom:2px solid var(--gray-200); padding-bottom:0; }
+        .wa-tab { padding:10px 18px; font-size:13.5px; font-weight:500; color:var(--gray-400); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; background:none; border-top:none; border-left:none; border-right:none; font-family:'Inter',sans-serif; }
+        .wa-tab:hover { color:var(--navy); }
+        .wa-tab.active { color:var(--navy); border-bottom-color:var(--navy); font-weight:700; }
+        .wa-tab-content { display:none; }
+        .wa-tab-content.active { display:block; }
+        .wa-empresa-pills { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+        .wa-empresa-pill { padding:7px 16px; border-radius:20px; border:1px solid var(--gray-200); background:var(--white); color:var(--gray-500); font-size:13px; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:6px; }
+        .wa-empresa-pill:hover { border-color:var(--gold); color:#7a6130; }
+        .wa-empresa-pill.active { background:var(--gold-pale); border-color:var(--gold); color:#7a6130; font-weight:600; }
+        .wa-pill-dot { width:7px; height:7px; border-radius:50%; display:inline-block; background:#ccc; flex-shrink:0; }
+        .wa-pill-dot.online { background:var(--green); box-shadow:0 0 5px var(--green); }
+        .wa-pill-dot.qr { background:#d97706; box-shadow:0 0 5px #d97706; }
+        .wa-status { font-size:10px; padding:2px 8px; border-radius:12px; font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+        .wa-status.conectado { background:var(--green-bg); color:var(--green); }
+        .wa-status.desconectado { background:var(--red-bg); color:var(--red); }
+        .wa-status.aguardando_qr { background:#fef3c7; color:#d97706; }
+        .wa-status.conectando { background:#eff6ff; color:#2563eb; }
+        .wa-qr-box { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:12px; gap:14px; max-width:320px; }
+        .wa-qr-box img { width:220px; height:220px; border-radius:10px; border:4px solid var(--navy); }
+        .wa-qr-placeholder { width:220px; height:220px; border-radius:10px; background:var(--gray-100); border:1px dashed var(--gray-300); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--gray-400); font-size:12px; text-align:center; }
+        .wa-chat-layout { display:grid; grid-template-columns:280px 1fr; gap:14px; height:520px; overflow:hidden; }
+        .wa-contact-list { background:white; border:1px solid var(--gray-200); border-radius:12px; overflow-y:auto; height:520px; }
+        .wa-contact-item { padding:12px 14px; cursor:pointer; border-bottom:1px solid var(--gray-100); transition:background .12s; position:relative; }
+        .wa-contact-item:hover { background:var(--gray-50); }
+        .wa-contact-item.active { background:var(--gold-pale); border-left:3px solid var(--gold); }
+        .wa-delete-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:13px; opacity:0; transition:opacity .15s; padding:4px 6px; border-radius:6px; color:var(--gray-400); }
+        .wa-contact-item:hover .wa-delete-btn { opacity:1; }
+        .wa-delete-btn:hover { background:var(--red-bg); color:var(--red); }
+        .wa-contact-name { font-size:13px; font-weight:600; color:var(--gray-900); }
+        .wa-contact-preview { font-size:11px; color:var(--gray-400); margin-top:2px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:200px; }
+        .wa-contact-time { font-size:10px; color:var(--gray-400); float:right; margin-top:2px; }
+        .wa-unread-dot { width:8px; height:8px; background:var(--green); border-radius:50%; display:inline-block; margin-left:5px; }
+        .wa-chat-box { background:white; border:1px solid var(--gray-200); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; height:520px; border-top:3px solid var(--navy); }
+        .wa-chat-header { padding:14px 16px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; gap:10px; background:var(--gray-50); }
+        .wa-chat-messages { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; background:#f0f4ff; }
+        .wa-msg { max-width:72%; padding:10px 14px; border-radius:12px; font-size:13.5px; line-height:1.5; }
+        .wa-msg.recebida { background:white; border:1px solid var(--gray-200); align-self:flex-start; border-bottom-left-radius:3px; color:var(--gray-900); box-shadow:0 1px 3px rgba(0,0,0,.07); }
+        .wa-msg.enviada { background:var(--navy); align-self:flex-end; border-bottom-right-radius:3px; color:white; }
+        .wa-msg-time { font-size:10px; color:rgba(255,255,255,.55); margin-top:3px; }
+        .wa-msg.recebida .wa-msg-time { color:var(--gray-400); }
+        .wa-chat-input { padding:12px 14px; border-top:1px solid var(--gray-200); display:flex; gap:8px; background:white; }
+        .wa-chat-input input { flex:1; background:var(--gray-50); border:1px solid var(--gray-200); color:var(--gray-900); border-radius:8px; padding:10px 13px; font-size:13px; font-family:'Inter',sans-serif; }
+        .wa-chat-input input:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(184,148,86,.12); }
+        .wa-leads-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+        .wa-disparo-box { background:white; border:1px solid var(--gray-200); border-radius:12px; padding:22px; max-width:700px; }
+        .wa-config-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .wa-notif-toast { position:fixed; bottom:24px; right:24px; background:white; border:1px solid var(--gray-200); border-left:4px solid var(--green); border-radius:10px; padding:12px 18px; display:flex; align-items:center; gap:10px; font-size:13px; color:var(--gray-900); box-shadow:0 4px 20px rgba(0,0,0,.12); z-index:9999; cursor:pointer; max-width:320px; }
+        .wa-notif-name { font-weight:600; font-size:12px; color:var(--green); }
+        .wa-notif-msg { font-size:12px; color:var(--gray-500); margin-top:2px; }
+        .wa-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:1000; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .wa-modal-overlay.open { opacity:1; pointer-events:all; }
+        .wa-modal { background:white; border-radius:16px; padding:0; width:520px; max-width:94vw; box-shadow:0 20px 60px rgba(0,0,0,.15); overflow:hidden; transform:scale(.95); transition:transform .2s; }
+        .wa-modal-overlay.open .wa-modal { transform:scale(1); }
+        .wa-modal-head { display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid var(--gray-200); }
+        .wa-modal-head h3 { font-size:16px; font-weight:700; color:var(--navy); }
+        .wa-modal-close { background:none; border:none; font-size:18px; cursor:pointer; color:var(--gray-400); line-height:1; }
+        .wa-modal-body { padding:20px 22px; max-height:65vh; overflow-y:auto; }
+        .wa-modal-foot { padding:14px 22px; border-top:1px solid var(--gray-200); display:flex; justify-content:flex-end; gap:8px; }
+        @media(max-width:760px) { .wa-config-grid{grid-template-columns:1fr} .wa-chat-layout{grid-template-columns:1fr;height:auto} }
     </style>
 </head>
 <body>
@@ -797,6 +859,13 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                     </div>
                     <span>Metas</span>
+                </div>
+                <div class="nav-item" data-page="whatsapp-ia" id="nav-whatsapp-ia">
+                    <div class="nav-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    </div>
+                    <span>WhatsApp IA</span>
+                    <span id="badge-wa-naoLidas" style="display:none;margin-left:auto;background:#fee2e2;color:#dc2626;font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;">0</span>
                 </div>
             </div>
 
@@ -1739,7 +1808,7 @@
         painel: 'Painel sua grana', transacoes: 'Transações', relatorios: 'Relatórios',
         graficos: 'Gráficos', fluxocaixa: 'Fluxo de caixa', contas: 'Contas bancárias',
         cartoes: 'Cartões de crédito', categorias: 'Categorias', limites: 'Limites de gastos',
-        configuracoes: 'Configurações'
+        configuracoes: 'Configurações', 'whatsapp-ia': 'WhatsApp IA'
     };
 
     // Nav
@@ -1761,6 +1830,7 @@
             document.getElementById(pageId).classList.add('active');
             this.classList.add('active');
             document.getElementById('pageTitle').textContent = pageTitles[pageId];
+            if (pageId === 'whatsapp-ia') setTimeout(waInit, 50);
         });
     });
 
@@ -1899,6 +1969,839 @@
         closeModal('modalClearData');
         document.getElementById('confirmDelete').value = '';
     }
+</script>
+<!-- ══ PÁGINA: WHATSAPP IA ══ -->
+<div id="whatsapp-ia" class="page">
+
+  <!-- Pills de empresa -->
+  <div class="wa-empresa-pills" id="wa-empresa-pills">
+    <div style="color:var(--gray-400);font-size:13px;padding:8px">Carregando sessões...</div>
+  </div>
+
+  <!-- Ação principal -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    <button class="btn btn-primary" onclick="waAbrirModalNovaSessao()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nova Sessão
+    </button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="wa-tabs">
+    <button class="wa-tab active" onclick="waTab('painel',this)">📊 Painel</button>
+    <button class="wa-tab" onclick="waTab('conversas',this)">💬 Conversas</button>
+    <button class="wa-tab" onclick="waTab('leads',this)">👥 Leads</button>
+    <button class="wa-tab" onclick="waTab('disparo',this)">🚀 Disparo</button>
+    <button class="wa-tab" onclick="waTab('config',this)">⚙️ Config</button>
+    <button class="wa-tab" onclick="waTab('bloqueados',this);waBloqCarregar()">🚫 Bloqueados</button>
+  </div>
+
+  <!-- TAB: PAINEL -->
+  <div class="wa-tab-content active" id="wa-tab-painel">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+      <div class="card" style="padding:18px 20px;margin-bottom:0">
+        <div class="stat-label">Status</div>
+        <div id="wa-stat-status" style="font-size:13px;font-weight:600;color:var(--navy);margin-top:4px">—</div>
+      </div>
+      <div class="card" style="padding:18px 20px;margin-bottom:0">
+        <div class="stat-label">Leads Captados</div>
+        <div class="stat-value" id="wa-stat-leads">—</div>
+      </div>
+      <div class="card" style="padding:18px 20px;margin-bottom:0">
+        <div class="stat-label">Mensagens Hoje</div>
+        <div class="stat-value" id="wa-stat-hoje">—</div>
+      </div>
+      <div class="card" style="padding:18px 20px;margin-bottom:0">
+        <div class="stat-label">Não Lidas</div>
+        <div class="stat-value" id="wa-stat-naoLidas" style="color:var(--gold)">—</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+      <div>
+        <h3 class="card-title" style="margin-bottom:12px">Conexão WhatsApp</h3>
+        <div class="wa-qr-box" id="wa-qr-box">
+          <div class="wa-qr-placeholder" id="wa-qr-placeholder">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="1.5"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="4" y="4" width="4" height="4" fill="var(--gray-300)" rx=".5"/><rect x="16" y="4" width="4" height="4" fill="var(--gray-300)" rx=".5"/><rect x="4" y="16" width="4" height="4" fill="var(--gray-300)" rx=".5"/></svg>
+            <span id="wa-qr-msg" style="text-align:center;padding:0 16px">Clique em "Conectar" para gerar o QR Code</span>
+          </div>
+          <img id="wa-qr-img" src="" alt="QR Code" style="display:none">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-primary" onclick="waConectar()" id="wa-btn-conectar">📲 Conectar</button>
+          <button class="btn btn-secondary" onclick="waDesconectar()" id="wa-btn-desconectar">🔌 Desconectar</button>
+        </div>
+        <div id="wa-conn-info" style="margin-top:8px;font-size:12px;color:var(--gray-400)"></div>
+      </div>
+      <div style="flex:1;min-width:280px">
+        <h3 class="card-title" style="margin-bottom:12px">Como conectar</h3>
+        <div class="card">
+          <ol style="padding-left:18px;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--gray-500)">
+            <li>Clique em <strong style="color:var(--navy)">Conectar</strong> para gerar o QR Code</li>
+            <li>No celular, abra o WhatsApp</li>
+            <li>Vá em <strong>Configurações → Aparelhos Conectados</strong></li>
+            <li>Toque em <strong>Conectar um aparelho</strong></li>
+            <li>Escaneie o QR Code aqui</li>
+            <li>Pronto! A IA vai responder automaticamente 🎉</li>
+          </ol>
+          <div style="margin-top:14px;padding:10px 13px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#d97706">
+            ⚠️ O QR Code expira em 60 segundos. Se expirar, clique em Conectar novamente.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: CONVERSAS -->
+  <div class="wa-tab-content" id="wa-tab-conversas">
+    <div class="wa-chat-layout" id="wa-chat-box-container">
+      <div class="wa-contact-list" id="wa-contact-list">
+        <div style="padding:11px 14px;border-bottom:1px solid var(--gray-200)">
+          <input type="text" placeholder="🔍 Buscar contato..." oninput="waFiltrarContatos(this.value)"
+            style="width:100%;background:var(--gray-50);border:1px solid var(--gray-200);color:var(--gray-900);border-radius:8px;padding:8px 11px;font-size:12px;font-family:'Inter',sans-serif">
+        </div>
+        <div id="wa-contacts-body">
+          <div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">Selecione uma sessão acima</div>
+        </div>
+      </div>
+      <div class="wa-chat-box" id="wa-chat-box">
+        <div class="wa-chat-header" id="wa-chat-header">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--gray-900)" id="wa-chat-nome">Selecione uma conversa</div>
+            <div style="font-size:11px;color:var(--gray-400)" id="wa-chat-numero"></div>
+          </div>
+          <div id="wa-human-mode-badge" style="display:none;align-items:center;gap:8px">
+            <span id="wa-human-mode-label" style="font-size:11px;color:#d97706;font-weight:600">🧑 VOCÊ NO CONTROLE</span>
+            <button id="wa-human-mode-btn" onclick="waToggleModoHumano()" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid;cursor:pointer;font-weight:600"></button>
+          </div>
+        </div>
+        <div class="wa-chat-messages" id="wa-chat-messages">
+          <div style="text-align:center;color:var(--gray-400);font-size:12px;margin:auto">Clique em um contato para ver as mensagens</div>
+        </div>
+        <div class="wa-chat-input" id="wa-chat-input-area" style="display:none">
+          <input type="text" id="wa-msg-input" placeholder="Digite uma mensagem..." onkeydown="if(event.key==='Enter')waEnviarMensagem()">
+          <button class="btn btn-primary" onmousedown="event.preventDefault()" onclick="waEnviarMensagem()" style="padding:10px 18px">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: LEADS -->
+  <div class="wa-tab-content" id="wa-tab-leads">
+    <div class="wa-leads-header">
+      <input type="text" placeholder="🔍 Buscar lead..." oninput="waFiltrarLeads(this.value)"
+        style="background:white;border:1px solid var(--gray-200);color:var(--gray-900);border-radius:8px;padding:9px 14px;font-size:13px;font-family:'Inter',sans-serif;width:280px">
+      <button class="btn btn-secondary" onclick="waExportarLeads()">⬇️ Exportar CSV</button>
+    </div>
+    <div class="card" style="overflow-x:auto;padding:0">
+      <table class="table">
+        <thead><tr><th>Nome</th><th>Número</th><th>Empresa</th><th>Último Contato</th><th>Notas</th><th>Ações</th></tr></thead>
+        <tbody id="wa-leads-body">
+          <tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:28px">Selecione uma sessão para ver os leads</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: DISPARO -->
+  <div class="wa-tab-content" id="wa-tab-disparo">
+    <div class="wa-disparo-box">
+      <h3 class="card-title" style="margin-bottom:18px">🚀 Disparo em Massa via WhatsApp</h3>
+      <div class="form-group">
+        <label class="form-label">Empresa (sessão)</label>
+        <select id="wa-disp-sessao" class="form-select"><option value="">Selecione a empresa...</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Destinatários — formato: <code style="color:var(--gold);font-size:11px">5511999999999,Nome</code></label>
+        <textarea id="wa-disp-destinatarios" class="form-textarea" rows="6" placeholder="5511999999999,Ana Silva&#10;5521988888888,João Costa"></textarea>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:5px">
+          Ou use todos os leads desta sessão:
+          <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;margin-left:8px" onclick="waUsarLeads()">Usar Leads</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mensagem <small style="color:var(--gray-400)">(use {{nome}} para personalizar)</small></label>
+        <textarea id="wa-disp-mensagem" class="form-textarea" rows="5" placeholder="Olá {{nome}}! Temos uma novidade especial para você..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Delay entre envios (segundos)</label>
+          <input type="number" id="wa-disp-delay" class="form-input" value="3" min="1" max="30">
+        </div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:2px">
+          <button class="btn btn-primary" style="width:100%" onclick="waEnviarDisparo()">🚀 Iniciar Disparo</button>
+        </div>
+      </div>
+      <div id="wa-disp-resultado" style="display:none;margin-top:14px;padding:12px 16px;background:var(--green-bg);border:1px solid #b7ddd0;border-radius:8px;font-size:13px;color:var(--green)"></div>
+    </div>
+  </div>
+
+  <!-- TAB: CONFIG -->
+  <div class="wa-tab-content" id="wa-tab-config">
+    <div style="max-width:700px">
+      <div class="card" id="wa-config-form">
+        <div style="color:var(--gray-400);font-size:13px">Selecione uma sessão acima para editar as configurações.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: BLOQUEADOS -->
+  <div class="wa-tab-content" id="wa-tab-bloqueados">
+    <div style="max-width:860px">
+      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 18px;background:var(--red-bg);border:1px solid #f5c6c2;border-radius:10px;margin-bottom:22px">
+        <span style="font-size:22px;line-height:1">🚫</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:4px">Bloqueio de IA por Contato</div>
+          <div style="font-size:12px;color:var(--gray-500);line-height:1.7">
+            Números nesta lista <strong style="color:var(--red)">não receberão respostas automáticas da IA</strong>.<br>
+            Contato novo → IA responde ✅ &nbsp;|&nbsp; Contato bloqueado → IA não responde ❌
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+        <button class="btn btn-primary" onclick="waBloqAbrirImportar()">📥 Importar Contatos</button>
+        <button class="btn btn-secondary" onclick="waBloqAdicionar()">➕ Adicionar Número</button>
+        <button class="btn btn-secondary" onclick="waBloqCarregar()">🔄 Atualizar</button>
+        <div style="margin-left:auto">
+          <input type="text" id="bloq-search" placeholder="🔍 Buscar número ou nome..." oninput="waBloqFiltrar(this.value)"
+            style="background:white;border:1px solid var(--gray-200);color:var(--gray-900);border-radius:8px;padding:8px 14px;font-size:12px;font-family:'Inter',sans-serif;width:240px">
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <span style="font-size:12px;color:var(--gray-400)">Total bloqueados: </span>
+        <span id="bloq-count" style="font-size:13px;font-weight:700;color:var(--red)">0</span>
+      </div>
+      <div class="card" style="overflow-x:auto;padding:0">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:40px"><input type="checkbox" id="bloq-check-all" onchange="waBloqSelecionarTodos(this.checked)" style="accent-color:var(--navy)"></th>
+              <th>Número</th><th>Nome / Etiqueta</th><th>Origem</th><th>Adicionado em</th><th style="text-align:center">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="bloq-table-body">
+            <tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:32px">Selecione uma sessão acima.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="bloq-lote-bar" style="display:none;margin-top:14px;padding:10px 16px;background:var(--red-bg);border:1px solid #f5c6c2;border-radius:8px;display:flex;align-items:center;gap:12px">
+        <span id="bloq-lote-count" style="font-size:12px;color:var(--red);font-weight:600">0 selecionados</span>
+        <button class="btn btn-danger" style="font-size:11px;padding:5px 14px" onclick="waBloqRemoverSelecionados()">🗑️ Remover Selecionados</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: NOVA SESSÃO ══ -->
+<div class="wa-modal-overlay" id="modal-wa-sessao">
+  <div class="wa-modal">
+    <div class="wa-modal-head">
+      <h3>Nova Sessão WhatsApp</h3>
+      <button class="wa-modal-close" onclick="closeWaModal('modal-wa-sessao')">✕</button>
+    </div>
+    <div class="wa-modal-body">
+      <div class="form-group">
+        <label class="form-label">Identificador único <small style="color:var(--gray-400)">(letras, números, traços)</small></label>
+        <input type="text" id="wa-new-id" class="form-input" placeholder="ex: financeiro1" oninput="this.value=this.value.replace(/[^a-z0-9_-]/gi,'').toLowerCase()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nome da Sessão</label>
+        <input type="text" id="wa-new-nome" class="form-input" placeholder="Ex: Bot Financeiro Principal">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Chave API Gemini (Google) — gratuita</label>
+        <input type="text" id="wa-new-gemini" class="form-input" placeholder="AIza...">
+        <div style="font-size:11px;color:var(--gray-400);margin-top:5px">Obtenha em: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--navy)">aistudio.google.com</a></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Saudação inicial</label>
+        <input type="text" id="wa-new-saudacao" class="form-input" placeholder="Olá! Sou seu assistente financeiro. Como posso ajudar?">
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Horário início</label><input type="time" id="wa-new-hinicio" class="form-input" value="08:00"></div>
+        <div class="form-group"><label class="form-label">Horário fim</label><input type="time" id="wa-new-hfim" class="form-input" value="22:00"></div>
+      </div>
+    </div>
+    <div class="wa-modal-foot">
+      <button class="btn btn-secondary" onclick="closeWaModal('modal-wa-sessao')">Cancelar</button>
+      <button class="btn btn-primary" onclick="waSalvarNovaSessao()">Criar Sessão</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: IMPORTAR BLOQUEADOS ══ -->
+<div class="wa-modal-overlay" id="modal-bloq-importar">
+  <div class="wa-modal" style="max-width:540px">
+    <div class="wa-modal-head">
+      <h3>📥 Importar Contatos Bloqueados</h3>
+      <button class="wa-modal-close" onclick="closeWaModal('modal-bloq-importar')">✕</button>
+    </div>
+    <div class="wa-modal-body">
+      <p style="font-size:13px;color:var(--gray-500);margin-bottom:18px;line-height:1.7">
+        Números importados <strong style="color:var(--red)">não receberão respostas automáticas da IA</strong>.
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:18px">
+        <button class="btn btn-secondary" id="bloq-modo-csv" onclick="waBloqModoTab('csv',this)" style="font-size:12px">📄 CSV / Texto</button>
+        <button class="btn btn-secondary" id="bloq-modo-vcf" onclick="waBloqModoTab('vcf',this)" style="font-size:12px">📱 VCF</button>
+        <button class="btn btn-secondary" id="bloq-modo-manual" onclick="waBloqModoTab('manual',this)" style="font-size:12px">✏️ Manual</button>
+      </div>
+      <div id="bloq-painel-csv">
+        <div class="form-group">
+          <label class="form-label">Cole os números — um por linha</label>
+          <textarea id="bloq-csv-input" class="form-textarea" rows="6" placeholder="5511999999999,João Silva&#10;5521988888888,Maria Costa"></textarea>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:5px">Formato: <code style="color:var(--gold)">número,nome</code> ou só o número.</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-secondary" onclick="closeWaModal('modal-bloq-importar')">Cancelar</button>
+          <button class="btn btn-primary" onclick="waBloqImportarCSV()">📥 Importar</button>
+        </div>
+      </div>
+      <div id="bloq-painel-vcf" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Arquivo VCF</label>
+          <div style="border:2px dashed var(--gray-300);border-radius:10px;padding:28px;text-align:center;cursor:pointer" id="bloq-vcf-drop" onclick="document.getElementById('bloq-vcf-file').click()" ondragover="event.preventDefault()" ondrop="waBloqVcfDrop(event)">
+            <div style="font-size:32px;margin-bottom:8px">📱</div>
+            <div style="font-size:13px;color:var(--gray-500)">Clique para escolher ou arraste o arquivo .vcf</div>
+          </div>
+          <input type="file" id="bloq-vcf-file" accept=".vcf" style="display:none" onchange="waBloqLerVCF(this)">
+        </div>
+        <div id="bloq-vcf-preview" style="display:none;max-height:200px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;padding:10px;font-size:12px;margin-bottom:12px"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-secondary" onclick="closeWaModal('modal-bloq-importar')">Cancelar</button>
+          <button class="btn btn-primary" id="bloq-vcf-import-btn" style="display:none" onclick="waBloqImportarVCF()">📥 Importar</button>
+        </div>
+      </div>
+      <div id="bloq-painel-manual" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Número (com DDD, sem espaços)</label>
+          <input type="text" id="bloq-manual-num" class="form-input" placeholder="5511999999999" oninput="this.value=this.value.replace(/\D/g,'')">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nome / Etiqueta (opcional)</label>
+          <input type="text" id="bloq-manual-nome" class="form-input" placeholder="Ex: Cliente VIP">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-secondary" onclick="closeWaModal('modal-bloq-importar')">Cancelar</button>
+          <button class="btn btn-primary" onclick="waBloqAdicionarManual()">➕ Adicionar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+//  WHATSAPP IA — MÓDULO FRONTEND
+//  Adaptado do admin.html para dashboard
+// ════════════════════════════════════════
+
+function openWaModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeWaModal(id) { document.getElementById(id).classList.remove('open'); }
+function waAbrirModalNovaSessao() { openWaModal('modal-wa-sessao'); }
+
+// Helpers de autenticação — adaptar ao seu sistema de auth
+function authHeaders() {
+  const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+  return { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) };
+}
+
+// Toast da dashboard
+function waToast(msg, type) {
+  if (typeof showToast === 'function') showToast(msg, type === 'success' ? 'success' : 'error');
+}
+
+// ── Estado ───────────────────────────────────────────────────────────────────
+let _waSessaoAtiva = null;
+let _waContatoAtivo = null;
+let _waLeadsCache = [];
+let _waContatosCache = [];
+let _waQRInterval = null;
+let _waSessoesCache = [];
+let _waUltimaMsgId = null;
+let _waNotifTimeout = null;
+let _bloqCache = [];
+let _bloqVcfContatos = [];
+
+// ── Notificação de nova mensagem ─────────────────────────────────────────────
+function waNotificarMensagem(nome, mensagem, contato, sessaoId) {
+  sessaoId = sessaoId || _waSessaoAtiva;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+  } catch(_) {}
+  const old = document.getElementById('wa-notif-toast');
+  if (old) old.remove();
+  if (_waNotifTimeout) clearTimeout(_waNotifTimeout);
+  const t = document.createElement('div');
+  t.id = 'wa-notif-toast'; t.className = 'wa-notif-toast';
+  t.innerHTML = `<div style="font-size:20px">💬</div><div style="flex:1"><div class="wa-notif-name">Nova mensagem — ${nome}</div><div class="wa-notif-msg">${mensagem}</div></div><div style="color:var(--gray-400);cursor:pointer" onclick="document.getElementById('wa-notif-toast').remove()">✕</div>`;
+  t.onclick = () => { t.remove(); waSelecionarEmpresa(sessaoId).then(() => waAbrirConversa(contato, nome)); };
+  document.body.appendChild(t);
+  _waNotifTimeout = setTimeout(() => { if (t.parentNode) t.remove(); }, 6000);
+  if (document.hidden) {
+    let p = true; const orig = document.title;
+    const iv = setInterval(() => { document.title = p ? '🔔 Nova mensagem!' : orig; p = !p; }, 1000);
+    document.addEventListener('visibilitychange', () => { clearInterval(iv); document.title = orig; }, { once: true });
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+let _waInitializado = false;
+async function waInit() {
+  await waCarregarSessoes();
+  if (_waInitializado) return;
+  _waInitializado = true;
+  setInterval(waAtualizarBadges, 30000);
+  // Polling do chat aberto — a cada 1.5s
+  setInterval(async () => {
+    if (!_waContatoAtivo || !_waSessaoAtiva) return;
+    const msgs = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/mensagens?contato=${_waContatoAtivo}&limite=80`, { headers: authHeaders() }).then(r => r.json()).catch(() => null);
+    if (!msgs || !msgs.length) return;
+    const novoId = msgs[0].id;
+    if (novoId === _waUltimaMsgId) return;
+    _waUltimaMsgId = novoId;
+    const el = document.getElementById('wa-chat-messages');
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    el.innerHTML = [...msgs].reverse().map(m => `<div class="wa-msg ${m.direcao}">${m.mensagem}<div class="wa-msg-time">${(m.criado_em||'').split(' ')[1]?.substring(0,5)||''}</div></div>`).join('');
+    if (atBottom) setTimeout(() => { el.scrollTop = el.scrollHeight + 9999; }, 50);
+  }, 1500);
+  // Polling de todas as sessões — a cada 5s
+  if (!window._waPollingHashes) window._waPollingHashes = {};
+  setInterval(async () => {
+    if (!_waSessoesCache || !_waSessoesCache.length) return;
+    for (const sessao of _waSessoesCache) {
+      if (sessao.status !== 'conectado' && sessao.conectado !== true) continue;
+      const sid = sessao.id;
+      const rows = await fetch(`/api/admin/whatsapp/sessoes/${sid}/conversas`, { headers: authHeaders() }).then(r => r.json()).catch(() => null);
+      if (!rows || !rows.length) continue;
+      const novoHash = rows[0].contato + '_' + rows[0].ultima_em;
+      const hashAnterior = window._waPollingHashes[sid];
+      if (sid === _waSessaoAtiva) {
+        if (novoHash !== hashAnterior) { _waContatosCache = rows; const tab = document.querySelector('.wa-tab.active'); if (tab && tab.textContent.includes('Convers')) waRenderizarContatos(rows); }
+      }
+      if (hashAnterior !== undefined && novoHash !== hashAnterior) {
+        const anteriorMap = {};
+        (window._waPollingCache?.[sid] || []).forEach(c => { anteriorMap[c.contato] = c; });
+        for (const c of rows) {
+          const anterior = anteriorMap[c.contato];
+          if ((!anterior || anterior.ultima_em !== c.ultima_em) && c.nao_lidas > 0 && c.contato !== (sid === _waSessaoAtiva ? _waContatoAtivo : null)) {
+            waNotificarMensagem((c.nome_contato || c.contato) + (sid !== _waSessaoAtiva ? ' — ' + (sessao.nome_empresa || sid) : ''), c.ultima_mensagem, c.contato, sid);
+            break;
+          }
+        }
+      }
+      window._waPollingHashes[sid] = novoHash;
+      if (!window._waPollingCache) window._waPollingCache = {};
+      window._waPollingCache[sid] = rows;
+    }
+  }, 5000);
+}
+
+async function waCarregarSessoes() {
+  try {
+    const sessoes = await fetch('/api/admin/whatsapp/sessoes', { headers: authHeaders() }).then(r => r.json());
+    _waSessoesCache = sessoes;
+    waRenderizarPills(sessoes);
+    waPopularSelectDisparo(sessoes);
+    const saved = localStorage.getItem('wa_sessao_ativa');
+    const toSelect = (saved && sessoes.find(s => s.id === saved)) ? saved : (sessoes.length ? sessoes[0].id : null);
+    if (toSelect && !_waSessaoAtiva) waSelecionarEmpresa(toSelect);
+  } catch(e) { console.error('[WA]', e); }
+}
+
+function waRenderizarPills(sessoes) {
+  const el = document.getElementById('wa-empresa-pills');
+  if (!el) return;
+  if (!sessoes.length) { el.innerHTML = '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">Nenhuma sessão cadastrada. Clique em "+ Nova Sessão".</div>'; return; }
+  el.innerHTML = sessoes.map((s, idx) => {
+    const dotClass = s.status === 'conectado' ? 'online' : (s.status === 'aguardando_qr' ? 'qr' : '');
+    return `<div class="wa-empresa-pill ${s.id === _waSessaoAtiva ? 'active' : ''}" onclick="waSelecionarEmpresa('${s.id}')">
+      <span class="wa-pill-dot ${dotClass}"></span>${s.nome_empresa}
+      <span class="wa-status ${s.status}" style="margin-left:4px;font-size:9px">${s.status}</span>
+    </div>`;
+  }).join('');
+}
+
+function waPopularSelectDisparo(sessoes) {
+  const sel = document.getElementById('wa-disp-sessao');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Selecione a sessão...</option>' + sessoes.map(s => `<option value="${s.id}">${s.nome_empresa}</option>`).join('');
+}
+
+async function waSelecionarEmpresa(id) {
+  _waSessaoAtiva = id;
+  localStorage.setItem('wa_sessao_ativa', id);
+  waRenderizarPills(_waSessoesCache);
+  waRenderizarConfig();
+  await waCarregarStats();
+  await waCarregarContatos();
+}
+
+function waTab(tab, btn) {
+  document.querySelectorAll('.wa-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.wa-tab-content').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const el = document.getElementById('wa-tab-' + tab);
+  if (el) el.classList.add('active');
+  if (tab === 'leads') waCarregarLeads();
+}
+
+async function waCarregarStats() {
+  if (!_waSessaoAtiva) return;
+  try {
+    const stats = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/stats`, { headers: authHeaders() }).then(r => r.json());
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('wa-stat-leads', stats.totalLeads ?? '—');
+    setText('wa-stat-hoje', stats.mensagensHoje ?? '—');
+    setText('wa-stat-naoLidas', stats.naoLidas ?? '—');
+    const statEl = document.getElementById('wa-stat-status');
+    if (statEl) statEl.innerHTML = `<span class="wa-status ${stats.status}">${stats.status || '—'}</span>`;
+  } catch(_) {}
+}
+
+async function waConectar() {
+  if (!_waSessaoAtiva) { waToast('Selecione uma sessão primeiro.', 'error'); return; }
+  document.getElementById('wa-qr-msg').textContent = 'Gerando QR Code...';
+  document.getElementById('wa-qr-img').style.display = 'none';
+  document.getElementById('wa-qr-placeholder').style.display = 'flex';
+  await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/conectar`, { method: 'POST', headers: authHeaders() }).catch(() => {});
+  let tentativas = 0;
+  const checkQR = async () => {
+    const data = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/qr`, { headers: authHeaders() }).then(r => r.json()).catch(() => null);
+    if (data?.qr) {
+      document.getElementById('wa-qr-img').src = data.qr;
+      document.getElementById('wa-qr-img').style.display = 'block';
+      document.getElementById('wa-qr-placeholder').style.display = 'none';
+      clearInterval(_waQRInterval);
+    } else if (data?.status === 'conectado') {
+      document.getElementById('wa-qr-placeholder').style.display = 'flex';
+      document.getElementById('wa-qr-img').style.display = 'none';
+      document.getElementById('wa-qr-msg').textContent = '✅ Conectado!';
+      clearInterval(_waQRInterval);
+      await waCarregarStats();
+    }
+    if (++tentativas > 20) clearInterval(_waQRInterval);
+  };
+  _waQRInterval = setInterval(checkQR, 3000);
+  checkQR();
+}
+
+async function waDesconectar() {
+  if (!_waSessaoAtiva) return;
+  await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/desconectar`, { method: 'POST', headers: authHeaders() });
+  waToast('Desconectado!', 'success');
+  await waCarregarStats();
+}
+
+async function waCarregarContatos() {
+  if (!_waSessaoAtiva) return;
+  const rows = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/conversas`, { headers: authHeaders() }).then(r => r.json()).catch(() => []);
+  _waContatosCache = rows;
+  waRenderizarContatos(rows);
+}
+
+function waRenderizarContatos(contatos) {
+  const el = document.getElementById('wa-contacts-body');
+  if (!el) return;
+  el.innerHTML = !contatos.length
+    ? '<div style="padding:24px;text-align:center;color:var(--gray-400);font-size:12px">Nenhuma conversa ainda.</div>'
+    : contatos.map(c => `
+      <div class="wa-contact-item ${c.contato === _waContatoAtivo ? 'active' : ''}" onclick="waAbrirConversa('${c.contato}','${(c.nome_contato||c.contato).replace(/'/g,"\\'")}')">
+        <button class="wa-delete-btn" onclick="event.stopPropagation();waDeletarConversa('${c.contato}')" title="Apagar conversa">🗑️</button>
+        <div class="wa-contact-name">${c.nome_contato || c.contato}${c.nao_lidas > 0 ? '<span class="wa-unread-dot"></span>' : ''}</div>
+        <div class="wa-contact-preview">${c.ultima_mensagem || ''}</div>
+        <div class="wa-contact-time">${(c.ultima_em||'').split(' ')[0]||''}</div>
+      </div>`).join('');
+}
+
+function waFiltrarContatos(q) {
+  const f = _waContatosCache.filter(c => !q || (c.nome_contato||c.contato).toLowerCase().includes(q.toLowerCase()));
+  waRenderizarContatos(f);
+}
+
+async function waAbrirConversa(numero, nome) {
+  _waContatoAtivo = numero;
+  const nomeEl = document.getElementById('wa-chat-nome');
+  const numEl = document.getElementById('wa-chat-numero');
+  if (nomeEl) nomeEl.textContent = nome || numero;
+  if (numEl) numEl.textContent = '+' + numero;
+  const inputArea = document.getElementById('wa-chat-input-area');
+  if (inputArea) inputArea.style.display = 'flex';
+  const badge = document.getElementById('wa-human-mode-badge');
+  if (badge) badge.style.display = 'flex';
+  waRenderizarContatos(_waContatosCache);
+  await waAtualizarBadgeModoHumano(numero);
+  const msgs = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/mensagens?contato=${numero}&limite=80`, { headers: authHeaders() }).then(r => r.json()).catch(() => []);
+  _waUltimaMsgId = msgs.length ? msgs[0].id : null;
+  const el = document.getElementById('wa-chat-messages');
+  if (!el) return;
+  el.innerHTML = [...msgs].reverse().map(m => `<div class="wa-msg ${m.direcao}">${m.mensagem}<div class="wa-msg-time">${(m.criado_em||'').split(' ')[1]?.substring(0,5)||''}</div></div>`).join('');
+  setTimeout(() => { el.scrollTop = el.scrollHeight + 9999; }, 60);
+  // Marca como lida
+  fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/mensagens/lidas`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ contato: numero }) }).catch(() => {});
+}
+
+async function waDeletarConversa(contato) {
+  if (!confirm('Apagar esta conversa?')) return;
+  await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/mensagens/deletar`, { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ contato }) }).catch(() => {});
+  if (_waContatoAtivo === contato) { _waContatoAtivo = null; document.getElementById('wa-chat-messages').innerHTML = ''; document.getElementById('wa-chat-input-area').style.display = 'none'; }
+  await waCarregarContatos();
+}
+
+async function waEnviarMensagem() {
+  const input = document.getElementById('wa-msg-input');
+  const texto = input.value.trim();
+  if (!texto || !_waContatoAtivo) return;
+  input.value = '';
+  await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/enviar`, {
+    method: 'POST', headers: authHeaders(),
+    body: JSON.stringify({ numero: _waContatoAtivo, mensagem: texto }),
+  }).catch(() => {});
+  await waAbrirConversa(_waContatoAtivo, document.getElementById('wa-chat-nome').textContent);
+}
+
+async function waAtualizarBadgeModoHumano(numero) {
+  if (!_waSessaoAtiva) return;
+  try {
+    const d = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/modo-humano/${numero}`, { headers: authHeaders() }).then(r => r.json());
+    const label = document.getElementById('wa-human-mode-label');
+    const btn = document.getElementById('wa-human-mode-btn');
+    if (!label || !btn) return;
+    if (d.ativo) {
+      label.textContent = '🧑 VOCÊ NO CONTROLE'; label.style.color = '#d97706';
+      btn.textContent = '🤖 Deixar IA assumir'; btn.style.background = '#fef3c7'; btn.style.borderColor = '#d97706'; btn.style.color = '#d97706';
+    } else {
+      label.textContent = '🤖 IA RESPONDENDO'; label.style.color = '#16a34a';
+      btn.textContent = '🧑 Assumir Controle'; btn.style.background = 'transparent'; btn.style.borderColor = '#0f2237'; btn.style.color = '#0f2237';
+    }
+  } catch(_) {}
+}
+
+async function waToggleModoHumano() {
+  if (!_waSessaoAtiva || !_waContatoAtivo) return;
+  try {
+    const d = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/modo-humano/${_waContatoAtivo}`, { headers: authHeaders() }).then(r => r.json());
+    const endpoint = d.ativo ? 'desativar' : 'ativar';
+    const res = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/modo-humano/${_waContatoAtivo}/${endpoint}`, { method: 'POST', headers: authHeaders() }).then(r => r.json());
+    waToast(res.mensagem || 'Ok!', 'success');
+    await waAtualizarBadgeModoHumano(_waContatoAtivo);
+  } catch(e) { waToast('Erro: ' + e.message, 'error'); }
+}
+
+async function waCarregarLeads() {
+  if (!_waSessaoAtiva) return;
+  const leads = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/leads`, { headers: authHeaders() }).then(r => r.json()).catch(() => []);
+  _waLeadsCache = leads;
+  waRenderizarLeads(leads);
+}
+
+function waFiltrarLeads(q) {
+  waRenderizarLeads(_waLeadsCache.filter(l => !q || (l.nome||l.numero).toLowerCase().includes(q.toLowerCase())));
+}
+
+function waRenderizarLeads(leads) {
+  const el = document.getElementById('wa-leads-body');
+  if (!el) return;
+  const sessao = _waSessoesCache.find(s => s.id === _waSessaoAtiva);
+  el.innerHTML = !leads.length
+    ? '<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:28px">Nenhum lead ainda.</td></tr>'
+    : leads.map(l => `
+      <tr>
+        <td><input value="${l.nome||''}" onblur="waAtualizarLead(${l.id},this.value,'${(l.notas||'').replace(/'/g,"\\'")}') " style="background:transparent;border:none;color:var(--gray-900);font-family:'Inter',sans-serif;width:100%"></td>
+        <td style="font-family:monospace;font-size:12px">+${l.numero}</td>
+        <td style="font-size:12px">${sessao?.nome_empresa||'—'}</td>
+        <td style="font-size:12px">${(l.ultimo_contato||'').split(' ')[0]||'—'}</td>
+        <td><input value="${(l.notas||'').replace(/"/g,'&quot;')}" placeholder="Anotações..." onblur="waAtualizarLead(${l.id},'${(l.nome||'').replace(/'/g,"\\'")}',this.value)" style="background:transparent;border:none;color:var(--gray-500);font-family:'Inter',sans-serif;font-size:12px;width:100%"></td>
+        <td><button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="waAbrirConversa('${l.numero}','${(l.nome||l.numero).replace(/'/g,"\\'")}');waTab('conversas',document.querySelectorAll('.wa-tab')[1])">💬</button></td>
+      </tr>`).join('');
+}
+
+async function waAtualizarLead(id, nome, notas) {
+  await fetch(`/api/admin/whatsapp/leads/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ nome, notas }) }).catch(() => {});
+}
+
+function waExportarLeads() {
+  if (!_waLeadsCache.length) { waToast('Nenhum lead para exportar.', 'error'); return; }
+  const csv = 'Nome,Número,Último Contato,Notas\n' + _waLeadsCache.map(l => `"${l.nome||''}","${l.numero}","${l.ultimo_contato||''}","${l.notas||''}"`).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'})); a.download = 'leads_whatsapp.csv'; a.click();
+}
+
+async function waUsarLeads() {
+  const sessaoId = document.getElementById('wa-disp-sessao').value || _waSessaoAtiva;
+  if (!sessaoId) { waToast('Selecione a sessão.', 'error'); return; }
+  const leads = await fetch(`/api/admin/whatsapp/sessoes/${sessaoId}/leads`, { headers: authHeaders() }).then(r => r.json()).catch(() => []);
+  const el = document.getElementById('wa-disp-destinatarios');
+  if (el) el.value = leads.map(l => `${l.numero},${l.nome||''}`).join('\n');
+  waToast(`${leads.length} leads carregados!`, 'success');
+}
+
+async function waEnviarDisparo() {
+  const sessaoId = document.getElementById('wa-disp-sessao').value;
+  const rawDest = document.getElementById('wa-disp-destinatarios').value.trim();
+  const mensagem = document.getElementById('wa-disp-mensagem').value.trim();
+  const delay = parseInt(document.getElementById('wa-disp-delay').value||'3') * 1000;
+  if (!sessaoId) { waToast('Selecione a sessão.', 'error'); return; }
+  if (!rawDest || !mensagem) { waToast('Preencha destinatários e mensagem.', 'error'); return; }
+  const destinatarios = rawDest.split('\n').filter(Boolean).map(line => { const [n,...r] = line.split(','); return { numero: n.trim().replace(/\D/g,''), nome: r.join(',').trim() }; }).filter(d => d.numero.length >= 10);
+  if (!destinatarios.length) { waToast('Nenhum número válido.', 'error'); return; }
+  if (!confirm(`Enviar para ${destinatarios.length} contatos?`)) return;
+  const res = await fetch(`/api/admin/whatsapp/sessoes/${sessaoId}/disparar`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ destinatarios, mensagem, delay_ms: delay }) }).then(r => r.json()).catch(e => ({ erro: e.message }));
+  const r = document.getElementById('wa-disp-resultado');
+  if (r) { r.style.display = 'block'; r.style.background = res.erro ? 'var(--red-bg)' : 'var(--green-bg)'; r.style.borderColor = res.erro ? '#f5c6c2' : '#b7ddd0'; r.style.color = res.erro ? 'var(--red)' : 'var(--green)'; r.textContent = res.erro ? '❌ Erro: '+res.erro : `✅ Disparo iniciado! Enviando para ${destinatarios.length} contatos.`; }
+}
+
+function waRenderizarConfig() {
+  const s = _waSessoesCache.find(x => x.id === _waSessaoAtiva);
+  const el = document.getElementById('wa-config-form');
+  if (!el) return;
+  if (!s) { el.innerHTML = '<div style="color:var(--gray-400);font-size:13px">Selecione uma sessão.</div>'; return; }
+  el.innerHTML = `
+    <h3 class="card-title" style="margin-bottom:16px">⚙️ Config — ${s.nome_empresa}</h3>
+    <div class="wa-config-grid">
+      <div class="form-group"><label class="form-label">Nome da Sessão</label><input class="form-input" id="wacfg-nome" value="${s.nome_empresa||''}"></div>
+      <div class="form-group"><label class="form-label">Chave Gemini API <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--navy);font-size:10px">obter grátis ↗</a></label><input class="form-input" id="wacfg-gemini" value="${s.gemini_key||''}" placeholder="AIza..."></div>
+      <div class="form-group"><label class="form-label">Horário início</label><input type="time" class="form-input" id="wacfg-hinicio" value="${s.horario_inicio||'00:00'}"></div>
+      <div class="form-group"><label class="form-label">Horário fim</label><input type="time" class="form-input" id="wacfg-hfim" value="${s.horario_fim||'23:59'}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Saudação inicial</label><input class="form-input" id="wacfg-saudacao" value="${(s.saudacao||'').replace(/"/g,'&quot;')}"></div>
+    <div class="form-group">
+      <label class="form-label">Prompt do Sistema (personalidade da IA)</label>
+      <textarea class="form-textarea" id="wacfg-prompt" rows="6" style="resize:vertical">${s.prompt_sistema||''}</textarea>
+      <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Descreva como a IA deve se comportar, quais serviços oferece, tom de voz, etc.</div>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--gray-700)">
+        <input type="checkbox" id="wacfg-grupos" ${s.responder_grupos?'checked':''} style="accent-color:var(--navy)">
+        Responder mensagens em grupos
+      </label>
+    </div>
+    <button class="btn btn-primary" onclick="waSalvarConfig('${s.id}')">💾 Salvar Configurações</button>
+  `;
+}
+
+async function waSalvarConfig(sessaoId) {
+  const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const payload = { nome_empresa: g('wacfg-nome'), gemini_key: g('wacfg-gemini'), prompt_sistema: g('wacfg-prompt'), saudacao: g('wacfg-saudacao'), horario_inicio: g('wacfg-hinicio'), horario_fim: g('wacfg-hfim'), responder_grupos: document.getElementById('wacfg-grupos')?.checked || false };
+  await fetch(`/api/admin/whatsapp/sessoes/${sessaoId}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) });
+  waToast('Configurações salvas!', 'success');
+  await waCarregarSessoes();
+}
+
+async function waSalvarNovaSessao() {
+  const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const id = g('wa-new-id'), nome = g('wa-new-nome'), gemini = g('wa-new-gemini'), saudacao = g('wa-new-saudacao'), hi = g('wa-new-hinicio'), hf = g('wa-new-hfim');
+  if (!id || !nome) { waToast('ID e nome são obrigatórios.', 'error'); return; }
+  const res = await fetch('/api/admin/whatsapp/sessoes', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ id, nome_empresa: nome, gemini_key: gemini, saudacao, horario_inicio: hi, horario_fim: hf }) }).then(r => r.json()).catch(e => ({ erro: e.message }));
+  if (res.erro) { waToast(res.erro, 'error'); return; }
+  waToast('Sessão criada! Clique em Conectar para gerar o QR Code.', 'success');
+  closeWaModal('modal-wa-sessao');
+  await waCarregarSessoes();
+  waSelecionarEmpresa(id);
+}
+
+async function waAtualizarBadges() {
+  if (!_waSessaoAtiva) return;
+  try {
+    const stats = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/stats`, { headers: authHeaders() }).then(r => r.json());
+    const badge = document.getElementById('badge-wa-naoLidas');
+    if (badge) { badge.style.display = stats.naoLidas > 0 ? 'inline' : 'none'; badge.textContent = stats.naoLidas; }
+  } catch(_) {}
+}
+
+// ── BLOQUEADOS ────────────────────────────────────────────────────────────────
+function waBloqModoTab(modo, btn) {
+  document.querySelectorAll('#modal-bloq-importar .btn').forEach(b => b.classList.remove('btn-primary'));
+  if (btn) { btn.classList.add('btn-primary'); }
+  ['csv','vcf','manual'].forEach(m => { const el = document.getElementById(`bloq-painel-${m}`); if (el) el.style.display = m === modo ? '' : 'none'; });
+}
+function waBloqAbrirImportar() { if (!_waSessaoAtiva) { waToast('Selecione uma sessão.', 'error'); return; } openWaModal('modal-bloq-importar'); waBloqModoTab('csv', document.getElementById('bloq-modo-csv')); }
+function waBloqAdicionar() { if (!_waSessaoAtiva) { waToast('Selecione uma sessão.', 'error'); return; } openWaModal('modal-bloq-importar'); waBloqModoTab('manual', document.getElementById('bloq-modo-manual')); }
+async function waBloqCarregar() {
+  if (!_waSessaoAtiva) return;
+  const data = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/bloqueados`, { headers: authHeaders() }).then(r => r.json()).catch(() => []);
+  _bloqCache = Array.isArray(data) ? data : (data.bloqueados || []);
+  waBloqRenderizar(_bloqCache);
+}
+function waBloqFiltrar(q) { waBloqRenderizar(_bloqCache.filter(b => !q || (b.numero||'').includes(q) || (b.nome||'').toLowerCase().includes(q.toLowerCase()))); }
+function waBloqRenderizar(lista) {
+  const el = document.getElementById('bloq-table-body'); if (!el) return;
+  const count = document.getElementById('bloq-count'); if (count) count.textContent = lista.length;
+  el.innerHTML = !lista.length ? '<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:28px">Nenhum número bloqueado.</td></tr>'
+    : lista.map(b => `<tr><td><input type="checkbox" class="bloq-check" value="${b.id}" onchange="waBloqAtualizarLote()" style="accent-color:var(--navy)"></td><td style="font-family:monospace;font-size:12px">+${b.numero}</td><td><input value="${b.nome||''}" onblur="waBloqAtualizarNome(${b.id},this.value)" style="background:transparent;border:none;font-family:'Inter',sans-serif;width:100%;color:var(--gray-700)"></td><td style="font-size:12px;color:var(--gray-400)">${b.origem||'manual'}</td><td style="font-size:12px;color:var(--gray-400)">${(b.criado_em||'').split(' ')[0]||'—'}</td><td style="text-align:center"><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="waBloqRemover(${b.id})">🗑️</button></td></tr>`).join('');
+}
+function waBloqAtualizarLote() {
+  const checked = document.querySelectorAll('.bloq-check:checked');
+  const bar = document.getElementById('bloq-lote-bar'); const count = document.getElementById('bloq-lote-count');
+  if (bar) bar.style.display = checked.length > 0 ? 'flex' : 'none';
+  if (count) count.textContent = checked.length + ' selecionados';
+}
+function waBloqSelecionarTodos(v) { document.querySelectorAll('.bloq-check').forEach(c => c.checked = v); waBloqAtualizarLote(); }
+async function waBloqRemover(id) {
+  await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/bloqueados/${id}`, { method: 'DELETE', headers: authHeaders() });
+  waToast('Removido!', 'success'); await waBloqCarregar();
+}
+async function waBloqRemoverSelecionados() {
+  const ids = [...document.querySelectorAll('.bloq-check:checked')].map(c => parseInt(c.value));
+  if (!ids.length) return;
+  await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/bloqueados/lote`, { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ ids }) });
+  waToast(`${ids.length} removidos!`, 'success'); await waBloqCarregar();
+}
+async function waBloqAtualizarNome(id, nome) { await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/bloqueados/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ nome }) }).catch(() => {}); }
+async function waBloqImportarCSV() {
+  const raw = document.getElementById('bloq-csv-input').value.trim();
+  if (!raw) { waToast('Cole os números.', 'error'); return; }
+  const contatos = raw.split(/[\n,]+/).reduce((acc, part, i, arr) => {
+    if (i % 2 === 0) { const numero = part.replace(/\D/g,''); if (numero.length >= 10) acc.push({ numero, nome: arr[i+1]?.trim() || '' }); } return acc;
+  }, []);
+  if (!contatos.length) { waToast('Nenhum número válido.', 'error'); return; }
+  const res = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/bloqueados/lote`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ contatos }) }).then(r => r.json()).catch(e => ({ erro: e.message }));
+  if (res.erro) { waToast(res.erro, 'error'); return; }
+  waToast(`${contatos.length} números importados!`, 'success'); closeWaModal('modal-bloq-importar'); await waBloqCarregar();
+}
+function waBloqVcfDrop(event) { event.preventDefault(); const f = event.dataTransfer.files[0]; if (f) { document.getElementById('bloq-vcf-file').files = event.dataTransfer.files; waBloqProcessarVCF(f); } }
+function waBloqLerVCF(input) { if (input.files[0]) waBloqProcessarVCF(input.files[0]); }
+function waBloqProcessarVCF(file) {
+  const r = new FileReader();
+  r.onload = e => {
+    const text = e.target.result;
+    const contatos = [];
+    const vcards = text.split('BEGIN:VCARD');
+    vcards.forEach(vcard => {
+      const fnMatch = vcard.match(/FN:(.+)/); const telMatch = vcard.match(/TEL[^:]*:(.+)/);
+      if (telMatch) { const n = telMatch[1].replace(/\D/g,''); if (n.length >= 10) contatos.push({ numero: n, nome: fnMatch ? fnMatch[1].trim() : '' }); }
+    });
+    _bloqVcfContatos = contatos;
+    const preview = document.getElementById('bloq-vcf-preview');
+    if (preview) { preview.style.display = 'block'; preview.innerHTML = contatos.map(c => `<div style="padding:3px 0;border-bottom:1px solid var(--gray-100)">+${c.numero} ${c.nome ? '— '+c.nome : ''}</div>`).join(''); }
+    const btn = document.getElementById('bloq-vcf-import-btn');
+    if (btn) btn.style.display = contatos.length ? 'inline-flex' : 'none';
+    waToast(`${contatos.length} contatos encontrados.`, 'success');
+  };
+  r.readAsText(file);
+}
+async function waBloqImportarVCF() {
+  if (!_bloqVcfContatos.length) return;
+  const res = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/bloqueados/lote`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ contatos: _bloqVcfContatos }) }).then(r => r.json()).catch(e => ({ erro: e.message }));
+  if (res.erro) { waToast(res.erro, 'error'); return; }
+  waToast(`${_bloqVcfContatos.length} contatos importados!`, 'success'); closeWaModal('modal-bloq-importar'); await waBloqCarregar();
+}
+async function waBloqAdicionarManual() {
+  const numero = document.getElementById('bloq-manual-num').value.replace(/\D/g,'');
+  const nome = document.getElementById('bloq-manual-nome').value.trim();
+  if (!numero || numero.length < 10) { waToast('Número inválido.', 'error'); return; }
+  const res = await fetch(`/api/admin/whatsapp/sessoes/${_waSessaoAtiva}/bloqueados/lote`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ contatos: [{ numero, nome }] }) }).then(r => r.json()).catch(e => ({ erro: e.message }));
+  if (res.erro) { waToast(res.erro, 'error'); return; }
+  waToast('Número adicionado!', 'success'); closeWaModal('modal-bloq-importar'); await waBloqCarregar();
+}
+
+// Fim do módulo WhatsApp IA
 </script>
 </body>
 </html>

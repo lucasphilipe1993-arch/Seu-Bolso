@@ -89,7 +89,8 @@ router.post('/cadastro', async (req, res) => {
       `INSERT INTO usuarios (nome, email, senha_hash, telefone, plano, whatsapp_ativo)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, nome, email, plano`,
-      [nome, email.toLowerCase(), senha_hash, telefoneLimpo, plano || 'gratuito', telefoneLimpo ? true : false]
+      const [primeiroNome, ...restoNome] = nome.trim().split(' ');
+const sobrenomeExtraido = restoNome.join(' ') || null;
     );
 
     const usuario = usuariosInseridos[0];

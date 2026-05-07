@@ -666,6 +666,11 @@ let _usuario = null;
 document.addEventListener('DOMContentLoaded', async () => {
     // Carrega perfil do usuário
     _usuario = await API.me();
+    // Mostra WhatsApp Bot só para o admin
+const ADMIN_EMAIL = 'matheus10201971@gmail.com';
+if (_usuario && _usuario.email === ADMIN_EMAIL) {
+  document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+}
     if (!_usuario) { API.logout(); return; }
 
     preencherPerfil(_usuario);

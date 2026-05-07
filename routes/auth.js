@@ -85,12 +85,16 @@ router.post('/cadastro', async (req, res) => {
 
     const senha_hash = await bcrypt.hash(senha, 12);
 
+    // Separa nome e sobrenome automaticamente
+    const [primeiroNome, ...restoNome] = nome.trim().split(' ');
+    const sobrenomeExtraido = restoNome.join(' ') || null;
+
     const { rows: usuariosInseridos } = await db.query(
-      `INSERT INTO usuarios (nome, email, senha_hash, telefone, plano, whatsapp_ativo)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, nome, email, plano`,
-      const [primeiroNome, ...restoNome] = nome.trim().split(' ');
-const sobrenomeExtraido = restoNome.join(' ') || null;
+      `INSERT INTO usuarios (nome, sobrenome, email, senha_hash, telefone, plano, whatsapp_ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, nome, sobrenome, email, plano`,
+      [primeiroNome, sobrenomeExtraido, email.toLowerCase(), senha_hash,
+       telefoneLimpo, plano || 'gratuito', telefoneLimpo ? true : false]
     );
 
     const usuario = usuariosInseridos[0];
@@ -121,7 +125,7 @@ const sobrenomeExtraido = restoNome.join(' ') || null;
 
       setImmediate(async () => {
         try {
-          await _botInstance?.enviarBoasVindasECapturarLid(telefoneLimpo, usuario.id, usuario.nome.split(' ')[0]);
+          await _botInstance?.enviarBoasVindasECapturarLid(telefoneLimpo, usuario.id, usuario.nome);
         } catch (err) {
           console.warn('Erro ao enviar boas-vindas:', err.message);
         }
@@ -131,7 +135,13 @@ const sobrenomeExtraido = restoNome.join(' ') || null;
     const token = gerarToken(usuario);
     res.status(201).json({
       token,
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, plano: usuario.plano }
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        sobrenome: usuario.sobrenome,
+        email: usuario.email,
+        plano: usuario.plano
+      }
     });
 
   } catch (err) {
@@ -161,8 +171,11 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       usuario: {
-        id: usuario.id, nome: usuario.nome, sobrenome: usuario.sobrenome,
-        email: usuario.email, plano: usuario.plano,
+        id: usuario.id,
+        nome: usuario.nome,
+        sobrenome: usuario.sobrenome,
+        email: usuario.email,
+        plano: usuario.plano,
         whatsapp_ativo: usuario.whatsapp_ativo,
       }
     });
@@ -188,7 +201,6 @@ router.get('/me', autenticar, async (req, res) => {
 });
 
 // ── PUT /api/auth/perfil ─────────────────────────────────────
-// Chamado pelo dashboard em: API.salvarPerfil({ nome, sobrenome, telefone })
 router.put('/perfil', autenticar, async (req, res) => {
   const { nome, sobrenome, telefone } = req.body;
 
@@ -198,10 +210,6 @@ router.put('/perfil', autenticar, async (req, res) => {
   const telefoneLimpo = normalizarTelefone(telefone) || telefone || null;
 
   try {
-    // Garante coluna sobrenome existe
-    await db.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS sobrenome TEXT`).catch(() => {});
-
-    // Verifica se novo telefone já pertence a outro usuário
     if (telefoneLimpo) {
       const { rows } = await db.query(
         'SELECT id FROM usuarios WHERE telefone = $1 AND id != $2',
@@ -220,7 +228,6 @@ router.put('/perfil', autenticar, async (req, res) => {
        telefoneLimpo ? true : false, req.usuarioId]
     );
 
-    // Atualiza sessão do bot se telefone mudou
     if (telefoneLimpo) {
       await db.query(
         `INSERT INTO sessoes_bot (telefone, usuario_id, estado)
@@ -238,7 +245,6 @@ router.put('/perfil', autenticar, async (req, res) => {
 });
 
 // ── PUT /api/auth/senha ──────────────────────────────────────
-// Chamado pelo dashboard em: API.trocarSenha({ senhaAtual, novaSenha })
 router.put('/senha', autenticar, async (req, res) => {
   const { senhaAtual, novaSenha } = req.body;
 

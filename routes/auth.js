@@ -1,4 +1,4 @@
-// routes/auth.js — Cadastro e login (CORRIGIDO)
+// routes/auth.js
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -6,24 +6,57 @@ const jwt = require('jsonwebtoken');
 const db = require('../database/db');
 
 // ── Normaliza telefone → sempre sem DDI, 10 ou 11 dígitos ────
-// Ex: "5531991003389" → "31991003389"
-//     "(31) 99100-3389" → "31991003389"
 function normalizarTelefone(telefone) {
   if (!telefone) return null;
   let digits = telefone.replace(/\D/g, '');
-
-  // Remove DDI 55 se o frontend já tiver enviado com ele
-  if (digits.startsWith('55') && digits.length > 11) {
-    digits = digits.slice(2);
-  }
-
-  // Valida: deve ter 10 (fixo) ou 11 dígitos (celular com 9)
+  if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
   if (digits.length < 10 || digits.length > 11) return null;
-
-  return digits; // ex: "31991003389"
+  return digits;
 }
 
-// ── POST /api/auth/cadastro ──────────────────────────────
+// ── Referência global ao bot (injetada pelo server.js) ───────
+let _botInstance = null;
+function setBotInstance(bot) { _botInstance = bot; }
+
+// ── Resolve o JID real do WhatsApp para o telefone ───────────
+// Retorna: { jid, lid } onde lid só existe se o WhatsApp usar LID
+async function resolverJidWhatsApp(telefoneLimpo) {
+  if (!_botInstance || !_botInstance.conectado) return null;
+
+  const jidConsulta = `55${telefoneLimpo}@s.whatsapp.net`;
+
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const [info] = await _botInstance.socket.onWhatsApp(jidConsulta);
+      if (!info?.exists) return null;
+
+      const jidReal = info.jid; // pode ser @s.whatsapp.net ou @lid
+
+      if (jidReal.endsWith('@lid')) {
+        // WhatsApp usa LID para esse número — salva o mapeamento
+        await _botInstance._garantirTabelaLidMap();
+        await db.query(
+          `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2)
+           ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+          [jidReal, telefoneLimpo]
+        );
+        _botInstance.lidCache?.set(jidReal, telefoneLimpo);
+        console.log(`🔗 Cadastro: LID mapeado ${jidReal} → ${telefoneLimpo}`);
+        return { jid: jidReal, lid: jidReal };
+      }
+
+      return { jid: jidReal, lid: null };
+    } catch (err) {
+      console.warn(`⚠️  resolverJid tentativa ${tentativa}/3 falhou:`, err.message);
+      if (tentativa < 3) await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+
+  console.warn(`❌ Não foi possível resolver JID para ${telefoneLimpo} após 3 tentativas`);
+  return null;
+}
+
+// ── POST /api/auth/cadastro ──────────────────────────────────
 router.post('/cadastro', async (req, res) => {
   const { nome, email, senha, telefone, plano } = req.body;
 
@@ -33,12 +66,12 @@ router.post('/cadastro', async (req, res) => {
   const telefoneLimpo = normalizarTelefone(telefone);
 
   try {
-    // Verifica se e-mail já existe
+    // Verifica e-mail duplicado
     const existe = await db.query('SELECT id FROM usuarios WHERE email = $1', [email.toLowerCase()]);
     if (existe.rows.length > 0)
       return res.status(409).json({ erro: 'E-mail já cadastrado' });
 
-    // Verifica se telefone já está em uso (se informado)
+    // Verifica telefone duplicado
     if (telefoneLimpo) {
       const telExiste = await db.query('SELECT id FROM usuarios WHERE telefone = $1', [telefoneLimpo]);
       if (telExiste.rows.length > 0)
@@ -47,7 +80,7 @@ router.post('/cadastro', async (req, res) => {
 
     const senha_hash = await bcrypt.hash(senha, 12);
 
-    // Insere o usuário com o plano
+    // Insere o usuário
     const { rows: usuariosInseridos } = await db.query(
       `INSERT INTO usuarios (nome, email, senha_hash, telefone, plano, whatsapp_ativo)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -59,33 +92,35 @@ router.post('/cadastro', async (req, res) => {
 
     // Cria conta bancária padrão
     await db.query(
-      `INSERT INTO contas (usuario_id, nome, padrao, saldo)
-       VALUES ($1, 'Carteira', true, 0)`,
+      `INSERT INTO contas (usuario_id, nome, padrao, saldo) VALUES ($1, 'Carteira', true, 0)`,
       [usuario.id]
     );
 
-    // Cria a sessão do bot (vincula WhatsApp ao usuário)
+    // ── Vincula WhatsApp ──────────────────────────────────────
     if (telefoneLimpo) {
+      // Tenta resolver o JID real (pode ser LID) na hora do cadastro
+      const jidInfo = await resolverJidWhatsApp(telefoneLimpo);
+      const lidParaSalvar = jidInfo?.lid || null;
+
+      // Garante que a coluna lid existe na tabela
+      await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_sessoes_bot_lid ON sessoes_bot(lid)`).catch(() => {});
+
       await db.query(
-        `INSERT INTO sessoes_bot (telefone, usuario_id, estado)
-         VALUES ($1, $2, 'ativo')
+        `INSERT INTO sessoes_bot (telefone, usuario_id, estado, lid)
+         VALUES ($1, $2, 'ativo', $3)
          ON CONFLICT (telefone) DO UPDATE
-         SET usuario_id = $2, estado = 'ativo', atualizado_em = NOW()`,
-        [telefoneLimpo, usuario.id]
+         SET usuario_id = $2, estado = 'ativo', lid = COALESCE($3, sessoes_bot.lid), atualizado_em = NOW()`,
+        [telefoneLimpo, usuario.id, lidParaSalvar]
       );
-      console.log(`✅ Sessão criada para WhatsApp: ${telefoneLimpo} (Usuário: ${usuario.id})`);
+
+      console.log(`✅ Sessão criada para WhatsApp: ${telefoneLimpo} (Usuário: ${usuario.id})${lidParaSalvar ? ` | LID: ${lidParaSalvar}` : ''}`);
     }
 
     const token = gerarToken(usuario);
-
     res.status(201).json({
       token,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        plano: usuario.plano
-      }
+      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, plano: usuario.plano }
     });
 
   } catch (err) {
@@ -94,7 +129,7 @@ router.post('/cadastro', async (req, res) => {
   }
 });
 
-// ── POST /api/auth/login ─────────────────────────────────
+// ── POST /api/auth/login ─────────────────────────────────────
 router.post('/login', async (req, res) => {
   const { email, senha } = req.body;
 
@@ -102,11 +137,7 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ erro: 'E-mail e senha são obrigatórios' });
 
   try {
-    const { rows } = await db.query(
-      'SELECT * FROM usuarios WHERE email = $1',
-      [email.toLowerCase()]
-    );
-
+    const { rows } = await db.query('SELECT * FROM usuarios WHERE email = $1', [email.toLowerCase()]);
     if (rows.length === 0)
       return res.status(401).json({ erro: 'Credenciais inválidas' });
 
@@ -119,10 +150,8 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        plano: usuario.plano,
+        id: usuario.id, nome: usuario.nome,
+        email: usuario.email, plano: usuario.plano,
         whatsapp_ativo: usuario.whatsapp_ativo
       }
     });
@@ -132,7 +161,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ── GET /api/auth/me ─────────────────────────────────────
+// ── GET /api/auth/me ─────────────────────────────────────────
 const autenticar = require('../middleware/auth');
 router.get('/me', autenticar, async (req, res) => {
   try {
@@ -156,3 +185,4 @@ function gerarToken(usuario) {
 }
 
 module.exports = router;
+module.exports.setBotInstance = setBotInstance;

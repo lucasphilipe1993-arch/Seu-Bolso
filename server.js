@@ -27,6 +27,7 @@ const bot = new BotGranaZen();
 // Injeta a instância do bot nas rotas
 whatsappRoute.setBotInstance(bot);
 adminRoute.setBotInstance(bot);
+authRoutes.setBotInstance(bot); // ← NOVO: permite resolver LID no cadastro
 
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({ origin: '*' }));
@@ -84,9 +85,7 @@ app.get('*', (req, res) => {
   res.json({ message: 'GranaZen Bot API', conectado: bot.conectado });
 });
 
-// ─── Encerramento limpo (SIGTERM enviado pelo Railway no shutdown) ────────────
-// FIX: garante que o socket do WhatsApp fecha ANTES do processo morrer,
-// evitando que o próximo deploy herde uma sessão "zumbi" e receba erro 440.
+// ─── Encerramento limpo ───────────────────────────────────────
 let encerrando = false;
 async function encerrarLimpo(sinal) {
   if (encerrando) return;
@@ -98,7 +97,6 @@ async function encerrarLimpo(sinal) {
   } catch (err) {
     console.warn('⚠️  Erro ao fechar socket:', err.message);
   }
-  // Dá 1s para o log ser escrito antes de matar o processo
   setTimeout(() => process.exit(0), 1000);
 }
 
@@ -108,17 +106,14 @@ process.on('SIGINT',  () => encerrarLimpo('SIGINT'));
 // ─── Start ────────────────────────────────────────────────────
 server.listen(PORT, async () => {
   console.log(`
-╔══════════════════════════════════════╗
-║   💚 GranaZen Bot — Iniciado!        ║
-║   Porta: ${PORT}                         ║
-║   Dashboard: http://localhost:${PORT}   ║
-╚══════════════════════════════════════╝
+╔═══════════════════════════════════════╗
+║   💰 Seu Bolso — Iniciado!            ║
+║   Porta: ${PORT}                      ║
+║   Dashboard: http://localhost:${PORT} ║
+╚═══════════════════════════════════════╝
   `);
 
   if (process.env.AUTO_CONNECT === 'true') {
-    // FIX: aguarda 5s antes de conectar ao WhatsApp.
-    // No Railway, isso dá tempo do deploy anterior encerrar completamente
-    // e evita o erro 440 (conflito de sessão / duas instâncias simultâneas).
     const delayInicio = parseInt(process.env.WA_START_DELAY_MS || '5000', 10);
     console.log(`🔄 Auto-conectando WhatsApp em ${delayInicio / 1000}s...`);
     setTimeout(() => {

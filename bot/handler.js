@@ -1,6 +1,4 @@
 // bot/handler.js — Bot WhatsApp Seu Bolso
-// IA: OpenAI (GPT-4o-mini para texto/imagem, Whisper para áudio)
-
 const {
   default: makeWASocket,
   DisconnectReason,
@@ -20,7 +18,7 @@ const db = require('../database/db');
 const TMP_DIR = path.join(process.cwd(), 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
-// ─── Cache de LID → telefone (evita consultas repetidas) ─────
+// ─── Cache de LID → telefone ──────────────────────────────────
 const lidCache = new Map();
 
 // ─── Prompt do sistema ────────────────────────────────────────
@@ -123,6 +121,7 @@ class BotGranaZen {
     this.socket = null;
     this.conectado = false;
     this.qrAtual = null;
+    this.lidCache = lidCache; // expõe para o auth.js usar
     this._tentativas = 0;
     this._reconectando = false;
     this._timerReconexao = null;
@@ -139,22 +138,12 @@ class BotGranaZen {
     return base;
   }
 
-  // ─── Normaliza telefone → sempre sem DDI, 10 ou 11 dígitos ──
-  // Ex: "5531991003389" → "31991003389"
-  //     "31991003389"   → "31991003389"  (já está certo)
   _normalizarTelefone(telefone) {
     if (!telefone) return null;
     let digits = telefone.replace(/\D/g, '');
-
-    // Remove DDI 55 se presente
-    if (digits.startsWith('55') && digits.length > 11) {
-      digits = digits.slice(2);
-    }
-
-    // Valida: deve ter 10 (fixo) ou 11 dígitos (celular com 9)
-    if (digits.length < 10 || digits.length > 11) return digits; // retorna mesmo assim como fallback
-
-    return digits; // ex: "31991003389"
+    if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
+    if (digits.length < 10 || digits.length > 11) return digits;
+    return digits;
   }
 
   async _fecharSocket() {
@@ -181,7 +170,6 @@ class BotGranaZen {
     this._timerReconexao = setTimeout(async () => { this._timerReconexao = null; await this.iniciar(); }, delay);
   }
 
-  // ─── Garante que a tabela lid_map existe ──────────────────────
   async _garantirTabelaLidMap() {
     await db.query(`
       CREATE TABLE IF NOT EXISTS lid_map (
@@ -192,19 +180,19 @@ class BotGranaZen {
     `);
   }
 
-  // ─── Resolve LID → telefone numérico normalizado ──────────────
-  // Fluxo: cache em memória → banco lid_map → onWhatsApp() do Baileys
+  // ─── Resolve LID → telefone ───────────────────────────────────
+  // Ordem: @s.whatsapp.net direto → cache → banco lid_map → onWhatsApp() com retry
   async _resolverTelefone(remoteJid) {
     if (remoteJid.endsWith('@s.whatsapp.net')) {
-      const raw = remoteJid.replace('@s.whatsapp.net', '');
-      return this._normalizarTelefone(raw); // ← normaliza antes de retornar
+      return this._normalizarTelefone(remoteJid.replace('@s.whatsapp.net', ''));
     }
 
-    // Verifica cache em memória
+    // Cache em memória
     if (lidCache.has(remoteJid)) return lidCache.get(remoteJid);
 
-    // Verifica banco
+    // Banco lid_map
     try {
+      await this._garantirTabelaLidMap();
       const res = await db.query('SELECT telefone FROM lid_map WHERE lid = $1', [remoteJid]);
       if (res.rows.length > 0) {
         const telefone = this._normalizarTelefone(res.rows[0].telefone);
@@ -213,29 +201,31 @@ class BotGranaZen {
       }
     } catch {}
 
-    // Tenta resolver via Baileys
+    // onWhatsApp() com retry
     if (this.socket) {
-      try {
-        const [info] = await this.socket.onWhatsApp(remoteJid);
-        if (info?.jid?.endsWith('@s.whatsapp.net')) {
-          const telefone = this._normalizarTelefone(
-            info.jid.replace('@s.whatsapp.net', '')
-          );
-          lidCache.set(remoteJid, telefone);
-          await this._garantirTabelaLidMap();
-          await db.query(
-            `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
-            [remoteJid, telefone]
-          );
-          console.log(`🔗 Mapeado LID ${remoteJid} → ${telefone}`);
-          return telefone;
+      for (let tentativa = 1; tentativa <= 3; tentativa++) {
+        try {
+          const [info] = await this.socket.onWhatsApp(remoteJid);
+          if (info?.jid?.endsWith('@s.whatsapp.net')) {
+            const telefone = this._normalizarTelefone(info.jid.replace('@s.whatsapp.net', ''));
+            lidCache.set(remoteJid, telefone);
+            await this._garantirTabelaLidMap();
+            await db.query(
+              `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+              [remoteJid, telefone]
+            );
+            console.log(`🔗 LID resolvido via onWhatsApp (tentativa ${tentativa}): ${remoteJid} → ${telefone}`);
+            return telefone;
+          }
+        } catch (err) {
+          console.warn(`onWhatsApp tentativa ${tentativa}/3 falhou para ${remoteJid}:`, err.message);
         }
-      } catch (err) {
-        console.warn(`Não foi possível resolver LID ${remoteJid}:`, err.message);
+        if (tentativa < 3) await new Promise(r => setTimeout(r, 2000));
       }
     }
 
-    // Fallback: usa o LID como chave
+    // Fallback: retorna o LID mesmo (será tratado no _buscarSessao)
+    console.warn(`⚠️  Não foi possível resolver LID ${remoteJid}, usando como chave`);
     return remoteJid;
   }
 
@@ -262,7 +252,28 @@ class BotGranaZen {
 
       this.socket.ev.on('creds.update', saveCreds);
 
-      // ── Conexão ──────────────────────────────────────────
+      // ── Popula lid_map ao receber lista de contatos ───────────
+      // Isso resolve LIDs de clientes que já cadastraram antes da correção
+      this.socket.ev.on('contacts.upsert', async (contacts) => {
+        for (const contact of contacts) {
+          if (contact.lid && contact.id?.endsWith('@s.whatsapp.net')) {
+            const telefone = this._normalizarTelefone(
+              contact.id.replace('@s.whatsapp.net', '')
+            );
+            try {
+              await this._garantirTabelaLidMap();
+              await db.query(
+                `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2)
+                 ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+                [contact.lid, telefone]
+              );
+              lidCache.set(contact.lid, telefone);
+            } catch {}
+          }
+        }
+      });
+
+      // ── Conexão ───────────────────────────────────────────────
       this.socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
@@ -292,7 +303,7 @@ class BotGranaZen {
         }
       });
 
-      // ── Mensagens recebidas ──────────────────────────────
+      // ── Mensagens recebidas ───────────────────────────────────
       this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
         console.log(`📨 upsert: type=${type}, qtd=${messages.length}, jids=${messages.map(m => m.key.remoteJid).join(',')}`);
         if (type !== 'notify') return;
@@ -306,7 +317,6 @@ class BotGranaZen {
           if (remoteJid === 'status@broadcast') continue;
           if (!remoteJid.endsWith('@s.whatsapp.net') && !remoteJid.endsWith('@lid')) continue;
 
-          // Resolve e normaliza automaticamente LID → telefone
           const telefone = await this._resolverTelefone(remoteJid);
           console.log(`📩 mensagem de: ${telefone} | pushName: ${msg.pushName}`);
 
@@ -337,13 +347,26 @@ class BotGranaZen {
   }
 
   async _roteador(telefone, remoteJid, tipo, msg) {
-    const sessao = await this._buscarSessao(telefone);
+    const sessao = await this._buscarSessao(telefone, remoteJid);
     if (!sessao) {
       console.log(`⚠️ Sessão não encontrada para: ${telefone}`);
       return this.enviar(remoteJid,
         `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Bolso.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
       );
     }
+
+    // Se resolveu pelo LID, persiste o mapeamento para próximas mensagens
+    if (remoteJid.endsWith('@lid') && sessao.telefone) {
+      try {
+        await this._garantirTabelaLidMap();
+        await db.query(
+          `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+          [remoteJid, sessao.telefone]
+        );
+        lidCache.set(remoteJid, sessao.telefone);
+      } catch {}
+    }
+
     const { usuarioId, nome } = sessao;
     if (tipo === 'texto') {
       const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
@@ -365,37 +388,69 @@ class BotGranaZen {
     }
   }
 
-  async _buscarSessao(telefone) {
-    // Busca primeiro pelo telefone exato (já normalizado)
+  // ─── Busca sessão por telefone OU por LID ─────────────────────
+  async _buscarSessao(telefone, remoteJid = null) {
+    // Garante coluna lid existe
+    await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
+
+    // 1. Busca pelo telefone normalizado
     let res = await db.query(
-      `SELECT s.usuario_id, u.nome FROM sessoes_bot s
+      `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
        JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
       [telefone]
     );
 
-    // Fallback: tenta com DDI 55 na frente (para sessões antigas mal formatadas)
-    if (res.rows.length === 0 && !telefone.startsWith('55')) {
+    // 2. Fallback: DDI 55 (sessões antigas)
+    if (res.rows.length === 0 && !telefone.startsWith('55') && !telefone.endsWith('@lid')) {
       res = await db.query(
-        `SELECT s.usuario_id, u.nome FROM sessoes_bot s
+        `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
          JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
         ['55' + telefone]
       );
       if (res.rows.length > 0) {
-        // Corrige o registro desatualizado no banco
         console.log(`🔧 Corrigindo telefone no banco: 55${telefone} → ${telefone}`);
-        await db.query(
-          `UPDATE sessoes_bot SET telefone = $1 WHERE telefone = $2`,
-          [telefone, '55' + telefone]
-        );
-        await db.query(
-          `UPDATE usuarios SET telefone = $1 WHERE telefone = $2`,
-          [telefone, '55' + telefone]
-        );
+        await db.query(`UPDATE sessoes_bot SET telefone = $1 WHERE telefone = $2`, [telefone, '55' + telefone]);
+        await db.query(`UPDATE usuarios SET telefone = $1 WHERE telefone = $2`, [telefone, '55' + telefone]);
       }
     }
 
+    // 3. Fallback: busca pelo LID na coluna lid da sessoes_bot
+    // (para clientes que cadastraram e já tinham o LID salvo)
+    if (res.rows.length === 0 && remoteJid?.endsWith('@lid')) {
+      res = await db.query(
+        `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
+         JOIN usuarios u ON u.id = s.usuario_id WHERE s.lid = $1`,
+        [remoteJid]
+      );
+      if (res.rows.length > 0) {
+        console.log(`🔗 Sessão encontrada pelo LID ${remoteJid} → ${res.rows[0].telefone}`);
+      }
+    }
+
+    // 4. Fallback: busca pelo LID no lid_map e depois na sessoes_bot
+    if (res.rows.length === 0 && remoteJid?.endsWith('@lid')) {
+      try {
+        const mapRes = await db.query('SELECT telefone FROM lid_map WHERE lid = $1', [remoteJid]);
+        if (mapRes.rows.length > 0) {
+          const telDoMap = mapRes.rows[0].telefone;
+          res = await db.query(
+            `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
+             JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
+            [telDoMap]
+          );
+          if (res.rows.length > 0) {
+            console.log(`🔗 Sessão encontrada via lid_map: ${remoteJid} → ${telDoMap}`);
+          }
+        }
+      } catch {}
+    }
+
     if (res.rows.length === 0) return null;
-    return { usuarioId: res.rows[0].usuario_id, nome: res.rows[0].nome.split(' ')[0] };
+    return {
+      usuarioId: res.rows[0].usuario_id,
+      nome: res.rows[0].nome.split(' ')[0],
+      telefone: res.rows[0].telefone,
+    };
   }
 
   async processarTexto(remoteJid, usuarioId, nome, texto) {

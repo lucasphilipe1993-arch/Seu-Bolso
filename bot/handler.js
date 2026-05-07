@@ -253,9 +253,13 @@ class BotGranaZen {
       this.socket.ev.on('creds.update', saveCreds);
 
       // ── Popula lid_map ao receber lista de contatos ───────────
-      // Isso resolve LIDs de clientes que já cadastraram antes da correção
       this.socket.ev.on('contacts.upsert', async (contacts) => {
+        console.log('📋 contacts.upsert recebido:', JSON.stringify(contacts.slice(0, 5), null, 2));
         for (const contact of contacts) {
+          // Loga cada contato que tiver LID
+          if (contact.lid) {
+            console.log(`📋 Contato com LID: lid=${contact.lid} id=${contact.id}`);
+          }
           if (contact.lid && contact.id?.endsWith('@s.whatsapp.net')) {
             const telefone = this._normalizarTelefone(
               contact.id.replace('@s.whatsapp.net', '')
@@ -268,7 +272,36 @@ class BotGranaZen {
                 [contact.lid, telefone]
               );
               lidCache.set(contact.lid, telefone);
-            } catch {}
+              console.log(`✅ LID mapeado via contacts.upsert: ${contact.lid} → ${telefone}`);
+            } catch (err) {
+              console.warn(`Erro ao salvar LID do contato:`, err.message);
+            }
+          }
+        }
+      });
+
+      this.socket.ev.on('contacts.update', async (contacts) => {
+        console.log('📋 contacts.update recebido:', JSON.stringify(contacts.slice(0, 5), null, 2));
+        for (const contact of contacts) {
+          if (contact.lid) {
+            console.log(`📋 Update contato com LID: lid=${contact.lid} id=${contact.id}`);
+          }
+          if (contact.lid && contact.id?.endsWith('@s.whatsapp.net')) {
+            const telefone = this._normalizarTelefone(
+              contact.id.replace('@s.whatsapp.net', '')
+            );
+            try {
+              await this._garantirTabelaLidMap();
+              await db.query(
+                `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2)
+                 ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+                [contact.lid, telefone]
+              );
+              lidCache.set(contact.lid, telefone);
+              console.log(`✅ LID mapeado via contacts.update: ${contact.lid} → ${telefone}`);
+            } catch (err) {
+              console.warn(`Erro ao salvar LID do contato:`, err.message);
+            }
           }
         }
       });

@@ -147,14 +147,14 @@ class BotGranaZen {
 
     // Se tem 10 digitos e celular antigo sem o 9 - adiciona apos o DDD
     // Ex: "3192037032" -> "31992037032"
-    if (digits.length === 10) {
-      const ddd = digits.slice(0, 2);
-      const numero = digits.slice(2);
-      if (['6','7','8','9'].includes(numero[0])) {
-        digits = ddd + '9' + numero;
-        console.log('Numero normalizado (10->11 digitos): ' + telefone + ' -> ' + digits);
-      }
-    }
+if (digits.length === 10) {
+  const ddd = digits.slice(0, 2);
+  const numero = digits.slice(2);
+  if (['6','7','8'].includes(numero[0])) {
+    digits = ddd + '9' + numero;
+    console.log('Numero normalizado (10->11 digitos): ' + telefone + ' -> ' + digits);
+  }
+}
 
     if (digits.length < 10 || digits.length > 11) return digits;
     return digits;

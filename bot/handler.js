@@ -24,7 +24,7 @@ if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 const lidCache = new Map();
 
 // ─── Prompt do sistema ────────────────────────────────────────
-const SYSTEM_PROMPT = `Você é o assistente financeiro do GranaZen.
+const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Bolso.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 
 Se for uma transação financeira:
@@ -534,7 +534,7 @@ class BotGranaZen {
   msgBemVindo(nome) {
     return (
       `Olá, *${nome}*! 👋\n\n` +
-      `Sou o assistente financeiro do GranaZen. Posso registrar seus gastos e receitas diretamente aqui no WhatsApp!\n\n` +
+      `Sou o assistente financeiro do Seu Bolso. Posso registrar seus gastos e receitas diretamente aqui no WhatsApp!\n\n` +
       `*Como usar:*\n💬 *Texto:* _Gastei 35 no almoço_\n🎤 *Áudio:* Fale o seu gasto\n📸 *Foto:* Tire foto da nota fiscal\n\n` +
       `Digite *ajuda* para ver todos os comandos.`
     );

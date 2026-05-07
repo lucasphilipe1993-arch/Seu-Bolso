@@ -79,9 +79,9 @@ class BotGranaZen {
 this.socket = makeWASocket({
   auth: state,
   printQRInTerminal: true,
-  browser: ['Ubuntu', 'Chrome', '22.0.0.0'],
+  browser: ['GranaZen', 'Chrome', '120.0.0'],
   logger: this._logger,
-  version: [2, 3000, 1015901307],
+  // Baileys busca a versão certa sozinho
 });
 
     this.socket.ev.on('creds.update', saveCreds);

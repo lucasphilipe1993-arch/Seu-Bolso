@@ -609,9 +609,30 @@ class BotGranaZen {
     // Remove pontuação do final para comparações (ex: áudio transcreve com ponto)
     const textoClean = textoLower.replace(/[.,!?;:]+$/, '').trim();
 
-    // Saudações
-    if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello'].includes(textoClean))
+    // Saudações simples
+    if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello', 'bom dia', 'boa tarde', 'boa noite'].includes(textoClean))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
+
+    // Detecta mensagens de apresentação/primeiro contato do cliente
+    // Ex: "Oi! Acabei de criar minha conta no Seu Bolso. Meu nome é Tiago"
+    // Ex: "Olá, me chamo João e acabei de me cadastrar"
+    const padroesPrimeiroContato = [
+      /acabei de criar/i,
+      /acabei de me cadastrar/i,
+      /acabei de cadastrar/i,
+      /acabo de criar/i,
+      /acabo de me cadastrar/i,
+      /me cadastrei/i,
+      /fiz meu cadastro/i,
+      /criei minha conta/i,
+      /meu nome [eé]/i,
+      /me chamo/i,
+      /sou o\b/i,
+      /sou a\b/i,
+    ];
+    if (padroesPrimeiroContato.some(p => p.test(textoClean))) {
+      return this.enviar(remoteJid, this.msgBemVindo(nome));
+    }
 
     // Resumo / Saldo / Relatório
     const triggerResumo = [
@@ -1158,7 +1179,7 @@ class BotGranaZen {
 
   async enviarBoasVindasECapturarLid(telefone, usuarioId, nome) {
     if (!this.socket || !this.conectado) {
-      console.warn('Bot desconectado, não enviou boas-vindas');
+      console.warn('Bot desconectado, nao enviou boas-vindas');
       return;
     }
 
@@ -1166,11 +1187,13 @@ class BotGranaZen {
 
     const jid = `55${telefone}@s.whatsapp.net`;
     try {
+      // 1a mensagem: boas-vindas calorosa
       const resultado = await Promise.race([
         this.socket.sendMessage(jid, { text: this.msgBemVindo(nome) }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
       ]);
 
+      // Captura LID se necessario
       const jidReal = resultado?.key?.remoteJid || resultado?.key?.participant || null;
       if (jidReal && jidReal.endsWith('@lid')) {
         lidCache.set(jidReal, telefone);
@@ -1181,8 +1204,16 @@ class BotGranaZen {
         );
         await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
         await db.query(`UPDATE sessoes_bot SET lid = $1 WHERE usuario_id = $2`, [jidReal, usuarioId]);
-        console.log(`✅ LID vinculado ao usuário ${usuarioId}: ${jidReal}`);
+        console.log(`LID vinculado ao usuario ${usuarioId}: ${jidReal}`);
       }
+
+      // 2a mensagem: tutorial completo (apos 2s para parecer mais natural)
+      await new Promise(r => setTimeout(r, 2000));
+      await Promise.race([
+        this.socket.sendMessage(jid, { text: this.msgTutorial() }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
+      ]);
+
     } catch (err) {
       console.warn(`Falha ao enviar boas-vindas para ${jid}:`, err.message);
     }
@@ -1198,20 +1229,39 @@ class BotGranaZen {
   msgBemVindo(nome) {
     return (
       `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Bolso*! 👋\n\n` +
-      `🤖 Sou seu assistente financeiro pessoal. Posso registrar seus gastos e receitas diretamente aqui no WhatsApp!\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `📌 *Como registrar transações:*\n\n` +
-      `💬 *Texto:* _Gastei 35 no almoço_\n` +
-      `🎤 *Áudio:* Fale o seu gasto\n` +
-      `📸 *Foto:* Tire foto da nota fiscal\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `📊 Digite *resumo* para ver seu saldo\n` +
-      `📂 Digite *categorias* para ver suas categorias\n` +
-      `❓ Digite *ajuda* para ver todos os comandos`
+      `🤖 Sou seu assistente financeiro pessoal. Estou aqui para te ajudar a controlar seus gastos e receitas direto pelo WhatsApp — sem precisar abrir nenhum app!\n\n` +
+      `Já deixei sua conta configurada e pronta para usar. Em instantes vou te mostrar como funciona. 😊`
     );
   }
 
-  msgAjuda() {
+  msgTutorial() {
+    return (
+      `📚 *Como usar o Seu Bolso:*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💬 *1. Registre gastos e receitas enviando texto:*\n\n` +
+      `_"Gastei 35 no almoço"_\n` +
+      `_"Paguei 120 de conta de luz"_\n` +
+      `_"Recebi 3000 de salário"_\n\n` +
+      `🎤 *2. Ou mande um áudio falando o gasto* — eu entendo!\n\n` +
+      `📸 *3. Ou tire uma foto* da nota fiscal ou comprovante.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📊 *Comandos úteis:*\n\n` +
+      `• *resumo* — Ver seu saldo e relatório do mês\n` +
+      `• *histórico* — Ver suas últimas transações\n` +
+      `• *categorias* — Ver suas categorias\n` +
+      `• *ajuda* — Ver todos os comandos\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🗑️ *Para excluir uma transação:*\n` +
+      `• _"excluir última"_ — remove a mais recente\n` +
+      `• _"excluir [ID]"_ — pelo código da transação\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🌐 Acesse seu painel completo com gráficos em:\n` +
+      `*${process.env.APP_URL}/painel*\n\n` +
+      `Pode começar! Me manda seu primeiro gasto 👆`
+    );
+  }
+
+    msgAjuda() {
     return (
       `🤖 *Comandos disponíveis:*\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +

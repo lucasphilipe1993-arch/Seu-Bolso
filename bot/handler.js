@@ -184,16 +184,22 @@ class BotGranaZen {
   _normalizarTelefone(telefone) {
     if (!telefone) return null;
     let digits = telefone.replace(/\D/g, '');
+
+    // Remove DDI 55 se presente
     if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
+
+    // 8 dígitos = número sem DDD — improvável, ignora
+    // 10 dígitos = DDD + 8 dígitos (sem o 9) → adiciona o 9
     if (digits.length === 10) {
       const ddd = digits.slice(0, 2);
       const numero = digits.slice(2);
-      if (['6','7','8'].includes(numero[0])) {
+      // Celular começa com 6,7,8,9 — sempre adiciona o 9
+      if (['6','7','8','9'].includes(numero[0])) {
         digits = ddd + '9' + numero;
-        console.log('Numero normalizado (10->11 digitos): ' + telefone + ' -> ' + digits);
+        console.log(`📞 Número normalizado (sem 9 → com 9): ${telefone} → ${digits}`);
       }
     }
-    if (digits.length < 10 || digits.length > 11) return digits;
+
     return digits;
   }
 

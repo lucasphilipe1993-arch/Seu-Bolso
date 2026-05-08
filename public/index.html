@@ -10,18 +10,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ============================================
-   DESIGN SYSTEM — MONOCHROMATIC PREMIUM
+   DESIGN SYSTEM — NAVY BLUE BRAND
    ============================================ */
 :root {
-  --ink: #0e0f0f;
-  --ink-80: rgba(14,15,15,0.8);
-  --ink-50: rgba(14,15,15,0.5);
-  --ink-20: rgba(14,15,15,0.2);
-  --ink-08: rgba(14,15,15,0.08);
-  --ink-04: rgba(14,15,15,0.04);
-  --paper: #fafaf8;
-  --paper-dark: #f2f1ee;
-  --accent: #0e0f0f;
+  --ink: #0f2137;
+  --ink-80: rgba(15,33,55,0.8);
+  --ink-50: rgba(15,33,55,0.5);
+  --ink-20: rgba(15,33,55,0.2);
+  --ink-08: rgba(15,33,55,0.08);
+  --ink-04: rgba(15,33,55,0.04);
+  --paper: #f8fafc;
+  --paper-dark: #eef3f8;
+  --accent: #0f2137;
   --white: #ffffff;
 
   --font-display: 'Syne', sans-serif;
@@ -65,13 +65,8 @@ nav {
 }
 
 .nav-logo {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center;
   text-decoration: none;
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--ink);
-  letter-spacing: -0.02em;
 }
 
 .nav-logo-mark {
@@ -130,7 +125,7 @@ nav {
 .hero-bg {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 70% 60% at 70% 50%, rgba(14,15,15,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 70% 50%, rgba(15,33,55,0.05) 0%, transparent 60%),
     var(--paper);
   pointer-events: none;
 }
@@ -140,8 +135,8 @@ nav {
   content: '';
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(var(--ink-04) 1px, transparent 1px),
-    linear-gradient(90deg, var(--ink-04) 1px, transparent 1px);
+    linear-gradient(rgba(15,33,55,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,33,55,0.04) 1px, transparent 1px);
   background-size: 60px 60px;
   mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 70%);
 }
@@ -894,10 +889,7 @@ footer {
 <!-- ===================== NAVIGATION ===================== -->
 <nav>
   <a href="/" class="nav-logo">
-    <div class="nav-logo-mark">
-      <svg viewBox="0 0 20 20"><path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm.75 11.5h-1.5v-5h1.5v5zm0-6.5h-1.5V5.5h1.5V7z"/></svg>
-    </div>
-    Seu Bolso
+    <img src="/assets/logo.gif" alt="Seu Bolso" style="height:38px;width:auto;display:block;">
   </a>
 
   <ul class="nav-links">
@@ -1442,10 +1434,7 @@ footer {
     <div class="footer-top">
       <div class="footer-brand">
         <div class="footer-brand-name">
-          <div class="footer-logo-mark">
-            <svg viewBox="0 0 20 20"><path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm.75 11.5h-1.5v-5h1.5v5zm0-6.5h-1.5V5.5h1.5V7z"/></svg>
-          </div>
-          Seu Bolso
+          <img src="/assets/logo.gif" alt="Seu Bolso" style="height:36px;width:auto;display:block;filter:brightness(0) invert(1);">
         </div>
         <p>Controle financeiro inteligente pelo WhatsApp. Desenvolvido para brasileiros que querem organizar as finanças de um jeito simples e eficiente.</p>
       </div>

@@ -14,7 +14,8 @@ const authRoutes        = require('./routes/auth');
 const transactionRoutes = require('./routes/transactions');
 const whatsappRoute     = require('./routes/whatsapp');
 const adminRoute        = require('./routes/admin');
-const dividasRoute      = require('./routes/dividas'); // ← ADICIONADO
+const dividasRoute      = require('./routes/dividas');
+const stripeRoute       = require('./routes/stripe'); // ← STRIPE
 
 const app    = express();
 const server = http.createServer(app);
@@ -32,6 +33,11 @@ authRoutes.setBotInstance(bot);
 
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({ origin: '*' }));
+
+// ⚠️ IMPORTANTE: o webhook do Stripe precisa do body RAW,
+// então registramos ANTES do express.json()
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '10mb' }));
 
 const DASHBOARD_PATH = path.join(__dirname, 'public');
@@ -87,10 +93,10 @@ app.use('/api/auth',         authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/whatsapp',     whatsappRoute.router);
 app.use('/api/admin',        adminRoute.router);
-app.use('/api/dividas',      dividasRoute); // ← ADICIONADO
+app.use('/api/dividas',      dividasRoute);
+app.use('/api/stripe',       stripeRoute); // ← STRIPE
 
 // ─── Atalho /api/me → /api/auth/me ───────────────────────────
-// Mantém compatibilidade caso alguma parte do código chame /api/me
 const autenticar = require('./middleware/auth');
 app.get('/api/me', autenticar, async (req, res) => {
   try {
@@ -112,8 +118,6 @@ app.get('/health', (req, res) =>
 );
 
 // ─── Fallback ─────────────────────────────────────────────────
-// IMPORTANTE: rotas /api/* sem match retornam JSON, não HTML
-// Isso evita o erro "Unexpected token '<'" no frontend
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ erro: `Rota não encontrada: ${req.path}` });
@@ -150,7 +154,7 @@ process.on('SIGINT',  () => encerrarLimpo('SIGINT'));
 server.listen(PORT, async () => {
   console.log(`
 ╔═══════════════════════════════════════╗
-║   💰 Seu Bolso — Iniciado!            ║
+║   💰 Seu Secretário — Iniciado!            ║
 ║   Porta: ${PORT}                      ║
 ║   Dashboard: http://localhost:${PORT} ║
 ╚═══════════════════════════════════════╝

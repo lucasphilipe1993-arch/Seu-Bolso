@@ -40,7 +40,6 @@ app.use(express.static(DASHBOARD_PATH));
 io.on('connection', (socket) => {
   console.log('📡 Dashboard conectado via socket:', socket.id);
 
-  // Envia estado atual para o cliente que acabou de conectar
   socket.emit('status', { status: bot.conectado ? 'connected' : 'disconnected' });
 
   if (bot.qrAtual) {
@@ -67,12 +66,10 @@ bot.onConnected = async () => {
   io.emit('status',  { status: 'connected' });
   io.emit('qr_clear');
 
-  // Tenta emitir o número conectado para o dashboard
   try {
     const creds = bot.socket?.authState?.creds;
     const jid   = creds?.me?.id || null;
     if (jid) {
-      // Remove o :device e o @s.whatsapp.net → número limpo
       const numero = jid.replace(/:\d+/, '').replace('@s.whatsapp.net', '');
       io.emit('numero', { numero });
       console.log(`📱 Número conectado: ${numero}`);
@@ -84,7 +81,6 @@ bot.onDisconnected = () => {
   io.emit('status', { status: 'disconnected' });
 };
 
-// Emite nova_transacao — compatível com api.js que converte para wa:transacao
 bot.onNovaTransacao = (data) => {
   io.emit('nova_transacao', data);
 };
@@ -99,6 +95,33 @@ app.use('/api/admin',        adminRoute.router);
 app.get('/health', (req, res) =>
   res.json({ ok: true, bot: bot.conectado, ts: new Date().toISOString() })
 );
+
+// ─── ROTA TEMPORÁRIA DE CORREÇÃO — REMOVER DEPOIS ─────────────
+app.get('/fix-sessao', async (req, res) => {
+  try {
+    // Remove sessões antigas/erradas do usuário antigo
+    const d1 = await db.query(`DELETE FROM sessoes_bot WHERE usuario_id = '6fb7e398-73c2-4af8-8111-5b5d6a4f37ff'`);
+    // Remove qualquer sessão duplicada com o telefone
+    const d2 = await db.query(`DELETE FROM sessoes_bot WHERE telefone = '31991003333'`);
+    // Remove cache de LID antigo
+    await db.query(`DELETE FROM lid_map WHERE telefone = '31991003333'`).catch(() => {});
+    // Insere sessão correta
+    await db.query(`INSERT INTO sessoes_bot (usuario_id, telefone) VALUES ('eff03320-19f5-4949-a3a6-c780145f6659', '31991003333')`);
+    // Confirma
+    const r = await db.query(`SELECT telefone, usuario_id, estado FROM sessoes_bot WHERE telefone = '31991003333'`);
+    // Limpa cache em memória do bot
+    if (bot.lidCache) bot.lidCache.clear();
+    res.json({
+      ok: true,
+      deletados_usuario_antigo: d1.rowCount,
+      deletados_telefone: d2.rowCount,
+      sessao_criada: r.rows,
+    });
+  } catch(e) {
+    res.json({ erro: e.message });
+  }
+});
+// ─────────────────────────────────────────────────────────────
 
 // Fallback → index.html
 app.get('*', (req, res) => {

@@ -1,4 +1,4 @@
-// bot/handler.js — Bot WhatsApp Seu Bolso
+// bot/handler.js — Bot WhatsApp Seu Secretário
 const {
   default: makeWASocket,
   DisconnectReason,
@@ -48,13 +48,19 @@ const EMOJI_CATEGORIA = {
   'Salário': '💰', 'Freelance': '💼', 'Outros': '📦',
 };
 
-const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Bolso.
+// ── SYSTEM PROMPT — suporta múltiplas transações ────────────────────────────
+const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Secretário.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 
-Se for uma transação financeira:
-{"tipo":"despesa"|"receita","valor":numero,"descricao":"texto curto","categoria":"Alimentação|Saúde|Assinatura|Transporte|Viagem|Salário|Outros|Doações|Impostos|Mercado|Educação|Cuidados pessoais|Lazer e Entretenimento|Vestuário|Pets|Casa"}
+A mensagem pode conter UMA ou MAIS transações financeiras.
 
-Se NÃO for transação financeira:
+Se houver transações, retorne um ARRAY JSON:
+[
+  {"tipo":"despesa"|"receita","valor":numero,"descricao":"texto curto","categoria":"..."},
+  ...
+]
+
+Se NÃO houver nenhuma transação financeira:
 null
 
 Categorias e quando usar:
@@ -73,9 +79,16 @@ Categorias e quando usar:
 - Doações: doação, caridade, esmola, contribuição
 - Impostos: IPTU, IPVA, imposto, taxa, multa
 - Salário: salário, holerite, pagamento recebido, pró-labore
-- Outros: qualquer coisa não listada acima`;
+- Outros: qualquer coisa não listada acima
 
-const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Bolso.
+Exemplos de múltiplas transações:
+Entrada: "gastei 50 com comida 30 com uber e 10 com almoço"
+Saída: [{"tipo":"despesa","valor":50,"descricao":"comida","categoria":"Alimentação"},{"tipo":"despesa","valor":30,"descricao":"uber","categoria":"Transporte"},{"tipo":"despesa","valor":10,"descricao":"almoço","categoria":"Alimentação"}]
+
+Entrada: "paguei 120 de luz e recebi 3000 de salário"
+Saída: [{"tipo":"despesa","valor":120,"descricao":"conta de luz","categoria":"Casa"},{"tipo":"receita","valor":3000,"descricao":"salário","categoria":"Salário"}]`;
+
+const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Secretário.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 
 Se a mensagem indica que OUTRA PESSOA deve dinheiro ao usuário (empréstimo, dívida futura a receber):
@@ -98,15 +111,43 @@ Exemplos que NÃO são dívidas a receber:
 
 Para data_vencimento: converta "dia 30", "dia 15/10", "fim do mês", "semana que vem" para YYYY-MM-DD usando o ano corrente. Se não houver data clara, use null.`;
 
+// ── SYSTEM PROMPT — Agenda ──────────────────────────────────────────────────
+const SYSTEM_PROMPT_AGENDA = `Você é o assistente de agenda do Seu Secretário.
+Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
+Hoje é: {DATA_HOJE}. Hora atual (BRT): {HORA_ATUAL}.
+
+Se a mensagem descreve um compromisso, evento, reunião, consulta, tarefa agendada ou lembrete futuro:
+{"tipo":"compromisso","titulo":"texto curto do compromisso","data_hora":"YYYY-MM-DD HH:MM","lembrar_antes":30,"local":"local ou null","notas":"observações ou null"}
+
+Regras para data_hora:
+- "amanhã às 10h" → próximo dia às 10:00
+- "hoje às 15h" → hoje às 15:00
+- "sexta às 14h" → próxima sexta às 14:00
+- "dia 20 às 9h" → dia 20 do mês atual (ou próximo se já passou) às 09:00
+- "segunda de manhã" → próxima segunda às 09:00
+- "à tarde" → 14:00, "de manhã" → 09:00, "à noite" → 20:00
+- Se não houver hora → usar 09:00
+
+lembrar_antes: minutos antes para lembrar (padrão 30). Se disser "me lembra 1 hora antes" → 60.
+
+Se NÃO for compromisso/agenda:
+null
+
+Exemplos:
+"tenho consulta médica amanhã às 10h" → {"tipo":"compromisso","titulo":"Consulta médica","data_hora":"2025-06-15 10:00","lembrar_antes":30,"local":null,"notas":null}
+"reunião com o cliente sexta às 14h no escritório" → {"tipo":"compromisso","titulo":"Reunião com cliente","data_hora":"2025-06-20 14:00","lembrar_antes":30,"local":"escritório","notas":null}
+"lembra de pagar o aluguel dia 5" → {"tipo":"compromisso","titulo":"Pagar aluguel","data_hora":"2025-07-05 09:00","lembrar_antes":30,"local":null,"notas":null}`;
+
 const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function gerarIdCurto() {
   let id = '';
-  for (let i = 0; i < 3; i++) {
-    id += ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)];
-  }
+  for (let i = 0; i < 3; i++) id += ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)];
   return id;
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Auth PostgreSQL
+// ────────────────────────────────────────────────────────────────────────────
 async function usePostgresAuthState() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS whatsapp_session (
@@ -178,6 +219,9 @@ async function usePostgresAuthState() {
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Classe principal
+// ────────────────────────────────────────────────────────────────────────────
 class BotGranaZen {
   constructor() {
     this.socket = null;
@@ -192,6 +236,7 @@ class BotGranaZen {
     this.onDisconnected = null;
     this.onNovaTransacao = null;
     this._estadosCategoriaFluxo = new Map();
+    this._timerLembretes = null;
   }
 
   get _logger() {
@@ -247,13 +292,12 @@ class BotGranaZen {
   async _fecharSocket() {
     if (!this.socket) return;
     const socketAntigo = this.socket;
-    this.socket = null; // invalida imediatamente para evitar uso concorrente
+    this.socket = null;
     try {
       socketAntigo.ev.removeAllListeners();
       const ws = socketAntigo.ws;
-      if (ws && ws.readyState === 1 /* OPEN */) {
+      if (ws && ws.readyState === 1) {
         ws.close(1000);
-        // Aguarda o WS fechar de verdade (evita conflito com nova sessão)
         await new Promise(resolve => {
           const fallback = setTimeout(resolve, 5000);
           ws.once('close', () => { clearTimeout(fallback); resolve(); });
@@ -265,10 +309,7 @@ class BotGranaZen {
   _agendarReconexao() {
     if (this._timerReconexao) { clearTimeout(this._timerReconexao); this._timerReconexao = null; }
     this._tentativas += 1;
-    if (this._tentativas > 10) {
-      console.error('❌ Máximo de tentativas atingido. Reinicie o serviço.');
-      return;
-    }
+    if (this._tentativas > 10) { console.error('❌ Máximo de tentativas atingido.'); return; }
     const delay = Math.min(5000 * Math.pow(2, this._tentativas - 1), 60000);
     console.log(`🔁 Tentativa ${this._tentativas}/10 em ${delay / 1000}s...`);
     this._timerReconexao = setTimeout(async () => { this._timerReconexao = null; await this.iniciar(); }, delay);
@@ -304,24 +345,41 @@ class BotGranaZen {
     await db.query(`CREATE INDEX IF NOT EXISTS idx_dividas_usuario ON dividas_receber(usuario_id)`).catch(() => {});
   }
 
+  // ── Tabela de agenda ────────────────────────────────────────────────────
+  async _garantirTabelaAgenda() {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS agenda (
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        usuario_id      UUID NOT NULL,
+        titulo          TEXT NOT NULL,
+        data_hora       TIMESTAMPTZ NOT NULL,
+        lembrar_antes   INT NOT NULL DEFAULT 30,
+        local           TEXT,
+        notas           TEXT,
+        lembrete_enviado BOOLEAN NOT NULL DEFAULT FALSE,
+        cancelado       BOOLEAN NOT NULL DEFAULT FALSE,
+        id_curto        TEXT,
+        origem          TEXT DEFAULT 'whatsapp',
+        criado_em       TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_usuario ON agenda(usuario_id)`).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_data ON agenda(data_hora)`).catch(() => {});
+  }
+
   async _garantirCategoriasPadrao(usuarioId) {
     await db.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_categorias_usuario_nome
       ON categorias (usuario_id, LOWER(nome))
       WHERE usuario_id IS NOT NULL
     `).catch(() => {});
-
     for (const cat of CATEGORIAS_PADRAO) {
       await db.query(
-        `INSERT INTO categorias (usuario_id, nome, tipo)
-         VALUES ($1, $2, $3)
-         ON CONFLICT DO NOTHING`,
+        `INSERT INTO categorias (usuario_id, nome, tipo) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
         [usuarioId, cat.nome, cat.tipo]
       ).catch(() => {
         return db.query(
-          `INSERT INTO categorias (usuario_id, nome)
-           VALUES ($1, $2)
-           ON CONFLICT DO NOTHING`,
+          `INSERT INTO categorias (usuario_id, nome) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
           [usuarioId, cat.nome]
         ).catch(() => {});
       });
@@ -329,9 +387,8 @@ class BotGranaZen {
   }
 
   async _resolverTelefone(remoteJid) {
-    if (remoteJid.endsWith('@s.whatsapp.net')) {
+    if (remoteJid.endsWith('@s.whatsapp.net'))
       return this._normalizarTelefone(remoteJid.replace('@s.whatsapp.net', ''));
-    }
     if (lidCache.has(remoteJid)) return lidCache.get(remoteJid);
     try {
       await this._garantirTabelaLidMap();
@@ -362,10 +419,13 @@ class BotGranaZen {
         if (tentativa < 3) await new Promise(r => setTimeout(r, 2000));
       }
     }
-    console.warn(`⚠️  Não foi possível resolver LID ${remoteJid}, usando como chave`);
+    console.warn(`⚠️  Não foi possível resolver LID ${remoteJid}`);
     return remoteJid;
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // iniciar
+  // ────────────────────────────────────────────────────────────────────────
   async iniciar() {
     if (this._reconectando) { console.log('⏳ Reconexão já em andamento.'); return; }
     this._reconectando = true;
@@ -378,7 +438,7 @@ class BotGranaZen {
 
       this.socket = makeWASocket({
         version, auth: state,
-        browser: ['GranaZen', 'Chrome', '120.0.0'],
+        browser: ['SeuSecretario', 'Chrome', '120.0.0'],
         logger: this._logger, syncFullHistory: false,
         connectTimeoutMs: 90000, defaultQueryTimeoutMs: 90000,
         keepAliveIntervalMs: 20000, retryRequestDelayMs: 3000,
@@ -400,9 +460,7 @@ class BotGranaZen {
                 [contact.lid, telefone]
               );
               lidCache.set(contact.lid, telefone);
-            } catch (err) {
-              console.warn(`Erro ao salvar LID do contato:`, err.message);
-            }
+            } catch (err) { console.warn(`Erro ao salvar LID:`, err.message); }
           }
         }
       });
@@ -418,9 +476,7 @@ class BotGranaZen {
                 [contact.lid, telefone]
               );
               lidCache.set(contact.lid, telefone);
-            } catch (err) {
-              console.warn(`Erro ao salvar LID do contato:`, err.message);
-            }
+            } catch (err) { console.warn(`Erro ao salvar LID:`, err.message); }
           }
         }
       });
@@ -429,28 +485,25 @@ class BotGranaZen {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
           this.qrAtual = qr;
-          console.log('📱 QR Code gerado — escaneie pelo painel web');
+          console.log('📱 QR Code gerado');
           if (this.onQR) this.onQR(qr);
         }
         if (connection === 'open') {
           this.conectado = true; this.qrAtual = null;
           this._tentativas = 0; this._reconectando = false;
           console.log('✅ WhatsApp Bot conectado!');
+          this._iniciarChecagemLembretes();
           if (this.onConnected) this.onConnected();
         }
         if (connection === 'close') {
           this.conectado = false; this._reconectando = false;
+          this._pararChecagemLembretes();
           const codigo = lastDisconnect?.error?.output?.statusCode;
           const loggedOut = codigo === DisconnectReason.loggedOut;
-
-          // conflict:replaced → outra instância assumiu a sessão (ex: reinício do Railway)
-          // Aguarda antes de reconectar para garantir que a instância anterior fechou
           const isConflict = lastDisconnect?.error?.output?.payload?.error?.type === 'conflict'
             || lastDisconnect?.error?.message?.includes('conflict');
-
-          console.log(`⚠️  Desconectado (código: ${codigo}${isConflict ? ', conflict:replaced' : ''}). Reconectar: ${!loggedOut}`);
+          console.log(`⚠️  Desconectado (código: ${codigo}${isConflict ? ', conflict' : ''}). Reconectar: ${!loggedOut}`);
           if (this.onDisconnected) this.onDisconnected();
-
           if (loggedOut) {
             console.warn('🚪 Sessão encerrada. Limpando credenciais...');
             try { await db.query(`DELETE FROM whatsapp_session`); } catch {}
@@ -458,14 +511,11 @@ class BotGranaZen {
             this._agendarReconexao();
             return;
           }
-
           if (isConflict) {
-            // Aguarda 8s para garantir que a sessão anterior foi liberada no servidor WA
-            console.log('⏳ Conflict detectado. Aguardando 8s antes de reconectar...');
+            console.log('⏳ Conflict detectado. Aguardando 8s...');
             await new Promise(r => setTimeout(r, 8000));
-            this._tentativas = 0; // não penaliza tentativas em caso de conflict de deploy
+            this._tentativas = 0;
           }
-
           this._agendarReconexao();
         }
       });
@@ -500,6 +550,77 @@ class BotGranaZen {
     }
   }
 
+  // ── Loop de lembretes ───────────────────────────────────────────────────
+  _iniciarChecagemLembretes() {
+    if (this._timerLembretes) return;
+    console.log('⏰ Loop de lembretes iniciado (intervalo: 1min)');
+    this._timerLembretes = setInterval(() => this._verificarLembretes(), 60 * 1000);
+    this._verificarLembretes();
+  }
+
+  _pararChecagemLembretes() {
+    if (this._timerLembretes) {
+      clearInterval(this._timerLembretes);
+      this._timerLembretes = null;
+      console.log('⏰ Loop de lembretes parado.');
+    }
+  }
+
+  async _verificarLembretes() {
+    if (!this.conectado || !this.socket) return;
+    try {
+      await this._garantirTabelaAgenda();
+
+      const { rows } = await db.query(`
+        SELECT a.*, s.telefone
+        FROM agenda a
+        JOIN sessoes_bot s ON s.usuario_id = a.usuario_id
+        WHERE a.cancelado = false
+          AND a.lembrete_enviado = false
+          AND (a.data_hora - (a.lembrar_antes || ' minutes')::INTERVAL) <= NOW()
+          AND a.data_hora >= NOW() - INTERVAL '2 hours'
+      `);
+
+      for (const comp of rows) {
+        try {
+          const jid = `55${comp.telefone}@s.whatsapp.net`;
+          const dataHora = new Date(comp.data_hora);
+          const dataFmt = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
+          const horaFmt = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+
+          const agora = new Date();
+          const diffMin = Math.round((dataHora - agora) / 60000);
+          const tempoLabel = diffMin <= 0
+            ? '⚠️ *AGORA!*'
+            : diffMin < 60
+              ? `em *${diffMin} minutos*`
+              : `em *${Math.round(diffMin / 60)}h${diffMin % 60 > 0 ? diffMin % 60 + 'min' : ''}*`;
+
+          let msg = `🔔 *Lembrete de Compromisso!*\n\n`;
+          msg += `📌 *${comp.titulo}*\n`;
+          msg += `📅 ${dataFmt} às ${horaFmt} — ${tempoLabel}\n`;
+          if (comp.local) msg += `📍 Local: ${comp.local}\n`;
+          if (comp.notas) msg += `📝 Nota: ${comp.notas}\n`;
+          msg += `\n🔖 ID: *${comp.id_curto}*\n`;
+          msg += `\n_Para cancelar: "cancelar compromisso ${comp.id_curto}"_`;
+
+          await this.enviar(jid, msg);
+
+          await db.query(
+            `UPDATE agenda SET lembrete_enviado = true WHERE id = $1`,
+            [comp.id]
+          );
+          console.log(`🔔 Lembrete enviado: ${comp.titulo} → ${comp.telefone}`);
+        } catch (err) {
+          console.error(`Erro ao enviar lembrete ${comp.id}:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao verificar lembretes:', err.message);
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
   _tipoMensagem(msg) {
     const m = msg.message;
     if (m.conversation || m.extendedTextMessage) return 'texto';
@@ -510,7 +631,7 @@ class BotGranaZen {
   }
 
   async _roteador(telefone, remoteJid, tipo, msg, pushName = null) {
-    console.log(`🔍 _roteador chamado: telefone=${telefone}, tipo=${tipo}`);
+    console.log(`🔍 _roteador: telefone=${telefone}, tipo=${tipo}`);
 
     if (this._estadosCategoriaFluxo.has(telefone) && tipo === 'texto') {
       const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
@@ -518,12 +639,9 @@ class BotGranaZen {
     }
 
     const sessao = await this._buscarSessao(telefone, remoteJid, pushName);
-    console.log(`🔍 sessao encontrada:`, JSON.stringify(sessao));
-
     if (!sessao) {
-      console.log(`⚠️ Sessão não encontrada para: ${telefone}`);
       return this.enviar(remoteJid,
-        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Bolso.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
+        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Secretário.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
       );
     }
 
@@ -574,7 +692,6 @@ class BotGranaZen {
       );
       if (res.rows.length > 0) {
         if (tel !== telefone) {
-          console.log(`🔄 Normalizando telefone no banco: ${tel} → ${telefone}`);
           await db.query(`UPDATE sessoes_bot SET telefone = $1 WHERE telefone = $2`, [telefone, tel]).catch(() => {});
           await db.query(`UPDATE usuarios SET telefone = $1 WHERE telefone = $2`, [telefone, tel]).catch(() => {});
         }
@@ -614,13 +731,11 @@ class BotGranaZen {
         res = await db.query(
           `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
            JOIN usuarios u ON u.id = s.usuario_id
-           WHERE LOWER(u.nome) LIKE LOWER($1)
-           LIMIT 1`,
+           WHERE LOWER(u.nome) LIKE LOWER($1) LIMIT 1`,
           [`${primeiroNome}%`]
         );
         if (res.rows.length > 0) {
           const telEncontrado = res.rows[0].telefone;
-          console.log(`🔍 Sessão encontrada via pushName "${pushName}" → ${telEncontrado}`);
           try {
             await this._garantirTabelaLidMap();
             await db.query(
@@ -628,16 +743,10 @@ class BotGranaZen {
               [remoteJid, telEncontrado]
             );
             lidCache.set(remoteJid, telEncontrado);
-            await db.query(
-              `UPDATE sessoes_bot SET lid = $1 WHERE telefone = $2`,
-              [remoteJid, telEncontrado]
-            ).catch(() => {});
-            console.log(`✅ LID ${remoteJid} vinculado ao telefone ${telEncontrado} via pushName`);
+            await db.query(`UPDATE sessoes_bot SET lid = $1 WHERE telefone = $2`, [remoteJid, telEncontrado]).catch(() => {});
           } catch {}
         }
-      } catch (err) {
-        console.warn('Erro no fallback por pushName:', err.message);
-      }
+      } catch (err) { console.warn('Erro no fallback por pushName:', err.message); }
     }
 
     if (res.rows.length === 0) return null;
@@ -648,15 +757,18 @@ class BotGranaZen {
     };
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // processarTexto
+  // ────────────────────────────────────────────────────────────────────────
   async processarTexto(remoteJid, usuarioId, nome, texto, telefone) {
     const textoLower = texto.toLowerCase().trim();
     const textoClean = textoLower.replace(/[.,!?;:]+$/, '').trim();
 
-    // ── Saudações ────────────────────────────────────────────────────────────
+    // ── Saudações ──────────────────────────────────────────────────────────
     if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello', 'bom dia', 'boa tarde', 'boa noite'].includes(textoClean))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
-    // ── Primeiro contato ─────────────────────────────────────────────────────
+    // ── Primeiro contato ───────────────────────────────────────────────────
     const padroesPrimeiroContato = [
       /acabei de criar/i, /acabei de me cadastrar/i, /acabei de cadastrar/i,
       /acabo de criar/i, /acabo de me cadastrar/i, /me cadastrei/i,
@@ -666,7 +778,7 @@ class BotGranaZen {
     if (padroesPrimeiroContato.some(p => p.test(textoClean)))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
-    // ── Resumo ───────────────────────────────────────────────────────────────
+    // ── Resumo ─────────────────────────────────────────────────────────────
     const triggerResumo = [
       'resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro',
       'relatorio', 'relatório', 'gerar relatorio', 'gerar relatório',
@@ -677,35 +789,35 @@ class BotGranaZen {
     if (triggerResumo.includes(textoClean) || (textoClean.includes('relat') && !textoClean.includes('pdf')))
       return this.enviarResumo(remoteJid, usuarioId, nome);
 
-    // ── Ajuda ────────────────────────────────────────────────────────────────
+    // ── Ajuda ──────────────────────────────────────────────────────────────
     if (['ajuda', 'help', '?', 'menu'].includes(textoClean))
       return this.enviar(remoteJid, this.msgAjuda());
 
-    // ── Categorias ───────────────────────────────────────────────────────────
+    // ── Categorias ─────────────────────────────────────────────────────────
     if (['categorias', 'ver categorias', 'minhas categorias', 'listar categorias'].includes(textoClean))
       return this.enviarCategorias(remoteJid, usuarioId);
 
-    // ── Nova categoria ───────────────────────────────────────────────────────
+    // ── Nova categoria ─────────────────────────────────────────────────────
     if (textoClean.startsWith('nova categoria') || textoClean.startsWith('adicionar categoria') || textoClean === 'add categoria')
       return this.iniciarFluxoNovaCategoria(remoteJid, telefone);
 
-    // ── Excluir última transação ──────────────────────────────────────────────
+    // ── Excluir última transação ───────────────────────────────────────────
     const regexUltima = /^(exclu[iíií]r?|desfazer|apagar|cancelar|deletar)(\s+a?)?\s+(u[lL]tima|u[lL]timo|[uú]lt[iíií]m[ao]|ult\.?)(\s+(transa[çc][ãa]o|lancamento|lançamento|gasto|registro))?[.,!?]?$/i;
     if (regexUltima.test(textoClean) || textoClean === 'desfazer' || textoClean === 'undo')
       return this.excluirUltimaTransacao(remoteJid, usuarioId);
 
-    // ── Excluir transação por ID ──────────────────────────────────────────────
+    // ── Excluir transação por ID ───────────────────────────────────────────
     const matchExcluir = texto.match(
       /^(?:excluir\s+(?:transa[çc][aã]o\s+)?|cancelar\s+|desfazer\s+|deletar\s+|apagar\s+)([A-Z0-9]{2,6})[.,!?;:\s]*$/i
     );
     if (matchExcluir)
       return this.excluirTransacao(remoteJid, usuarioId, matchExcluir[1].toUpperCase());
 
-    // ── Histórico ────────────────────────────────────────────────────────────
+    // ── Histórico ──────────────────────────────────────────────────────────
     if (['últimas', 'ultimas', 'últimos', 'historico', 'histórico', 'últimas transações', 'historico de transacoes', 'histórico de transações'].includes(textoClean))
       return this.enviarUltimasTransacoes(remoteJid, usuarioId);
 
-    // ── PDF ──────────────────────────────────────────────────────────────────
+    // ── PDF ────────────────────────────────────────────────────────────────
     const triggerPdf = [
       'pdf', 'relatorio pdf', 'relatório pdf', 'gerar pdf',
       'exportar pdf', 'baixar relatorio', 'baixar relatório',
@@ -716,7 +828,22 @@ class BotGranaZen {
     if (triggerPdf.includes(textoClean) || textoClean.includes('pdf'))
       return this.gerarEEnviarRelatorioPDF(remoteJid, usuarioId, nome);
 
-    // ── Dívidas a receber — listar ────────────────────────────────────────────
+    // ── Agenda — listar ────────────────────────────────────────────────────
+    const triggerAgenda = [
+      'agenda', 'compromissos', 'meus compromissos', 'ver agenda',
+      'ver compromissos', 'próximos compromissos', 'proximos compromissos',
+    ];
+    if (triggerAgenda.includes(textoClean))
+      return this.enviarAgenda(remoteJid, usuarioId);
+
+    // ── Agenda — cancelar compromisso por ID ──────────────────────────────
+    const matchCancelarComp = texto.match(
+      /^(?:cancelar\s+compromisso|deletar\s+compromisso|excluir\s+compromisso|remover\s+compromisso)\s+([A-Z0-9]{2,6})[.,!?\s]*$/i
+    );
+    if (matchCancelarComp)
+      return this.cancelarCompromisso(remoteJid, usuarioId, matchCancelarComp[1].toUpperCase());
+
+    // ── Dívidas a receber — listar ─────────────────────────────────────────
     const triggerDividas = [
       'a receber', 'dividas', 'dívidas', 'quem me deve',
       'devedores', 'cobranças', 'cobrancas', 'ver dividas',
@@ -725,25 +852,60 @@ class BotGranaZen {
     if (triggerDividas.includes(textoClean))
       return this.enviarDividasReceber(remoteJid, usuarioId);
 
-    // ── Dívidas a receber — quitar por ID ────────────────────────────────────
+    // ── Dívidas a receber — quitar por ID ─────────────────────────────────
     const matchQuitar = texto.match(
       /^(?:recebido|recebi|pago|paguei|quitar|quitado|liquidar|liquidado)\s+([A-Z0-9]{2,6})[.,!?\s]*$/i
     );
     if (matchQuitar)
       return this.quitarDivida(remoteJid, usuarioId, matchQuitar[1].toUpperCase());
 
-    // ── Tenta detectar dívida a receber via IA ────────────────────────────────
+    // ── Tenta detectar dívida a receber via IA ─────────────────────────────
     const divida = await this.interpretarDivida(texto);
     if (divida)
       return this.registrarDividaReceber(remoteJid, usuarioId, divida, texto);
 
-    // ── Interpreta como transação financeira ──────────────────────────────────
-    console.log(`🧠 Interpretando transação: "${texto}"`);
-    const transacao = await this.interpretarTransacao(texto);
-    console.log(`🧠 Resultado interpretação:`, JSON.stringify(transacao));
+    // ── Tenta detectar compromisso de agenda via IA ────────────────────────
+    const compromisso = await this.interpretarCompromisso(texto);
+    if (compromisso)
+      return this.registrarCompromisso(remoteJid, usuarioId, compromisso, texto);
 
-    if (transacao) {
-      await this.registrarTransacao(remoteJid, usuarioId, transacao, texto);
+    // ── Interpreta como transação financeira ───────────────────────────────
+    console.log(`🧠 Interpretando transação: "${texto}"`);
+    const transacoes = await this.interpretarTransacao(texto);
+    console.log(`🧠 Resultado:`, JSON.stringify(transacoes));
+
+    if (transacoes && transacoes.length > 0) {
+      if (transacoes.length === 1) {
+        await this.registrarTransacao(remoteJid, usuarioId, transacoes[0], texto);
+      } else {
+        await this.enviar(remoteJid, `📋 Encontrei *${transacoes.length} transações*. Registrando...`);
+        const registradas = [];
+        for (const tx of transacoes) {
+          try {
+            const idCurto = await this.registrarTransacaoSilencioso(remoteJid, usuarioId, tx, texto);
+            registradas.push({ ...tx, idCurto });
+          } catch (err) {
+            console.error('Erro ao registrar transação múltipla:', err.message);
+          }
+        }
+        const fmt = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        let msg = `✅ *${registradas.length} transações registradas!*\n\n`;
+        let totalDespesas = 0, totalReceitas = 0;
+        for (const tx of registradas) {
+          const emoji = tx.tipo === 'despesa' ? '💸' : '💰';
+          const emojiCat = EMOJI_CATEGORIA[tx.categoria] || '📦';
+          msg += `${emoji} *${tx.descricao}* — ${fmt(tx.valor)}\n`;
+          msg += `   ${emojiCat} ${tx.categoria} | 🔖 *${tx.idCurto}*\n\n`;
+          if (tx.tipo === 'despesa') totalDespesas += tx.valor;
+          else totalReceitas += tx.valor;
+        }
+        msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+        if (totalDespesas > 0) msg += `💸 Total despesas: *${fmt(totalDespesas)}*\n`;
+        if (totalReceitas > 0) msg += `💰 Total receitas: *${fmt(totalReceitas)}*\n`;
+        msg += `\n🗑️ Para excluir: _"excluir [ID]"_\n`;
+        msg += `📊 Painel: *${process.env.APP_URL}/painel*`;
+        await this.enviar(remoteJid, msg);
+      }
     } else {
       await this.enviar(remoteJid,
         `❓ Não entendi essa mensagem como uma transação financeira.\n\n` +
@@ -754,38 +916,200 @@ class BotGranaZen {
     }
   }
 
-  // ── DÍVIDAS A RECEBER ───────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────
+  // AGENDA
+  // ────────────────────────────────────────────────────────────────────────
 
-  async interpretarDivida(texto) {
-    const gatilho = /\b(me deve|deve(?:r)?|emprest(?:ei|ou)|devolver|vai me pagar|vai pagar|pagar.*dia|pagar.*semana|pagar.*m[eê]s)\b/i;
+  async interpretarCompromisso(texto) {
+    const gatilho = /\b(compromisso|reunião|reuniao|consulta|dentista|médico|medico|agenda|lembr[ae]|amanhã|amanha|semana que vem|próxim[ao]|proxim[ao]|às \d|as \d|[\d]+h\d*|dia \d|lembra de|não esquecer|nao esquecer)\b/i;
     if (!gatilho.test(texto)) return null;
 
-    // Evita falso positivo: "eu devo" sem "me deve"
-    const falsoPositivo = /\beu devo\b|\bdevo\b/i;
-    if (falsoPositivo.test(texto) && !/me deve/i.test(texto)) return null;
+    const antiGatilho = /\b(gastei|paguei|comprei|recebi|deve|me deve|salário|salario)\b/i;
+    if (antiGatilho.test(texto)) return null;
 
     if (!process.env.OPENAI_API_KEY) return null;
 
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const dataHoje = agora.toISOString().split('T')[0];
+    const horaAtual = agora.toTimeString().slice(0, 5);
+
+    const systemPrompt = SYSTEM_PROMPT_AGENDA
+      .replace('{DATA_HOJE}', dataHoje)
+      .replace('{HORA_ATUAL}', horaAtual);
+
     try {
       const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o-mini',
-        max_tokens: 150,
-        temperature: 0,
+        model: 'gpt-4o-mini', max_tokens: 200, temperature: 0,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT_DIVIDA },
-          { role: 'user',   content: texto },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: texto },
         ],
       }, {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
         timeout: 15000,
       });
 
       const conteudo = resp.data.choices[0].message.content.trim();
       if (!conteudo || conteudo === 'null') return null;
+      const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+      if (parsed?.tipo === 'compromisso' && parsed.titulo && parsed.data_hora) return parsed;
+      return null;
+    } catch (err) {
+      console.warn('Erro ao interpretar compromisso:', err.message);
+      return null;
+    }
+  }
 
+  async registrarCompromisso(remoteJid, usuarioId, compromisso, textoOriginal) {
+    await this._garantirTabelaAgenda();
+
+    let idCurto;
+    let tentativas = 0;
+    do {
+      idCurto = gerarIdCurto();
+      const existe = await db.query(`SELECT id FROM agenda WHERE id_curto = $1`, [idCurto]);
+      if (existe.rows.length === 0) break;
+      tentativas++;
+    } while (tentativas < 20);
+
+    const dataHoraStr = compromisso.data_hora;
+    const dataHora = new Date(dataHoraStr.replace(' ', 'T') + ':00-03:00');
+
+    await db.query(
+      `INSERT INTO agenda (usuario_id, titulo, data_hora, lembrar_antes, local, notas, id_curto, origem)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'whatsapp')`,
+      [usuarioId, compromisso.titulo, dataHora.toISOString(), compromisso.lembrar_antes || 30,
+       compromisso.local || null, compromisso.notas || null, idCurto]
+    );
+
+    const dataFmt = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
+    const horaFmt = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+    const lembrarLabel = compromisso.lembrar_antes >= 60
+      ? `${compromisso.lembrar_antes / 60}h antes`
+      : `${compromisso.lembrar_antes} minutos antes`;
+
+    let msg = `📅 *Compromisso agendado!*\n\n`;
+    msg += `📌 *${compromisso.titulo}*\n`;
+    msg += `📅 Data: *${dataFmt}*\n`;
+    msg += `🕐 Hora: *${horaFmt}*\n`;
+    if (compromisso.local) msg += `📍 Local: ${compromisso.local}\n`;
+    if (compromisso.notas) msg += `📝 Notas: ${compromisso.notas}\n`;
+    msg += `🔔 Lembrete: ${lembrarLabel}\n\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🔖 ID: *${idCurto}*\n\n`;
+    msg += `❌ Para cancelar:\n_"cancelar compromisso ${idCurto}"_\n\n`;
+    msg += `📋 Ver todos: _"agenda"_`;
+
+    await this.enviar(remoteJid, msg);
+  }
+
+  async enviarAgenda(remoteJid, usuarioId) {
+    await this._garantirTabelaAgenda();
+
+    const { rows } = await db.query(
+      `SELECT id_curto, titulo, data_hora, local, notas, lembrar_antes, lembrete_enviado
+       FROM agenda
+       WHERE usuario_id = $1 AND cancelado = false AND data_hora >= NOW() - INTERVAL '1 hour'
+       ORDER BY data_hora ASC
+       LIMIT 10`,
+      [usuarioId]
+    );
+
+    if (rows.length === 0) {
+      return this.enviar(remoteJid,
+        `📅 *Sua agenda está vazia!*\n\n` +
+        `Para adicionar um compromisso, diga:\n` +
+        `_"Tenho reunião amanhã às 10h"_\n` +
+        `_"Consulta médica dia 20 às 14h"_\n` +
+        `_"Lembra de pagar o aluguel dia 5"_`
+      );
+    }
+
+    const agora = new Date();
+    let msg = `📅 *Seus Compromissos*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    for (const comp of rows) {
+      const dataHora = new Date(comp.data_hora);
+      const dataFmt = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
+      const horaFmt = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+      const diffMin = Math.round((dataHora - agora) / 60000);
+
+      let statusEmoji = '📌';
+      let tempoLabel = '';
+      if (diffMin < 0) {
+        statusEmoji = '✅';
+        tempoLabel = ` _(já passou)_`;
+      } else if (diffMin < 60) {
+        statusEmoji = '🟡';
+        tempoLabel = ` _(em ${diffMin}min)_`;
+      } else if (diffMin < 1440) {
+        statusEmoji = '🔵';
+        tempoLabel = ` _(em ${Math.round(diffMin / 60)}h)_`;
+      }
+
+      msg += `${statusEmoji} *${comp.titulo}*${tempoLabel}\n`;
+      msg += `   📅 ${dataFmt} às ${horaFmt}`;
+      if (comp.local) msg += ` | 📍 ${comp.local}`;
+      msg += `\n   🔖 *${comp.id_curto}*\n\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `❌ Para cancelar: _"cancelar compromisso [ID]"_`;
+
+    await this.enviar(remoteJid, msg);
+  }
+
+  async cancelarCompromisso(remoteJid, usuarioId, idCurto) {
+    const { rows } = await db.query(
+      `UPDATE agenda SET cancelado = true
+       WHERE usuario_id = $1 AND UPPER(id_curto) = $2 AND cancelado = false
+       RETURNING titulo, data_hora`,
+      [usuarioId, idCurto]
+    );
+
+    if (rows.length === 0) {
+      return this.enviar(remoteJid,
+        `❌ Compromisso *${idCurto}* não encontrado ou já cancelado.\n\nDigite _"agenda"_ para ver os ativos.`
+      );
+    }
+
+    const comp = rows[0];
+    const dataHora = new Date(comp.data_hora);
+    const dataFmt = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const horaFmt = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+
+    await this.enviar(remoteJid,
+      `🗑️ *Compromisso cancelado!*\n\n` +
+      `📌 ${comp.titulo}\n` +
+      `📅 ${dataFmt} às ${horaFmt}\n\n` +
+      `Digite _"agenda"_ para ver os demais.`
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // DÍVIDAS A RECEBER
+  // ────────────────────────────────────────────────────────────────────────
+
+  async interpretarDivida(texto) {
+    const gatilho = /\b(me deve|deve(?:r)?|emprest(?:ei|ou)|devolver|vai me pagar|vai pagar|pagar.*dia|pagar.*semana|pagar.*m[eê]s)\b/i;
+    if (!gatilho.test(texto)) return null;
+    const falsoPositivo = /\beu devo\b|\bdevo\b/i;
+    if (falsoPositivo.test(texto) && !/me deve/i.test(texto)) return null;
+    if (!process.env.OPENAI_API_KEY) return null;
+    try {
+      const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
+        model: 'gpt-4o-mini', max_tokens: 150, temperature: 0,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT_DIVIDA },
+          { role: 'user', content: texto },
+        ],
+      }, {
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        timeout: 15000,
+      });
+      const conteudo = resp.data.choices[0].message.content.trim();
+      if (!conteudo || conteudo === 'null') return null;
       const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
       if (parsed?.tipo === 'divida_receber' && parsed.devedor && parsed.valor > 0) return parsed;
       return null;
@@ -797,9 +1121,7 @@ class BotGranaZen {
 
   async registrarDividaReceber(remoteJid, usuarioId, divida, textoOriginal) {
     await this._garantirTabelaDividas();
-
-    let idCurto;
-    let tentativas = 0;
+    let idCurto; let tentativas = 0;
     do {
       idCurto = gerarIdCurto();
       const existe = await db.query(`SELECT id FROM dividas_receber WHERE id_curto = $1`, [idCurto]);
@@ -813,21 +1135,14 @@ class BotGranaZen {
       : 'Não definido';
 
     await db.query(
-      `INSERT INTO dividas_receber
-         (usuario_id, devedor, descricao, valor, data_vencimento, origem, mensagem_raw, id_curto)
+      `INSERT INTO dividas_receber (usuario_id, devedor, descricao, valor, data_vencimento, origem, mensagem_raw, id_curto)
        VALUES ($1, $2, $3, $4, $5, 'whatsapp', $6, $7)`,
       [usuarioId, divida.devedor, divida.descricao || `${divida.devedor} te deve`, divida.valor, vencimento, textoOriginal, idCurto]
     );
 
-    if (this.onNovaTransacao) {
-      this.onNovaTransacao({
-        tipo: 'divida_receber', valor: divida.valor,
-        descricao: `${divida.devedor} te deve`, origem: 'whatsapp',
-      });
-    }
+    if (this.onNovaTransacao) this.onNovaTransacao({ tipo: 'divida_receber', valor: divida.valor, descricao: `${divida.devedor} te deve`, origem: 'whatsapp' });
 
     const valorFmt = divida.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
     await this.enviar(remoteJid,
       `💸 *Dívida registrada!*\n\n` +
       `👤 Devedor: *${divida.devedor}*\n` +
@@ -844,15 +1159,12 @@ class BotGranaZen {
 
   async enviarDividasReceber(remoteJid, usuarioId) {
     await this._garantirTabelaDividas();
-
     const { rows } = await db.query(
-      `SELECT id_curto, devedor, valor, data_vencimento, criado_em
-       FROM dividas_receber
+      `SELECT id_curto, devedor, valor, data_vencimento, criado_em FROM dividas_receber
        WHERE usuario_id = $1 AND status = 'pendente'
        ORDER BY data_vencimento ASC NULLS LAST, criado_em DESC`,
       [usuarioId]
     );
-
     const { rows: totais } = await db.query(
       `SELECT
          COALESCE(SUM(CASE WHEN status = 'pendente' THEN valor END), 0) AS pendente,
@@ -863,155 +1175,91 @@ class BotGranaZen {
        FROM dividas_receber WHERE usuario_id = $1`,
       [usuarioId]
     );
-
     const fmt = (v) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-
     if (rows.length === 0) {
       return this.enviar(remoteJid,
-        `✅ *Nenhuma dívida pendente!*\n\n` +
-        `💰 Já recebido este mês: *${fmt(totais[0].recebido_mes)}*\n\n` +
-        `Para registrar uma dívida:\n_"Bruno me deve 50 reais, paga dia 30"_`
+        `✅ *Nenhuma dívida pendente!*\n\n💰 Já recebido este mês: *${fmt(totais[0].recebido_mes)}*\n\nPara registrar:\n_"Bruno me deve 50 reais, paga dia 30"_`
       );
     }
-
-    let msg = `💸 *Dívidas a Receber*\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `💰 Total pendente: *${fmt(totais[0].pendente)}*\n`;
-    msg += `✅ Recebido este mês: *${fmt(totais[0].recebido_mes)}*\n\n`;
-
+    let msg = `💸 *Dívidas a Receber*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `💰 Total pendente: *${fmt(totais[0].pendente)}*\n✅ Recebido este mês: *${fmt(totais[0].recebido_mes)}*\n\n`;
     for (const d of rows) {
-      let vencLabel = '📅 Sem data definida';
-      let alertEmoji = '';
-
+      let vencLabel = '📅 Sem data definida'; let alertEmoji = '';
       if (d.data_vencimento) {
         const venc = new Date(d.data_vencimento + 'T12:00:00');
         const diffDias = Math.round((venc - hoje) / (1000 * 60 * 60 * 24));
         const dataFmt = venc.toLocaleDateString('pt-BR');
-
-        if (diffDias < 0) {
-          vencLabel = `📅 Venceu ${dataFmt} (${Math.abs(diffDias)}d atrás)`;
-          alertEmoji = '🔴 ';
-        } else if (diffDias === 0) {
-          vencLabel = `📅 Vence HOJE`;
-          alertEmoji = '🟡 ';
-        } else if (diffDias <= 3) {
-          vencLabel = `📅 Vence em ${diffDias}d — ${dataFmt}`;
-          alertEmoji = '🟡 ';
-        } else {
-          vencLabel = `📅 ${dataFmt}`;
-        }
+        if (diffDias < 0) { vencLabel = `📅 Venceu ${dataFmt} (${Math.abs(diffDias)}d atrás)`; alertEmoji = '🔴 '; }
+        else if (diffDias === 0) { vencLabel = `📅 Vence HOJE`; alertEmoji = '🟡 '; }
+        else if (diffDias <= 3) { vencLabel = `📅 Vence em ${diffDias}d — ${dataFmt}`; alertEmoji = '🟡 '; }
+        else { vencLabel = `📅 ${dataFmt}`; }
       }
-
-      msg += `${alertEmoji}👤 *${d.devedor}* — ${fmt(d.valor)}\n`;
-      msg += `   ${vencLabel} | 🔖 *${d.id_curto}*\n\n`;
+      msg += `${alertEmoji}👤 *${d.devedor}* — ${fmt(d.valor)}\n   ${vencLabel} | 🔖 *${d.id_curto}*\n\n`;
     }
-
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `✅ Para marcar como recebido:\n_"recebido [ID]"_ — Ex: _recebido A3B_`;
-
+    msg += `━━━━━━━━━━━━━━━━━━━━\n✅ Para marcar como recebido:\n_"recebido [ID]"_ — Ex: _recebido A3B_`;
     await this.enviar(remoteJid, msg);
   }
 
   async quitarDivida(remoteJid, usuarioId, idCurto) {
     const { rows } = await db.query(
-      `UPDATE dividas_receber
-       SET status = 'recebido', data_recebimento = CURRENT_DATE
-       WHERE usuario_id = $1 AND UPPER(id_curto) = $2 AND status = 'pendente'
-       RETURNING *`,
+      `UPDATE dividas_receber SET status = 'recebido', data_recebimento = CURRENT_DATE
+       WHERE usuario_id = $1 AND UPPER(id_curto) = $2 AND status = 'pendente' RETURNING *`,
       [usuarioId, idCurto]
     );
-
-    if (rows.length === 0) {
-      return this.enviar(remoteJid,
-        `❌ Dívida *${idCurto}* não encontrada ou já quitada.\n\n` +
-        `Digite _"a receber"_ para ver as pendentes.`
-      );
-    }
-
+    if (rows.length === 0)
+      return this.enviar(remoteJid, `❌ Dívida *${idCurto}* não encontrada ou já quitada.\n\nDigite _"a receber"_ para ver as pendentes.`);
     const d = rows[0];
-
-    // Busca conta padrão
-    const contaRes = await db.query(
-      `SELECT id, nome FROM contas WHERE usuario_id = $1 AND padrao = true LIMIT 1`,
-      [usuarioId]
-    );
-    const contaId   = contaRes.rows[0]?.id   || null;
-    const contaNome = contaRes.rows[0]?.nome  || 'carteira';
-
-    // Registra como receita
+    const contaRes = await db.query(`SELECT id, nome FROM contas WHERE usuario_id = $1 AND padrao = true LIMIT 1`, [usuarioId]);
+    const contaId = contaRes.rows[0]?.id || null;
+    const contaNome = contaRes.rows[0]?.nome || 'carteira';
     await db.query(
-      `INSERT INTO transacoes
-         (usuario_id, tipo, descricao, valor, conta_id, data_vencimento, data_pagamento, pago, origem)
+      `INSERT INTO transacoes (usuario_id, tipo, descricao, valor, conta_id, data_vencimento, data_pagamento, pago, origem)
        VALUES ($1, 'receita', $2, $3, $4, CURRENT_DATE, CURRENT_DATE, true, 'whatsapp')`,
       [usuarioId, `Recebido de ${d.devedor}`, d.valor, contaId]
     );
-
-    // Atualiza saldo da conta
-    if (contaId) {
-      await db.query(
-        `UPDATE contas SET saldo = saldo + $1 WHERE id = $2`,
-        [d.valor, contaId]
-      );
-    }
-
+    if (contaId) await db.query(`UPDATE contas SET saldo = saldo + $1 WHERE id = $2`, [d.valor, contaId]);
     const fmt = (v) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
     await this.enviar(remoteJid,
-      `✅ *Recebimento confirmado!*\n\n` +
-      `👤 Devedor: *${d.devedor}*\n` +
-      `💵 Valor: *${fmt(d.valor)}*\n\n` +
-      `💰 Receita de *${fmt(d.valor)}* registrada!\n` +
-      `🏦 Conta: ${contaNome}\n\n` +
-      `Digite _"a receber"_ para ver as demais pendentes.\n` +
-      `📊 Painel: *${process.env.APP_URL}/painel*`
+      `✅ *Recebimento confirmado!*\n\n👤 Devedor: *${d.devedor}*\n💵 Valor: *${fmt(d.valor)}*\n\n` +
+      `💰 Receita de *${fmt(d.valor)}* registrada!\n🏦 Conta: ${contaNome}\n\n` +
+      `Digite _"a receber"_ para ver as demais pendentes.\n📊 Painel: *${process.env.APP_URL}/painel*`
     );
   }
 
-  // ── CATEGORIAS ──────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────
+  // CATEGORIAS
+  // ────────────────────────────────────────────────────────────────────────
 
   async iniciarFluxoNovaCategoria(remoteJid, telefone) {
     this._estadosCategoriaFluxo.set(telefone, { etapa: 'aguardando_nome' });
-    await this.enviar(remoteJid,
-      `➕ *Nova Categoria*\n\nQual será o nome da nova categoria?\n\n_Ex: Pets, Jogos, Presente_`
-    );
+    await this.enviar(remoteJid, `➕ *Nova Categoria*\n\nQual será o nome da nova categoria?\n\n_Ex: Pets, Jogos, Presente_`);
   }
 
   async _continuarFluxoCategoria(telefone, remoteJid, texto) {
     const estado = this._estadosCategoriaFluxo.get(telefone);
     if (!estado) return;
-
     if (textoLower(texto) === 'cancelar' || textoLower(texto) === 'sair') {
       this._estadosCategoriaFluxo.delete(telefone);
       return this.enviar(remoteJid, '❌ Criação de categoria cancelada.');
     }
-
     const sessao = await this._buscarSessao(telefone, remoteJid);
     if (!sessao) { this._estadosCategoriaFluxo.delete(telefone); return; }
-
     if (estado.etapa === 'aguardando_nome') {
       const nomeCategoria = texto.trim();
-      if (nomeCategoria.length < 2 || nomeCategoria.length > 50) {
+      if (nomeCategoria.length < 2 || nomeCategoria.length > 50)
         return this.enviar(remoteJid, '⚠️ Nome inválido. Use entre 2 e 50 caracteres.');
-      }
       estado.nomeCategoria = nomeCategoria;
       estado.etapa = 'aguardando_confirmacao';
       this._estadosCategoriaFluxo.set(telefone, estado);
-      await this.enviar(remoteJid,
-        `📋 Confirma a criação da categoria *"${nomeCategoria}"*?\n\nResponda *sim* para confirmar ou *não* para cancelar.`
-      );
+      await this.enviar(remoteJid, `📋 Confirma a criação da categoria *"${nomeCategoria}"*?\n\nResponda *sim* para confirmar ou *não* para cancelar.`);
     } else if (estado.etapa === 'aguardando_confirmacao') {
       const resp = texto.toLowerCase().trim();
       if (['sim', 's', 'yes', 'confirmar'].includes(resp)) {
         try {
-          await db.query(
-            `INSERT INTO categorias (usuario_id, nome) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-            [sessao.usuarioId, estado.nomeCategoria]
-          );
+          await db.query(`INSERT INTO categorias (usuario_id, nome) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [sessao.usuarioId, estado.nomeCategoria]);
           this._estadosCategoriaFluxo.delete(telefone);
-          await this.enviar(remoteJid,
-            `✅ Categoria *"${estado.nomeCategoria}"* criada com sucesso!\n\nAgora você pode usá-la ao registrar transações.`
-          );
+          await this.enviar(remoteJid, `✅ Categoria *"${estado.nomeCategoria}"* criada com sucesso!\n\nAgora você pode usá-la ao registrar transações.`);
         } catch (err) {
           console.error('Erro ao criar categoria:', err.message);
           this._estadosCategoriaFluxo.delete(telefone);
@@ -1027,15 +1275,10 @@ class BotGranaZen {
   async enviarCategorias(remoteJid, usuarioId) {
     await this._garantirCategoriasPadrao(usuarioId);
     const { rows } = await db.query(
-      `SELECT DISTINCT ON (LOWER(nome)) nome
-       FROM categorias
-       WHERE usuario_id = $1
-       ORDER BY LOWER(nome) ASC`,
+      `SELECT DISTINCT ON (LOWER(nome)) nome FROM categorias WHERE usuario_id = $1 ORDER BY LOWER(nome) ASC`,
       [usuarioId]
     );
-    if (rows.length === 0) {
-      return this.enviar(remoteJid, '📂 Você ainda não tem categorias cadastradas.');
-    }
+    if (rows.length === 0) return this.enviar(remoteJid, '📂 Você ainda não tem categorias cadastradas.');
     let msg = `📂 *Suas Categorias:*\n\n`;
     for (const row of rows) {
       const emoji = EMOJI_CATEGORIA[row.nome] || '📦';
@@ -1045,35 +1288,28 @@ class BotGranaZen {
     await this.enviar(remoteJid, msg);
   }
 
-  // ── TRANSAÇÕES ──────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────
+  // TRANSAÇÕES
+  // ────────────────────────────────────────────────────────────────────────
 
   async excluirUltimaTransacao(remoteJid, usuarioId) {
     try {
       const { rows } = await db.query(
-        `SELECT id, descricao, valor, tipo, conta_id, id_curto FROM transacoes
-         WHERE usuario_id = $1
-         ORDER BY criado_em DESC LIMIT 1`,
+        `SELECT id, descricao, valor, tipo, conta_id, id_curto FROM transacoes WHERE usuario_id = $1 ORDER BY criado_em DESC LIMIT 1`,
         [usuarioId]
       );
-      if (rows.length === 0)
-        return this.enviar(remoteJid, '📭 Você não tem nenhuma transação registrada para excluir.');
-
+      if (rows.length === 0) return this.enviar(remoteJid, '📭 Você não tem nenhuma transação registrada para excluir.');
       const tx = rows[0];
       const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
       if (tx.conta_id) {
         const sinal = tx.tipo === 'receita' ? -1 : 1;
         await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [sinal * tx.valor, tx.conta_id]);
       }
       await db.query(`DELETE FROM transacoes WHERE id = $1`, [tx.id]);
-
       await this.enviar(remoteJid,
-        `🗑️ *Última transação excluída!*\n\n` +
-        `📋 Descrição: ${tx.descricao}\n` +
-        `💵 Valor: ${fmt(tx.valor)}\n` +
+        `🗑️ *Última transação excluída!*\n\n📋 Descrição: ${tx.descricao}\n💵 Valor: ${fmt(tx.valor)}\n` +
         (tx.id_curto ? `🔖 ID: ${tx.id_curto}\n` : '') +
-        `\n✅ Saldo atualizado.\n\n` +
-        `Digite *resumo* para ver seu saldo atual.`
+        `\n✅ Saldo atualizado.\n\nDigite *resumo* para ver seu saldo atual.`
       );
     } catch (err) {
       console.error('Erro ao excluir última transação:', err.message);
@@ -1085,36 +1321,23 @@ class BotGranaZen {
     try {
       await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
       const { rows } = await db.query(
-        `SELECT id, descricao, valor, tipo, conta_id FROM transacoes
-         WHERE usuario_id = $1 AND UPPER(id_curto) = $2`,
+        `SELECT id, descricao, valor, tipo, conta_id FROM transacoes WHERE usuario_id = $1 AND UPPER(id_curto) = $2`,
         [usuarioId, idCurto]
       );
       if (rows.length === 0) {
         return this.enviar(remoteJid,
-          `❌ Transação *${idCurto}* não encontrada.\n\n` +
-          `Dicas:\n` +
-          `• Verifique o ID na mensagem de confirmação\n` +
-          `• Digite *histórico* para ver suas últimas transações\n` +
-          `• Para excluir a última, diga: _excluir última_`
+          `❌ Transação *${idCurto}* não encontrada.\n\nDicas:\n• Verifique o ID\n• Digite *histórico* para ver suas últimas\n• Para excluir a última: _excluir última_`
         );
       }
-
       const tx = rows[0];
       const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
       if (tx.conta_id) {
         const sinal = tx.tipo === 'receita' ? -1 : 1;
         await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [sinal * tx.valor, tx.conta_id]);
       }
       await db.query(`DELETE FROM transacoes WHERE id = $1`, [tx.id]);
-
       await this.enviar(remoteJid,
-        `🗑️ *Transação excluída com sucesso!*\n\n` +
-        `📋 Descrição: ${tx.descricao}\n` +
-        `💵 Valor: ${fmt(tx.valor)}\n` +
-        `🔖 ID: ${idCurto}\n\n` +
-        `✅ Saldo atualizado.\n\n` +
-        `Digite *resumo* para ver seu saldo atual.`
+        `🗑️ *Transação excluída com sucesso!*\n\n📋 Descrição: ${tx.descricao}\n💵 Valor: ${fmt(tx.valor)}\n🔖 ID: ${idCurto}\n\n✅ Saldo atualizado.\n\nDigite *resumo* para ver seu saldo atual.`
       );
     } catch (err) {
       console.error('Erro ao excluir transação:', err.message);
@@ -1126,15 +1349,11 @@ class BotGranaZen {
     await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
     const { rows } = await db.query(
       `SELECT t.id_curto, t.descricao, t.valor, t.tipo, c.nome AS categoria, t.data_pagamento
-       FROM transacoes t
-       LEFT JOIN categorias c ON c.id = t.categoria_id
-       WHERE t.usuario_id = $1
-       ORDER BY t.criado_em DESC LIMIT 5`,
+       FROM transacoes t LEFT JOIN categorias c ON c.id = t.categoria_id
+       WHERE t.usuario_id = $1 ORDER BY t.criado_em DESC LIMIT 5`,
       [usuarioId]
     );
-    if (rows.length === 0)
-      return this.enviar(remoteJid, '📭 Nenhuma transação registrada ainda.');
-
+    if (rows.length === 0) return this.enviar(remoteJid, '📭 Nenhuma transação registrada ainda.');
     const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     let msg = `🕐 *Últimas transações:*\n\n`;
     for (const tx of rows) {
@@ -1147,10 +1366,7 @@ class BotGranaZen {
       if (tx.id_curto) msg += ` | 🔖 *${tx.id_curto}*`;
       msg += `\n\n`;
     }
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🗑️ *Para excluir:*\n`;
-    msg += `• _excluir última_ — remove a mais recente\n`;
-    msg += `• _excluir [ID]_ — Ex: excluir A3B`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n🗑️ *Para excluir:*\n• _excluir última_ — remove a mais recente\n• _excluir [ID]_ — Ex: excluir A3B`;
     await this.enviar(remoteJid, msg);
   }
 
@@ -1158,30 +1374,22 @@ class BotGranaZen {
     const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     const mes = agora.getMonth() + 1;
     const ano = agora.getFullYear();
-    const mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-                       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-
-    await this.enviar(remoteJid,
-      `📄 Gerando seu relatório de *${mesesNome[mes-1]}/${ano}*...\n\nAguarde alguns instantes ⏳`
-    );
-
+    const mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    await this.enviar(remoteJid, `📄 Gerando seu relatório de *${mesesNome[mes-1]}/${ano}*...\n\nAguarde alguns instantes ⏳`);
     try {
       limparPdfsAntigos();
       const { outputPath, dados } = await gerarRelatorio(usuarioId, mes, ano);
       const totalTx = dados.transacoes.length;
-      if (totalTx === 0) {
-        return this.enviar(remoteJid,
-          `📭 Não há transações em *${mesesNome[mes-1]}/${ano}* para gerar relatório.\n\nComece registrando um gasto!`
-        );
-      }
+      if (totalTx === 0)
+        return this.enviar(remoteJid, `📭 Não há transações em *${mesesNome[mes-1]}/${ano}* para gerar relatório.\n\nComece registrando um gasto!`);
       const pdfBuffer = fs.readFileSync(outputPath);
       const recebido = parseFloat(dados.totais.recebido);
-      const pago     = parseFloat(dados.totais.pago);
-      const saldo    = recebido - pago;
+      const pago = parseFloat(dados.totais.pago);
+      const saldo = recebido - pago;
       const sinalSaldo = saldo >= 0 ? '+' : '';
       await this.socket.sendMessage(remoteJid, {
         document: pdfBuffer,
-        fileName: `Relatorio_Seu_Bolso_${mesesNome[mes-1]}_${ano}.pdf`,
+        fileName: `Relatorio_Seu_Secretario_${mesesNome[mes-1]}_${ano}.pdf`,
         mimetype: 'application/pdf',
         caption:
           `📊 *Relatório — ${mesesNome[mes-1]}/${ano}*\n\n` +
@@ -1193,10 +1401,8 @@ class BotGranaZen {
       });
       try { fs.unlinkSync(outputPath); } catch {}
     } catch (err) {
-      console.error('Erro ao gerar relatório PDF:', err.message);
-      await this.enviar(remoteJid,
-        `❌ Não consegui gerar o PDF agora.\n\nTente novamente ou acesse seu painel em *${process.env.APP_URL}/painel*`
-      );
+      console.error('Erro ao gerar PDF:', err.message);
+      await this.enviar(remoteJid, `❌ Não consegui gerar o PDF agora.\n\nTente novamente ou acesse *${process.env.APP_URL}/painel*`);
     }
   }
 
@@ -1243,16 +1449,33 @@ class BotGranaZen {
       }, { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 30000 });
       const conteudo = resp.data.choices[0].message.content.trim();
       if (conteudo === 'null' || !conteudo) return null;
-      return JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+      const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+      return Array.isArray(parsed) ? parsed[0] : parsed;
     } catch (err) {
       console.error('Erro ao analisar imagem:', err.response?.data || err.message);
       return null;
     }
   }
 
+  // ── interpretarTransacao — retorna sempre null | array ─────────────────
   async interpretarTransacao(texto) {
+    const padraoMultiplo =
+      /(?:gastei|paguei|comprei|saiu|debitou?|recebi|ganhei|entrou|creditou?)?\s*(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)([^0-9,eE\n]+?)(?=\s*(?:e\s+)?(?:\d|gastei|paguei|comprei|recebi|ganhei|$))/gi;
+
+    const matches = [...texto.matchAll(padraoMultiplo)];
+    if (matches.length >= 2) {
+      const verbosReceita = /recebi|ganhei|entrou|creditou/i;
+      const resultados = matches.map(m => ({
+        tipo: verbosReceita.test(texto.slice(0, m.index + 10)) ? 'receita' : 'despesa',
+        valor: parseFloat(m[1].replace(',', '.')),
+        descricao: m[2].trim().replace(/[,;]+$/, ''),
+        categoria: 'Outros',
+      })).filter(t => t.valor > 0);
+      if (resultados.length >= 2) return resultados;
+    }
+
     const padroesGasto = [
-      /(?:gastei|paguei|comprei|saiu|debitou?)\s+(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?|r\$)?\s*(?:de\s+|no?\s+|na\s+|em\s+)?(.*)/i,
+      /(?:gastei|paguei|comprei|saiu|debitou?)\s+(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?|r\$)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)?(.*)/i,
       /(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+)(.+)/i,
     ];
     const padroesReceita = [
@@ -1261,22 +1484,24 @@ class BotGranaZen {
     for (const p of padroesGasto) {
       const m = texto.match(p);
       if (m && parseFloat(m[1].replace(',', '.')) > 0)
-        return { tipo: 'despesa', valor: parseFloat(m[1].replace(',', '.')), descricao: m[2]?.trim() || 'Gasto', categoria: 'Outros' };
+        return [{ tipo: 'despesa', valor: parseFloat(m[1].replace(',', '.')), descricao: m[2]?.trim() || 'Gasto', categoria: 'Outros' }];
     }
     for (const p of padroesReceita) {
       const m = texto.match(p);
       if (m && parseFloat(m[1].replace(',', '.')) > 0)
-        return { tipo: 'receita', valor: parseFloat(m[1].replace(',', '.')), descricao: m[2]?.trim() || 'Receita', categoria: 'Outros' };
+        return [{ tipo: 'receita', valor: parseFloat(m[1].replace(',', '.')), descricao: m[2]?.trim() || 'Receita', categoria: 'Outros' }];
     }
+
     if (!process.env.OPENAI_API_KEY) return null;
     try {
       const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o-mini', max_tokens: 150, temperature: 0,
+        model: 'gpt-4o-mini', max_tokens: 400, temperature: 0,
         messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: texto }],
       }, { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 15000 });
       const conteudo = resp.data.choices[0].message.content.trim();
       if (conteudo === 'null' || !conteudo) return null;
-      return JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+      const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+      return Array.isArray(parsed) ? parsed : [parsed];
     } catch (err) {
       console.warn('GPT indisponível:', err.response?.data?.error?.message || err.message);
       return null;
@@ -1294,18 +1519,14 @@ class BotGranaZen {
         `SELECT id, nome FROM categorias WHERE (usuario_id = $1 OR usuario_id IS NULL) AND LOWER(nome) = LOWER($2) LIMIT 1`,
         [usuarioId, categoriaNome]
       );
-      if (catRes.rows.length > 0) {
-        categoriaId = catRes.rows[0].id;
-        categoriaNome = catRes.rows[0].nome;
-      }
+      if (catRes.rows.length > 0) { categoriaId = catRes.rows[0].id; categoriaNome = catRes.rows[0].nome; }
     }
 
     const contaRes = await db.query('SELECT id, nome FROM contas WHERE usuario_id = $1 AND padrao = true LIMIT 1', [usuarioId]);
     const contaId = contaRes.rows[0]?.id || null;
     const contaNome = contaRes.rows[0]?.nome || 'carteira';
 
-    let idCurto;
-    let tentativas = 0;
+    let idCurto; let tentativas = 0;
     do {
       idCurto = gerarIdCurto();
       const existe = await db.query(`SELECT id FROM transacoes WHERE id_curto = $1`, [idCurto]);
@@ -1326,13 +1547,7 @@ class BotGranaZen {
       await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [sinal * transacao.valor, contaId]);
     }
 
-    if (this.onNovaTransacao) {
-      this.onNovaTransacao({
-        id: rows[0].id, idCurto,
-        tipo: transacao.tipo, valor: transacao.valor,
-        descricao: transacao.descricao, categoria: categoriaNome, origem: 'whatsapp',
-      });
-    }
+    if (this.onNovaTransacao) this.onNovaTransacao({ id: rows[0].id, idCurto, tipo: transacao.tipo, valor: transacao.valor, descricao: transacao.descricao, categoria: categoriaNome, origem: 'whatsapp' });
 
     const emojiTipo   = transacao.tipo === 'despesa' ? '🔴' : '🟢';
     const labelTipo   = transacao.tipo === 'despesa' ? 'Despesa' : 'Receita';
@@ -1342,26 +1557,65 @@ class BotGranaZen {
 
     await this.enviar(remoteJid,
       `${emojiBanner} *Transação registrada!*\n\n` +
-      `📋 Descrição: ${transacao.descricao}\n` +
-      `💵 Valor: ${valorFmt}\n` +
-      `🔄 Tipo: ${emojiTipo} ${labelTipo}\n` +
-      `${emojiCat} Categoria: ${categoriaNome}\n` +
-      `🏦 Conta: ${contaNome}\n` +
-      `📅 Data: ${dataHoje}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🔖 ID: *${idCurto}*\n\n` +
+      `📋 Descrição: ${transacao.descricao}\n💵 Valor: ${valorFmt}\n🔄 Tipo: ${emojiTipo} ${labelTipo}\n` +
+      `${emojiCat} Categoria: ${categoriaNome}\n🏦 Conta: ${contaNome}\n📅 Data: ${dataHoje}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n🔖 ID: *${idCurto}*\n\n` +
       `🗑️ Para excluir diga:\n_"excluir ${idCurto}"_ ou _"excluir última"_\n\n` +
       `📊 Painel: *${process.env.APP_URL}/painel*`
     );
   }
 
+  // ── registrarTransacaoSilencioso — sem enviar mensagem, retorna idCurto ─
+  async registrarTransacaoSilencioso(remoteJid, usuarioId, transacao, textoOriginal) {
+    await this._garantirCategoriasPadrao(usuarioId);
+    await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
+
+    let categoriaId = null;
+    let categoriaNome = transacao.categoria || 'Outros';
+    if (categoriaNome) {
+      const catRes = await db.query(
+        `SELECT id, nome FROM categorias WHERE (usuario_id = $1 OR usuario_id IS NULL) AND LOWER(nome) = LOWER($2) LIMIT 1`,
+        [usuarioId, categoriaNome]
+      );
+      if (catRes.rows.length > 0) { categoriaId = catRes.rows[0].id; categoriaNome = catRes.rows[0].nome; }
+    }
+
+    const contaRes = await db.query('SELECT id, nome FROM contas WHERE usuario_id = $1 AND padrao = true LIMIT 1', [usuarioId]);
+    const contaId = contaRes.rows[0]?.id || null;
+
+    let idCurto; let tentativas = 0;
+    do {
+      idCurto = gerarIdCurto();
+      const existe = await db.query(`SELECT id FROM transacoes WHERE id_curto = $1`, [idCurto]);
+      if (existe.rows.length === 0) break;
+      tentativas++;
+    } while (tentativas < 20);
+
+    const { rows } = await db.query(
+      `INSERT INTO transacoes (usuario_id, tipo, descricao, valor, categoria_id, conta_id, data_vencimento, data_pagamento, pago, origem, mensagem_raw, id_curto)
+       VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,CURRENT_DATE,true,'whatsapp',$7,$8) RETURNING id`,
+      [usuarioId, transacao.tipo, transacao.descricao, transacao.valor, categoriaId, contaId, textoOriginal, idCurto]
+    );
+
+    if (contaId) {
+      const sinal = transacao.tipo === 'receita' ? 1 : -1;
+      await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [sinal * transacao.valor, contaId]);
+    }
+
+    if (this.onNovaTransacao) this.onNovaTransacao({ id: rows[0].id, idCurto, tipo: transacao.tipo, valor: transacao.valor, descricao: transacao.descricao, categoria: categoriaNome, origem: 'whatsapp' });
+
+    return idCurto;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // RESUMO
+  // ────────────────────────────────────────────────────────────────────────
   async enviarResumo(remoteJid, usuarioId, nome) {
     const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     const mes = agora.getMonth() + 1;
     const ano = agora.getFullYear();
     const ultimoDia = new Date(ano, mes, 0).getDate();
-    const mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-                       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const mesesNome = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
     const nomeMes = mesesNome[mes - 1];
 
     const { rows: totais } = await db.query(
@@ -1378,11 +1632,8 @@ class BotGranaZen {
     );
 
     const { rows: catDespesas } = await db.query(
-      `SELECT c.nome, SUM(t.valor) AS total
-       FROM transacoes t
-       LEFT JOIN categorias c ON c.id = t.categoria_id
-       WHERE t.usuario_id = $1
-         AND t.tipo = 'despesa'
+      `SELECT c.nome, SUM(t.valor) AS total FROM transacoes t LEFT JOIN categorias c ON c.id = t.categoria_id
+       WHERE t.usuario_id = $1 AND t.tipo = 'despesa'
          AND EXTRACT(MONTH FROM COALESCE(t.data_pagamento, t.data_vencimento)) = $2
          AND EXTRACT(YEAR FROM COALESCE(t.data_pagamento, t.data_vencimento)) = $3
        GROUP BY c.nome ORDER BY total DESC LIMIT 5`,
@@ -1390,24 +1641,25 @@ class BotGranaZen {
     );
 
     const { rows: catReceitas } = await db.query(
-      `SELECT c.nome, SUM(t.valor) AS total
-       FROM transacoes t
-       LEFT JOIN categorias c ON c.id = t.categoria_id
-       WHERE t.usuario_id = $1
-         AND t.tipo = 'receita'
+      `SELECT c.nome, SUM(t.valor) AS total FROM transacoes t LEFT JOIN categorias c ON c.id = t.categoria_id
+       WHERE t.usuario_id = $1 AND t.tipo = 'receita'
          AND EXTRACT(MONTH FROM COALESCE(t.data_pagamento, t.data_vencimento)) = $2
          AND EXTRACT(YEAR FROM COALESCE(t.data_pagamento, t.data_vencimento)) = $3
        GROUP BY c.nome ORDER BY total DESC LIMIT 5`,
       [usuarioId, mes, ano]
     );
 
-    // Dívidas pendentes
     const { rows: dividasPend } = await db.query(
-      `SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
-       FROM dividas_receber
-       WHERE usuario_id = $1 AND status = 'pendente'`,
+      `SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total FROM dividas_receber WHERE usuario_id = $1 AND status = 'pendente'`,
       [usuarioId]
     ).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
+
+    const { rows: proximosComps } = await db.query(
+      `SELECT titulo, data_hora FROM agenda
+       WHERE usuario_id = $1 AND cancelado = false AND data_hora >= NOW()
+       ORDER BY data_hora ASC LIMIT 3`,
+      [usuarioId]
+    ).catch(() => ({ rows: [] }));
 
     const recebido = parseFloat(totais[0].recebido);
     const aReceber = parseFloat(totais[0].a_receber);
@@ -1424,18 +1676,13 @@ class BotGranaZen {
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `${emojiSaldo} Disponível: *${fmt(saldoDisponivel)}*\n`;
     msg += `📈 Previsto: *${fmt(saldoPrevisto)}* (até ${ultimoDia.toString().padStart(2,'0')}/${mes.toString().padStart(2,'0')})\n\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `📥 *Receitas*\n\n`;
-    msg += `✅ Recebido: *${fmt(recebido)}*\n`;
-    msg += `⏳ A receber: *${fmt(aReceber)}*\n\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `📤 *Despesas*\n\n`;
-    msg += `💳 Pago: *${fmt(pago)}*\n`;
-    msg += `⏳ A pagar: *${fmt(aPagar)}*\n\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n📥 *Receitas*\n\n`;
+    msg += `✅ Recebido: *${fmt(recebido)}*\n⏳ A receber: *${fmt(aReceber)}*\n\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n📤 *Despesas*\n\n`;
+    msg += `💳 Pago: *${fmt(pago)}*\n⏳ A pagar: *${fmt(aPagar)}*\n\n`;
 
     if (catDespesas.length > 0) {
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `📊 *Top Despesas por Categoria*\n\n`;
+      msg += `━━━━━━━━━━━━━━━━━━━━\n📊 *Top Despesas por Categoria*\n\n`;
       for (const cat of catDespesas) {
         const catNome = cat.nome || 'Outros';
         const emoji = EMOJI_CATEGORIA[catNome] || '📦';
@@ -1446,8 +1693,7 @@ class BotGranaZen {
     }
 
     if (catReceitas.length > 0) {
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `💰 *Receitas por Categoria*\n\n`;
+      msg += `━━━━━━━━━━━━━━━━━━━━\n💰 *Receitas por Categoria*\n\n`;
       for (const cat of catReceitas) {
         const catNome = cat.nome || 'Outros';
         const emoji = EMOJI_CATEGORIA[catNome] || '📦';
@@ -1456,23 +1702,33 @@ class BotGranaZen {
       msg += `\n`;
     }
 
-    // Bloco de dívidas a receber no resumo
     if (dividasPend[0] && parseInt(dividasPend[0].qtd) > 0) {
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `💸 *Dívidas a Receber*\n\n`;
+      msg += `━━━━━━━━━━━━━━━━━━━━\n💸 *Dívidas a Receber*\n\n`;
       msg += `👥 ${dividasPend[0].qtd} devedor(es) pendente(s)\n`;
       msg += `💰 Total: *${fmt(parseFloat(dividasPend[0].total))}*\n`;
       msg += `\nDigite _"a receber"_ para ver a lista.\n\n`;
     }
 
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `📄 *Quer um relatório em PDF?*\n`;
-    msg += `Digite: _pdf_\n\n`;
+    if (proximosComps.length > 0) {
+      msg += `━━━━━━━━━━━━━━━━━━━━\n📅 *Próximos Compromissos*\n\n`;
+      for (const comp of proximosComps) {
+        const dh = new Date(comp.data_hora);
+        const dataFmt = dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
+        const horaFmt = dh.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+        msg += `📌 *${comp.titulo}* — ${dataFmt} às ${horaFmt}\n`;
+      }
+      msg += `\nDigite _"agenda"_ para ver todos.\n\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━\n📄 *Quer um relatório em PDF?*\nDigite: _pdf_\n\n`;
     msg += `🌐 *Painel completo:*\n${process.env.APP_URL}/painel`;
 
     await this.enviar(remoteJid, msg);
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // enviar
+  // ────────────────────────────────────────────────────────────────────────
   async enviar(remoteJid, texto) {
     if (!this.socket || !this.conectado) { console.warn(`Bot desconectado, não enviou para ${remoteJid}`); return; }
     const jid = remoteJid.includes('@') ? remoteJid : `${remoteJid}@s.whatsapp.net`;
@@ -1481,16 +1737,11 @@ class BotGranaZen {
         this.socket.sendMessage(jid, { text: texto }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 15s')), 15000)),
       ]);
-    } catch (err) {
-      console.warn(`Falha ao enviar para ${jid}: ${err.message}`);
-    }
+    } catch (err) { console.warn(`Falha ao enviar para ${jid}: ${err.message}`); }
   }
 
   async enviarBoasVindasECapturarLid(telefone, usuarioId, nome) {
-    if (!this.socket || !this.conectado) {
-      console.warn('Bot desconectado, nao enviou boas-vindas');
-      return;
-    }
+    if (!this.socket || !this.conectado) { console.warn('Bot desconectado'); return; }
     await this._garantirCategoriasPadrao(usuarioId);
     const jid = `55${telefone}@s.whatsapp.net`;
     try {
@@ -1502,10 +1753,7 @@ class BotGranaZen {
       if (jidReal && jidReal.endsWith('@lid')) {
         lidCache.set(jidReal, telefone);
         await this._garantirTabelaLidMap();
-        await db.query(
-          `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
-          [jidReal, telefone]
-        );
+        await db.query(`INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`, [jidReal, telefone]);
         await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
         await db.query(`UPDATE sessoes_bot SET lid = $1 WHERE usuario_id = $2`, [jidReal, usuarioId]);
         console.log(`LID vinculado ao usuario ${usuarioId}: ${jidReal}`);
@@ -1515,9 +1763,7 @@ class BotGranaZen {
         this.socket.sendMessage(jid, { text: this.msgTutorial() }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
       ]);
-    } catch (err) {
-      console.warn(`Falha ao enviar boas-vindas para ${jid}:`, err.message);
-    }
+    } catch (err) { console.warn(`Falha ao enviar boas-vindas para ${jid}:`, err.message); }
   }
 
   async reconectar() {
@@ -1527,9 +1773,12 @@ class BotGranaZen {
     await this.iniciar();
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // Mensagens fixas
+  // ────────────────────────────────────────────────────────────────────────
   msgBemVindo(nome) {
     return (
-      `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Bolso*! 👋\n\n` +
+      `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Secretário*! 👋\n\n` +
       `🤖 Sou seu assistente financeiro pessoal. Estou aqui para te ajudar a controlar seus gastos e receitas direto pelo WhatsApp — sem precisar abrir nenhum app!\n\n` +
       `Já deixei sua conta configurada e pronta para usar. Em instantes vou te mostrar como funciona. 😊`
     );
@@ -1537,33 +1786,32 @@ class BotGranaZen {
 
   msgTutorial() {
     return (
-      `📚 *Como usar o Seu Bolso:*\n\n` +
+      `📚 *Como usar o Seu Secretário:*\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💬 *1. Registre gastos e receitas enviando texto:*\n\n` +
+      `💬 *1. Registre gastos e receitas:*\n\n` +
       `_"Gastei 35 no almoço"_\n` +
       `_"Paguei 120 de conta de luz"_\n` +
-      `_"Recebi 3000 de salário"_\n\n` +
-      `🎤 *2. Ou mande um áudio falando o gasto* — eu entendo!\n\n` +
-      `📸 *3. Ou tire uma foto* da nota fiscal ou comprovante.\n\n` +
+      `_"Recebi 3000 de salário"_\n` +
+      `_"Gastei 50 com comida, 30 com uber e 10 no café"_ ← vários de uma vez!\n\n` +
+      `🎤 *2. Ou mande um áudio* falando o gasto\n\n` +
+      `📸 *3. Ou tire uma foto* da nota fiscal\n\n` +
       `💸 *4. Registre dívidas de terceiros:*\n\n` +
-      `_"Bruno me deve 40 reais, paga dia 30"_\n` +
-      `_"Emprestei 200 pra Ana"_\n\n` +
-      `Diga _"recebido [ID]"_ quando receber — vira receita automática!\n\n` +
+      `_"Bruno me deve 40 reais, paga dia 30"_\n\n` +
+      `📅 *5. Agende compromissos:*\n\n` +
+      `_"Tenho reunião amanhã às 10h"_\n` +
+      `_"Consulta médica dia 20 às 14h no hospital"_\n` +
+      `_"Lembra de pagar o aluguel dia 5"_\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📊 *Comandos úteis:*\n\n` +
-      `• *resumo* — Ver seu saldo e relatório do mês\n` +
-      `• *histórico* — Ver suas últimas transações\n` +
-      `• *a receber* — Ver dívidas pendentes de terceiros\n` +
+      `• *resumo* — Ver saldo e relatório do mês\n` +
+      `• *histórico* — Ver últimas transações\n` +
+      `• *agenda* — Ver seus compromissos\n` +
+      `• *a receber* — Ver dívidas pendentes\n` +
       `• *categorias* — Ver suas categorias\n` +
-      `• *pdf* — Baixar relatório completo em PDF\n` +
+      `• *pdf* — Baixar relatório em PDF\n` +
       `• *ajuda* — Ver todos os comandos\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🗑️ *Para excluir uma transação:*\n` +
-      `• _"excluir última"_ — remove a mais recente\n` +
-      `• _"excluir [ID]"_ — pelo código da transação\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🌐 Acesse seu painel completo com gráficos em:\n` +
-      `*${process.env.APP_URL}/painel*\n\n` +
+      `🌐 Painel completo: *${process.env.APP_URL}/painel*\n\n` +
       `Pode começar! Me manda seu primeiro gasto 👆`
     );
   }
@@ -1574,27 +1822,33 @@ class BotGranaZen {
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💸 *Registrar transações:*\n` +
       `_Gastei 50 no mercado_\n` +
-      `_Paguei 120 de conta de luz_\n` +
-      `_Recebi 3000 de salário_\n\n` +
+      `_Recebi 3000 de salário_\n` +
+      `_Gastei 50 com comida, 30 com uber_ ← vários!\n\n` +
       `🎤 *Áudio:* Mande um áudio falando o gasto\n` +
-      `📸 *Foto:* Tire foto de nota fiscal ou comprovante\n\n` +
+      `📸 *Foto:* Tire foto de nota fiscal\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📅 *Agenda:*\n` +
+      `_"Tenho reunião amanhã às 10h"_ — agenda\n` +
+      `_"Consulta médica dia 20 às 14h"_ — agenda\n` +
+      `_agenda_ — lista compromissos\n` +
+      `_"cancelar compromisso [ID]"_ — cancela\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💸 *Dívidas a Receber:*\n` +
       `_"Bruno me deve 40, paga dia 30"_ — registra\n` +
-      `_a receber_ — lista devedores pendentes\n` +
+      `_a receber_ — lista devedores\n` +
       `_"recebido [ID]"_ — quita e vira receita\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `📊 *resumo* — Ver saldo e relatório do mês\n` +
-      `🕐 *histórico* — Ver últimas transações e IDs\n` +
-      `📂 *categorias* — Ver suas categorias\n` +
-      `➕ *nova categoria* — Adicionar categoria personalizada\n` +
-      `📄 *pdf* — Baixar relatório mensal completo em PDF\n\n` +
+      `📊 *resumo* — Saldo e relatório do mês\n` +
+      `🕐 *histórico* — Últimas transações\n` +
+      `📂 *categorias* — Suas categorias\n` +
+      `➕ *nova categoria* — Adicionar categoria\n` +
+      `📄 *pdf* — Relatório mensal em PDF\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🗑️ *Excluir transações:*\n` +
       `_excluir última_ — remove a mais recente\n` +
       `_excluir [ID]_ — Ex: excluir A3B\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🌐 Painel web: *${process.env.APP_URL}*`
+      `🌐 Painel: *${process.env.APP_URL}*`
     );
   }
 }

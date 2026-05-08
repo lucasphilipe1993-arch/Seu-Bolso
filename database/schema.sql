@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   senha_hash             VARCHAR(255) NOT NULL,
   telefone               VARCHAR(30),
   whatsapp_ativo         BOOLEAN DEFAULT FALSE,
-  plano                  VARCHAR(20) DEFAULT 'gratuito', -- gratuito | premium | zen
+  plano                  VARCHAR(20) DEFAULT 'gratuito', -- gratuito | basico | premium
 
   -- ── Stripe ──────────────────────────────────────────────
   stripe_customer_id     VARCHAR(100) UNIQUE,
@@ -27,8 +27,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 
 -- Índices úteis
-CREATE INDEX IF NOT EXISTS idx_usuarios_stripe_customer ON usuarios(stripe_customer_id);
-CREATE INDEX IF NOT EXISTS idx_usuarios_email           ON usuarios(email);
+CREATE INDEX IF NOT EXISTS idx_usuarios_stripe_customer      ON usuarios(stripe_customer_id);
+CREATE INDEX IF NOT EXISTS idx_usuarios_stripe_subscription  ON usuarios(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_usuarios_email                ON usuarios(email);
 
 -- ──────────────────────────────────────────────────────────
 -- CATEGORIAS
@@ -117,8 +118,11 @@ CREATE TABLE IF NOT EXISTS sessoes_bot (
   usuario_id    UUID REFERENCES usuarios(id) ON DELETE CASCADE,
   estado        VARCHAR(50) DEFAULT 'idle',
   contexto      JSONB DEFAULT '{}',
+  lid           TEXT,
   atualizado_em TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_sessoes_bot_lid ON sessoes_bot(lid);
 
 -- ──────────────────────────────────────────────────────────
 -- FUNÇÃO + TRIGGERS: atualiza atualizado_em automaticamente
@@ -142,11 +146,13 @@ CREATE TRIGGER tg_transacoes_atualizado
   FOR EACH ROW EXECUTE FUNCTION atualizar_timestamp();
 
 -- ──────────────────────────────────────────────────────────
--- MIGRATION: adiciona colunas Stripe em banco já existente
--- (seguro rodar mesmo se as colunas já existirem)
+-- MIGRATIONS SEGURAS
+-- Rodar em bancos já existentes sem quebrar nada
 -- ──────────────────────────────────────────────────────────
 DO $$
 BEGIN
+
+  -- stripe_customer_id
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name='usuarios' AND column_name='stripe_customer_id'
@@ -154,6 +160,7 @@ BEGIN
     ALTER TABLE usuarios ADD COLUMN stripe_customer_id VARCHAR(100) UNIQUE;
   END IF;
 
+  -- stripe_subscription_id
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name='usuarios' AND column_name='stripe_subscription_id'
@@ -161,10 +168,35 @@ BEGIN
     ALTER TABLE usuarios ADD COLUMN stripe_subscription_id VARCHAR(100);
   END IF;
 
+  -- sobrenome
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name='usuarios' AND column_name='sobrenome'
   ) THEN
     ALTER TABLE usuarios ADD COLUMN sobrenome VARCHAR(100);
   END IF;
+
+  -- Atualiza CHECK CONSTRAINT do plano para aceitar 'basico'
+  -- (remove a constraint antiga se existir e recria com os 4 valores)
+  ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_plano_check;
+  ALTER TABLE usuarios
+    ADD CONSTRAINT usuarios_plano_check
+    CHECK (plano IN ('gratuito', 'basico', 'premium', 'zen'));
+
+  -- lid na tabela sessoes_bot
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='sessoes_bot' AND column_name='lid'
+  ) THEN
+    ALTER TABLE sessoes_bot ADD COLUMN lid TEXT;
+  END IF;
+
+  -- Índice stripe_subscription
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename='usuarios' AND indexname='idx_usuarios_stripe_subscription'
+  ) THEN
+    CREATE INDEX idx_usuarios_stripe_subscription ON usuarios(stripe_subscription_id);
+  END IF;
+
 END$$;

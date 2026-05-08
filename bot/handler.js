@@ -8,7 +8,6 @@ const {
   BufferJSON,
   fetchLatestBaileysVersion,
 } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -247,14 +246,20 @@ class BotGranaZen {
 
   async _fecharSocket() {
     if (!this.socket) return;
+    const socketAntigo = this.socket;
+    this.socket = null; // invalida imediatamente para evitar uso concorrente
     try {
-      this.socket.ev.removeAllListeners();
-      if (this.socket.ws?.readyState === 1) {
-        this.socket.ws.close(1000);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      socketAntigo.ev.removeAllListeners();
+      const ws = socketAntigo.ws;
+      if (ws && ws.readyState === 1 /* OPEN */) {
+        ws.close(1000);
+        // Aguarda o WS fechar de verdade (evita conflito com nova sessão)
+        await new Promise(resolve => {
+          const fallback = setTimeout(resolve, 5000);
+          ws.once('close', () => { clearTimeout(fallback); resolve(); });
+        });
       }
     } catch {}
-    this.socket = null;
   }
 
   _agendarReconexao() {
@@ -372,7 +377,7 @@ class BotGranaZen {
       console.log(`🔧 Baileys versão WA: ${version.join('.')}, latest: ${isLatest}`);
 
       this.socket = makeWASocket({
-        version, auth: state, printQRInTerminal: true,
+        version, auth: state,
         browser: ['GranaZen', 'Chrome', '120.0.0'],
         logger: this._logger, syncFullHistory: false,
         connectTimeoutMs: 90000, defaultQueryTimeoutMs: 90000,
@@ -424,8 +429,7 @@ class BotGranaZen {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
           this.qrAtual = qr;
-          qrcode.generate(qr, { small: true });
-          console.log('📱 Escaneie o QR Code acima para conectar o WhatsApp');
+          console.log('📱 QR Code gerado — escaneie pelo painel web');
           if (this.onQR) this.onQR(qr);
         }
         if (connection === 'open') {
@@ -438,13 +442,30 @@ class BotGranaZen {
           this.conectado = false; this._reconectando = false;
           const codigo = lastDisconnect?.error?.output?.statusCode;
           const loggedOut = codigo === DisconnectReason.loggedOut;
-          console.log(`⚠️  Desconectado (${codigo}). Reconectar: ${!loggedOut}`);
+
+          // conflict:replaced → outra instância assumiu a sessão (ex: reinício do Railway)
+          // Aguarda antes de reconectar para garantir que a instância anterior fechou
+          const isConflict = lastDisconnect?.error?.output?.payload?.error?.type === 'conflict'
+            || lastDisconnect?.error?.message?.includes('conflict');
+
+          console.log(`⚠️  Desconectado (código: ${codigo}${isConflict ? ', conflict:replaced' : ''}). Reconectar: ${!loggedOut}`);
           if (this.onDisconnected) this.onDisconnected();
+
           if (loggedOut) {
-            console.warn('🚪 Sessão encerrada. Limpando...');
+            console.warn('🚪 Sessão encerrada. Limpando credenciais...');
             try { await db.query(`DELETE FROM whatsapp_session`); } catch {}
             this._tentativas = 0;
+            this._agendarReconexao();
+            return;
           }
+
+          if (isConflict) {
+            // Aguarda 8s para garantir que a sessão anterior foi liberada no servidor WA
+            console.log('⏳ Conflict detectado. Aguardando 8s antes de reconectar...');
+            await new Promise(r => setTimeout(r, 8000));
+            this._tentativas = 0; // não penaliza tentativas em caso de conflict de deploy
+          }
+
           this._agendarReconexao();
         }
       });

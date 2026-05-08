@@ -90,6 +90,7 @@ Saída: [{"tipo":"despesa","valor":120,"descricao":"conta de luz","categoria":"C
 
 const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Bolso.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
+Hoje é: {DATA_HOJE}.
 
 Se a mensagem indica que OUTRA PESSOA deve dinheiro ao usuário (empréstimo, dívida futura a receber):
 {"tipo":"divida_receber","devedor":"nome","valor":numero,"descricao":"texto curto","data_vencimento":"YYYY-MM-DD ou null"}
@@ -99,7 +100,7 @@ null
 
 Exemplos que SÃO dívidas a receber (outra pessoa deve ao usuário):
 - "Bruno me deve 40 reais" → devedor: Bruno
-- "Emprestei 200 pra Ana, ela paga dia 15/10" → devedor: Ana, data_vencimento: ano-atual-10-15
+- "Emprestei 200 pra Ana, ela paga dia 15/10" → devedor: Ana, data_vencimento: {ANO_ATUAL}-10-15
 - "Carlos vai me devolver 50 semana que vem" → devedor: Carlos
 - "Marcos me deve 300, vai pagar no fim do mês" → devedor: Marcos
 
@@ -109,7 +110,7 @@ Exemplos que NÃO são dívidas a receber:
 - "Recebi salário" → null
 - "Conta de luz 120" → null
 
-Para data_vencimento: converta "dia 30", "dia 15/10", "fim do mês", "semana que vem" para YYYY-MM-DD usando o ano corrente. Se não houver data clara, use null.`;
+Para data_vencimento: converta "dia 30", "dia 15/10", "fim do mês", "semana que vem" para YYYY-MM-DD usando OBRIGATORIAMENTE o ano de {ANO_ATUAL}. Se não houver data clara, use null.`;
 
 // ── SYSTEM PROMPT — Agenda ──────────────────────────────────────────────────
 const SYSTEM_PROMPT_AGENDA = `Você é o assistente de agenda do Seu Bolso.
@@ -1103,11 +1104,19 @@ class BotGranaZen {
     const falsoPositivo = /\beu devo\b|\bdevo\b/i;
     if (falsoPositivo.test(texto) && !/me deve/i.test(texto)) return null;
     if (!process.env.OPENAI_API_KEY) return null;
+
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const dataHoje = agora.toISOString().split('T')[0];
+    const anoAtual = agora.getFullYear().toString();
+    const systemPromptDivida = SYSTEM_PROMPT_DIVIDA
+      .replace(/{DATA_HOJE}/g, dataHoje)
+      .replace(/{ANO_ATUAL}/g, anoAtual);
+
     try {
       const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
         model: 'gpt-4o-mini', max_tokens: 150, temperature: 0,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT_DIVIDA },
+          { role: 'system', content: systemPromptDivida },
           { role: 'user', content: texto },
         ],
       }, {

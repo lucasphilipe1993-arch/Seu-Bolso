@@ -585,11 +585,32 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
     <div class="section-label">Planos</div>
     <h2>Simples e<br><em>sem surpresas</em></h2>
     <p class="section-sub">Comece grátis por 15 dias, sem cartão de crédito. Cancele quando quiser.</p>
+
+    <!-- Toggle mensal/anual -->
+    <div style="display:flex;justify-content:center;margin-bottom:48px;margin-top:8px;">
+      <div style="display:inline-flex;background:var(--paper-dark);border:1.5px solid var(--ink-08);border-radius:var(--radius-full);padding:4px;gap:4px;">
+        <button id="toggle-mensal" onclick="alternarPeriodo('mensal')"
+          style="padding:8px 22px;border:none;border-radius:var(--radius-full);font-size:14px;font-weight:600;font-family:var(--font-body);cursor:pointer;transition:.2s;background:var(--ink);color:white;">
+          Mensal
+        </button>
+        <button id="toggle-anual" onclick="alternarPeriodo('anual')"
+          style="padding:8px 22px;border:none;border-radius:var(--radius-full);font-size:14px;font-weight:600;font-family:var(--font-body);cursor:pointer;transition:.2s;background:transparent;color:var(--ink-50);">
+          Anual <span style="background:#dcfce7;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:4px;">-20%</span>
+        </button>
+      </div>
+    </div>
+
     <div class="pricing-grid">
+      <!-- Premium -->
       <div class="price-card">
         <div class="price-tier">Premium</div>
         <div class="price-desc">Perfeito para controle pessoal</div>
-        <div class="price-amt"><span class="price-sym">R$</span><span class="price-num">19</span><span class="price-per">/mês</span></div>
+        <div class="price-amt">
+          <span class="price-sym">R$</span>
+          <span class="price-num" id="preco-premium">19</span>
+          <span class="price-per">/mês</span>
+        </div>
+        <div id="economia-premium" style="font-size:12px;color:#16a34a;font-weight:600;margin-bottom:24px;min-height:18px;"></div>
         <ul class="price-feats">
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Registros ilimitados via WhatsApp</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Texto, áudio, foto e PDF</li>
@@ -600,13 +621,24 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
           <li class="disabled"><span class="feat-check feat-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>Gestão compartilhada</li>
           <li class="disabled"><span class="feat-check feat-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>Exportação de dados</li>
         </ul>
-        <a href="/cadastro.html" class="btn-ghost" style="width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:var(--radius-full);">Começar grátis — 15 dias</a>
+        <button id="btn-premium" onclick="assinar('premium')"
+          class="btn-ghost"
+          style="width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:var(--radius-full);cursor:pointer;">
+          Assinar Premium
+        </button>
       </div>
+
+      <!-- Zen -->
       <div class="price-card featured">
         <div class="featured-badge">Mais popular</div>
         <div class="price-tier">Zen</div>
         <div class="price-desc">Para quem quer o máximo</div>
-        <div class="price-amt"><span class="price-sym">R$</span><span class="price-num">39</span><span class="price-per">/mês</span></div>
+        <div class="price-amt">
+          <span class="price-sym">R$</span>
+          <span class="price-num" id="preco-zen">39</span>
+          <span class="price-per">/mês</span>
+        </div>
+        <div id="economia-zen" style="font-size:12px;color:#86efac;font-weight:600;margin-bottom:24px;min-height:18px;"></div>
         <ul class="price-feats">
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Tudo do Premium</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Contas bancárias ilimitadas</li>
@@ -616,11 +648,185 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Metas de investimento</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Relatório PDF mensal</li>
         </ul>
-        <a href="/cadastro.html" class="btn-white" style="width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:var(--radius-full);">Começar grátis — 15 dias</a>
+        <button id="btn-zen" onclick="assinar('zen')"
+          class="btn-white"
+          style="width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:var(--radius-full);cursor:pointer;">
+          Assinar Zen
+        </button>
       </div>
     </div>
   </div>
 </section>
+
+<!-- Toast de feedback -->
+<div id="pricing-toast" style="
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  background:#111827;color:white;padding:12px 24px;border-radius:10px;
+  font-size:14px;font-weight:600;opacity:0;transition:opacity .3s;
+  pointer-events:none;z-index:9999;white-space:nowrap;
+"></div>
+
+<script>
+(function() {
+  const API = '/api';
+  let periodoAtual = 'mensal';
+  let planoAtualUsuario = 'gratuito';
+  let carregandoPagamento = false;
+
+  // ── Preços por período ────────────────────────────────────
+  const PRECOS = {
+    mensal: { premium: '19', zen: '39', economiaP: '', economiaZ: '' },
+    anual:  { premium: '15', zen: '31', economiaP: '💰 Economize R$48/ano', economiaZ: '💰 Economize R$96/ano' }
+  };
+
+  // ── Alterna período ────────────────────────────────────────
+  window.alternarPeriodo = function(periodo) {
+    periodoAtual = periodo;
+    const p = PRECOS[periodo];
+    document.getElementById('preco-premium').textContent = p.premium;
+    document.getElementById('preco-zen').textContent     = p.zen;
+    document.getElementById('economia-premium').textContent = p.economiaP;
+    document.getElementById('economia-zen').textContent     = p.economiaZ;
+
+    const btnM = document.getElementById('toggle-mensal');
+    const btnA = document.getElementById('toggle-anual');
+    if (periodo === 'mensal') {
+      btnM.style.cssText = 'padding:8px 22px;border:none;border-radius:9999px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:.2s;background:#0f2137;color:white;';
+      btnA.style.cssText = 'padding:8px 22px;border:none;border-radius:9999px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:.2s;background:transparent;color:rgba(15,33,55,0.5);';
+    } else {
+      btnA.style.cssText = 'padding:8px 22px;border:none;border-radius:9999px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:.2s;background:#0f2137;color:white;';
+      btnM.style.cssText = 'padding:8px 22px;border:none;border-radius:9999px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:.2s;background:transparent;color:rgba(15,33,55,0.5);';
+    }
+  };
+
+  // ── Mostra toast ───────────────────────────────────────────
+  function toast(msg, cor) {
+    const el = document.getElementById('pricing-toast');
+    el.textContent = msg;
+    el.style.background = cor || '#111827';
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; }, 3500);
+  }
+
+  // ── Busca plano atual do usuário logado ───────────────────
+  async function carregarPlanoAtual() {
+    const token = localStorage.getItem('gz_token');
+    if (!token) return;
+    try {
+      const r = await fetch(`${API}/stripe/status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      planoAtualUsuario = data.plano || 'gratuito';
+      atualizarBotoesPlano();
+    } catch {}
+  }
+
+  function atualizarBotoesPlano() {
+    const btnP = document.getElementById('btn-premium');
+    const btnZ = document.getElementById('btn-zen');
+    if (!btnP || !btnZ) return;
+
+    if (planoAtualUsuario === 'premium') {
+      btnP.textContent = '✓ Plano atual';
+      btnP.disabled = true;
+      btnP.style.opacity = '0.6';
+      btnP.style.cursor = 'default';
+    } else if (planoAtualUsuario === 'zen') {
+      btnZ.textContent = '✓ Plano atual';
+      btnZ.disabled = true;
+      btnZ.style.opacity = '0.8';
+      btnZ.style.cursor = 'default';
+    }
+  }
+
+  // ── Assinar ────────────────────────────────────────────────
+  window.assinar = async function(tipo) {
+    if (carregandoPagamento) return;
+
+    const token = localStorage.getItem('gz_token');
+    if (!token) {
+      // Não logado: redireciona para cadastro com retorno para planos
+      window.location.href = '/cadastro.html?redirect=planos';
+      return;
+    }
+
+    // Se já tem este plano, abre portal de gerenciamento
+    if (planoAtualUsuario === tipo) {
+      abrirPortal();
+      return;
+    }
+
+    const btnId = tipo === 'premium' ? 'btn-premium' : 'btn-zen';
+    const btn = document.getElementById(btnId);
+    const textoOriginal = btn.textContent;
+
+    carregandoPagamento = true;
+    btn.textContent = 'Aguarde...';
+    btn.disabled = true;
+
+    // Monta nome do plano: premium_mensal, premium_anual, zen_mensal, zen_anual
+    const planoKey = `${tipo}_${periodoAtual}`;
+
+    try {
+      const r = await fetch(`${API}/stripe/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ plano: planoKey })
+      });
+
+      const data = await r.json();
+
+      if (!r.ok) {
+        toast(data.erro || 'Erro ao iniciar pagamento.', '#dc2626');
+        btn.textContent = textoOriginal;
+        btn.disabled = false;
+        carregandoPagamento = false;
+        return;
+      }
+
+      // Redireciona para o Stripe Checkout
+      window.location.href = data.url;
+    } catch {
+      toast('Erro de conexão. Tente novamente.', '#dc2626');
+      btn.textContent = textoOriginal;
+      btn.disabled = false;
+      carregandoPagamento = false;
+    }
+  };
+
+  // ── Portal Stripe (gerenciar assinatura) ───────────────────
+  async function abrirPortal() {
+    const token = localStorage.getItem('gz_token');
+    if (!token) return;
+    try {
+      const r = await fetch(`${API}/stripe/portal`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (data.url) window.location.href = data.url;
+    } catch {
+      toast('Erro ao abrir portal de pagamento.', '#dc2626');
+    }
+  }
+
+  // ── Checa retorno do Stripe via query string ───────────────
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('checkout') === 'sucesso') {
+    toast('🎉 Pagamento confirmado! Seu plano foi ativado.', '#16a34a');
+  } else if (params.get('checkout') === 'cancelado') {
+    toast('Pagamento cancelado. Você pode assinar quando quiser.');
+  }
+
+  // Inicia
+  carregarPlanoAtual();
+})();
+</script>
 
 <!-- CTA -->
 <section class="cta-section">

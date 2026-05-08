@@ -19,10 +19,8 @@ const { gerarRelatorio, limparPdfsAntigos } = require('./relatorio');
 const TMP_DIR = path.join(process.cwd(), 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
-// ─── Cache de LID → telefone ──────────────────────────────────
 const lidCache = new Map();
 
-// ─── Categorias padrão do sistema ─────────────────────────────
 const CATEGORIAS_PADRAO = [
   { nome: 'Alimentação',            emoji: '🍔', tipo: 'despesa' },
   { nome: 'Saúde',                  emoji: '🏥', tipo: 'despesa' },
@@ -42,7 +40,6 @@ const CATEGORIAS_PADRAO = [
   { nome: 'Outros',                 emoji: '📦', tipo: 'ambos'   },
 ];
 
-// ─── Emojis por categoria para exibição ───────────────────────
 const EMOJI_CATEGORIA = {
   'Alimentação': '🍔', 'Saúde': '🏥', 'Assinatura': '📱',
   'Transporte': '🚗', 'Viagem': '✈️', 'Doações': '🤝',
@@ -52,7 +49,6 @@ const EMOJI_CATEGORIA = {
   'Salário': '💰', 'Freelance': '💼', 'Outros': '📦',
 };
 
-// ─── Prompt do sistema ────────────────────────────────────────
 const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Bolso.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 
@@ -80,7 +76,6 @@ Categorias e quando usar:
 - Salário: salário, holerite, pagamento recebido, pró-labore
 - Outros: qualquer coisa não listada acima`;
 
-// ─── Gerador de ID curto (3 caracteres alfanuméricos simples) ─
 const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function gerarIdCurto() {
   let id = '';
@@ -90,7 +85,6 @@ function gerarIdCurto() {
   return id;
 }
 
-// ─── Auth State no PostgreSQL ─────────────────────────────────
 async function usePostgresAuthState() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS whatsapp_session (
@@ -162,7 +156,6 @@ async function usePostgresAuthState() {
   };
 }
 
-// ─── Classe principal ─────────────────────────────────────────
 class BotGranaZen {
   constructor() {
     this.socket = null;
@@ -263,9 +256,7 @@ class BotGranaZen {
     `);
   }
 
-  // ─── CORRIGIDO: Garante constraint única antes de inserir ────
   async _garantirCategoriasPadrao(usuarioId) {
-    // Cria índice único para evitar duplicatas de categoria por usuário
     await db.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_categorias_usuario_nome
       ON categorias (usuario_id, LOWER(nome))
@@ -454,9 +445,10 @@ class BotGranaZen {
     return 'outro';
   }
 
+  // ─── ROTEADOR ÚNICO E CORRETO ─────────────────────────────────
   async _roteador(telefone, remoteJid, tipo, msg, pushName = null) {
     console.log(`🔍 _roteador chamado: telefone=${telefone}, tipo=${tipo}`);
-    
+
     if (this._estadosCategoriaFluxo.has(telefone) && tipo === 'texto') {
       const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
       return this._continuarFluxoCategoria(telefone, remoteJid, texto);
@@ -464,19 +456,7 @@ class BotGranaZen {
 
     const sessao = await this._buscarSessao(telefone, remoteJid, pushName);
     console.log(`🔍 sessao encontrada:`, JSON.stringify(sessao));
-    
-    if (!sessao) {
-      console.log(`⚠️ Sessão não encontrada para: ${telefone}`);
-      return this.enviar(remoteJid,
-        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Bolso.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
-      );
-    }
-    if (this._estadosCategoriaFluxo.has(telefone) && tipo === 'texto') {
-      const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-      return this._continuarFluxoCategoria(telefone, remoteJid, texto);
-    }
 
-    const sessao = await this._buscarSessao(telefone, remoteJid, pushName);
     if (!sessao) {
       console.log(`⚠️ Sessão não encontrada para: ${telefone}`);
       return this.enviar(remoteJid,
@@ -605,16 +585,13 @@ class BotGranaZen {
     };
   }
 
-  // ─── Processamento de texto com todos os comandos ─────────────
   async processarTexto(remoteJid, usuarioId, nome, texto, telefone) {
     const textoLower = texto.toLowerCase().trim();
     const textoClean = textoLower.replace(/[.,!?;:]+$/, '').trim();
 
-    // Saudações simples
     if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello', 'bom dia', 'boa tarde', 'boa noite'].includes(textoClean))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
-    // Primeiro contato / apresentação
     const padroesPrimeiroContato = [
       /acabei de criar/i, /acabei de me cadastrar/i, /acabei de cadastrar/i,
       /acabo de criar/i, /acabo de me cadastrar/i, /me cadastrei/i,
@@ -624,7 +601,6 @@ class BotGranaZen {
     if (padroesPrimeiroContato.some(p => p.test(textoClean)))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
-    // Resumo / Saldo / Relatório (texto)
     const triggerResumo = [
       'resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro',
       'relatorio', 'relatório', 'gerar relatorio', 'gerar relatório',
@@ -635,35 +611,28 @@ class BotGranaZen {
     if (triggerResumo.includes(textoClean) || (textoClean.includes('relat') && !textoClean.includes('pdf')))
       return this.enviarResumo(remoteJid, usuarioId, nome);
 
-    // Ajuda
     if (['ajuda', 'help', '?', 'menu'].includes(textoClean))
       return this.enviar(remoteJid, this.msgAjuda());
 
-    // Listar categorias
     if (['categorias', 'ver categorias', 'minhas categorias', 'listar categorias'].includes(textoClean))
       return this.enviarCategorias(remoteJid, usuarioId);
 
-    // Adicionar categoria
     if (textoClean.startsWith('nova categoria') || textoClean.startsWith('adicionar categoria') || textoClean === 'add categoria')
       return this.iniciarFluxoNovaCategoria(remoteJid, telefone);
 
-    // Excluir última transação
     const regexUltima = /^(exclu[iíií]r?|desfazer|apagar|cancelar|deletar)(\s+a?)?\s+(u[lL]tima|u[lL]timo|[uú]lt[iíií]m[ao]|ult\.?)(\s+(transa[çc][ãa]o|lancamento|lançamento|gasto|registro))?[.,!?]?$/i;
     if (regexUltima.test(textoClean) || textoClean === 'desfazer' || textoClean === 'undo')
       return this.excluirUltimaTransacao(remoteJid, usuarioId);
 
-    // Excluir transação por ID
     const matchExcluir = texto.match(
       /^(?:excluir\s+(?:transa[çc][aã]o\s+)?|cancelar\s+|desfazer\s+|deletar\s+|apagar\s+)([A-Z0-9]{2,6})[.,!?;:\s]*$/i
     );
     if (matchExcluir)
       return this.excluirTransacao(remoteJid, usuarioId, matchExcluir[1].toUpperCase());
 
-    // Últimas transações
     if (['últimas', 'ultimas', 'últimos', 'historico', 'histórico', 'últimas transações', 'historico de transacoes', 'histórico de transações'].includes(textoClean))
       return this.enviarUltimasTransacoes(remoteJid, usuarioId);
 
-    // ── NOVO: Relatório em PDF ────────────────────────────────────
     const triggerPdf = [
       'pdf', 'relatorio pdf', 'relatório pdf', 'gerar pdf',
       'exportar pdf', 'baixar relatorio', 'baixar relatório',
@@ -674,8 +643,10 @@ class BotGranaZen {
     if (triggerPdf.includes(textoClean) || textoClean.includes('pdf'))
       return this.gerarEEnviarRelatorioPDF(remoteJid, usuarioId, nome);
 
-    // Transação normal
+    console.log(`🧠 Interpretando transação: "${texto}"`);
     const transacao = await this.interpretarTransacao(texto);
+    console.log(`🧠 Resultado interpretação:`, JSON.stringify(transacao));
+
     if (transacao) {
       await this.registrarTransacao(remoteJid, usuarioId, transacao, texto);
     } else {
@@ -688,7 +659,6 @@ class BotGranaZen {
     }
   }
 
-  // ─── Fluxo para adicionar nova categoria ──────────────────────
   async iniciarFluxoNovaCategoria(remoteJid, telefone) {
     this._estadosCategoriaFluxo.set(telefone, { etapa: 'aguardando_nome' });
     await this.enviar(remoteJid,
@@ -743,7 +713,6 @@ class BotGranaZen {
     }
   }
 
-  // ─── CORRIGIDO: Lista categorias sem duplicatas ───────────────
   async enviarCategorias(remoteJid, usuarioId) {
     await this._garantirCategoriasPadrao(usuarioId);
     const { rows } = await db.query(
@@ -765,7 +734,6 @@ class BotGranaZen {
     await this.enviar(remoteJid, msg);
   }
 
-  // ─── Excluir a ÚLTIMA transação do usuário ────────────────────
   async excluirUltimaTransacao(remoteJid, usuarioId) {
     try {
       const { rows } = await db.query(
@@ -800,7 +768,6 @@ class BotGranaZen {
     }
   }
 
-  // ─── Excluir transação por ID curto ──────────────────────────
   async excluirTransacao(remoteJid, usuarioId, idCurto) {
     try {
       await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
@@ -842,7 +809,6 @@ class BotGranaZen {
     }
   }
 
-  // ─── Últimas transações ───────────────────────────────────────
   async enviarUltimasTransacoes(remoteJid, usuarioId) {
     await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
     const { rows } = await db.query(
@@ -875,7 +841,6 @@ class BotGranaZen {
     await this.enviar(remoteJid, msg);
   }
 
-  // ─── NOVO: Gera e envia relatório em PDF ─────────────────────
   async gerarEEnviarRelatorioPDF(remoteJid, usuarioId, nome) {
     const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     const mes = agora.getMonth() + 1;
@@ -889,22 +854,18 @@ class BotGranaZen {
 
     try {
       limparPdfsAntigos();
-
       const { outputPath, dados } = await gerarRelatorio(usuarioId, mes, ano);
-
       const totalTx = dados.transacoes.length;
       if (totalTx === 0) {
         return this.enviar(remoteJid,
           `📭 Não há transações em *${mesesNome[mes-1]}/${ano}* para gerar relatório.\n\nComece registrando um gasto!`
         );
       }
-
       const pdfBuffer = fs.readFileSync(outputPath);
       const recebido = parseFloat(dados.totais.recebido);
       const pago     = parseFloat(dados.totais.pago);
       const saldo    = recebido - pago;
       const sinalSaldo = saldo >= 0 ? '+' : '';
-
       await this.socket.sendMessage(remoteJid, {
         document: pdfBuffer,
         fileName: `Relatorio_Seu_Bolso_${mesesNome[mes-1]}_${ano}.pdf`,
@@ -917,9 +878,7 @@ class BotGranaZen {
           `📈 Saldo: ${sinalSaldo}${saldo.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}\n\n` +
           `🌐 Painel: *${process.env.APP_URL}/painel*`,
       });
-
       try { fs.unlinkSync(outputPath); } catch {}
-
     } catch (err) {
       console.error('Erro ao gerar relatório PDF:', err.message);
       await this.enviar(remoteJid,
@@ -1011,7 +970,6 @@ class BotGranaZen {
     }
   }
 
-  // ─── Registra transação com ID curto de 3 chars ───────────────
   async registrarTransacao(remoteJid, usuarioId, transacao, textoOriginal) {
     await this._garantirCategoriasPadrao(usuarioId);
     await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
@@ -1084,7 +1042,6 @@ class BotGranaZen {
     );
   }
 
-  // ─── Resumo financeiro rico ───────────────────────────────────
   async enviarResumo(remoteJid, usuarioId, nome) {
     const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     const mes = agora.getMonth() + 1;
@@ -1135,7 +1092,6 @@ class BotGranaZen {
     const aReceber = parseFloat(totais[0].a_receber);
     const pago     = parseFloat(totais[0].pago);
     const aPagar   = parseFloat(totais[0].a_pagar);
-
     const saldoDisponivel = recebido - pago;
     const saldoPrevisto   = (recebido + aReceber) - (pago + aPagar);
     const totalDespesas   = pago + aPagar;
@@ -1303,7 +1259,6 @@ class BotGranaZen {
   }
 }
 
-// Helper para evitar erro de referência
 function textoLower(t) { return (t || '').toLowerCase().trim(); }
 
 module.exports = BotGranaZen;

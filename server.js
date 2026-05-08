@@ -31,6 +31,14 @@ whatsappRoute.setBotInstance(bot);
 adminRoute.setBotInstance(bot);
 authRoutes.setBotInstance(bot);
 
+// ─── Redirecionamento: seusecretario.com.br → www ────────────
+app.use((req, res, next) => {
+  if (req.headers.host === 'seusecretario.com.br') {
+    return res.redirect(301, 'https://www.seusecretario.com.br' + req.url);
+  }
+  next();
+});
+
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({ origin: '*' }));
 

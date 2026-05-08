@@ -659,17 +659,10 @@ class BotGranaZen {
 
     // ── Excluir última transação ──────────────────────────────────
     // Aceita: "excluir última", "desfazer último", "apagar ultimo", "cancelar última"
-    const triggerUltima = [
-      'excluir ultima', 'excluir última', 'excluir ultimo', 'excluir último',
-      'desfazer ultima', 'desfazer última', 'desfazer ultimo', 'desfazer último',
-      'apagar ultima', 'apagar última', 'apagar ultimo', 'apagar último',
-      'cancelar ultima', 'cancelar última', 'cancelar ultimo', 'cancelar último',
-      'deletar ultima', 'deletar última', 'deletar ultimo', 'deletar último',
-      'excluir a ultima', 'excluir a última', 'excluir a ultima transacao',
-      'excluir a última transação', 'excluir ultima transacao', 'excluir última transação',
-      'desfazer', 'undo',
-    ];
-    if (triggerUltima.includes(textoClean))
+    // Detecta qualquer variacao de "excluir/desfazer/apagar + ultima/ultimo + transacao(opcional)"
+    // Ex: "excluir ultima", "Exclui última transação", "desfazer", "apagar ultimo lancamento"
+    const regexUltima = /^(exclu[iíií]r?|desfazer|apagar|cancelar|deletar)(\s+a?)?\s+(u[lL]tima|u[lL]timo|[uú]lt[iíií]m[ao]|ult\.?)(\s+(transa[çc][ãa]o|lancamento|lançamento|gasto|registro))?[.,!?]?$/i;
+    if (regexUltima.test(textoClean) || textoClean === 'desfazer' || textoClean === 'undo')
       return this.excluirUltimaTransacao(remoteJid, usuarioId);
 
     // ── Excluir transação por ID ──────────────────────────────────

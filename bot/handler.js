@@ -1473,21 +1473,68 @@ class BotGranaZen {
     }
   }
 
+  // ── Mapeamento local de palavras → categoria (fallback sem API) ──────────
+  _detectarCategoria(descricao) {
+    const d = (descricao || '').toLowerCase();
+    const mapa = [
+      { cat: 'Alimentação',            palavras: ['comida','almoço','almoco','jantar','cafe','café','lanche','restaurante','ifood','delivery','pizza','hamburguer','burguer','sushi','marmita','refeição','refeicao','padaria','pastel','açaí','acai','sorvete','doceria','coxinha','snack'] },
+      { cat: 'Transporte',             palavras: ['uber','99','taxi','táxi','ônibus','onibus','metro','metrô','gasolina','combustivel','combustível','passagem','estacionamento','pedagio','pedágio','mototaxi','bicicleta','trem'] },
+      { cat: 'Mercado',                palavras: ['mercado','supermercado','feira','hortifruti','atacado','atacarejo','compras de casa','compras casa'] },
+      { cat: 'Saúde',                  palavras: ['farmácia','farmacia','médico','medico','consulta','remédio','remedio','academia','plano de saúde','plano saude','dentista','hospital','exame','vacina','fisioterapia','psicólogo','psicologo'] },
+      { cat: 'Assinatura',             palavras: ['netflix','spotify','amazon','disney','youtube premium','hbo','globoplay','deezer','apple music','mensalidade','assinatura','clube','plano'] },
+      { cat: 'Educação',               palavras: ['curso','escola','faculdade','universidade','livro','treinamento','capacitação','capacitacao','aula','udemy','alura','estudo'] },
+      { cat: 'Casa',                   palavras: ['aluguel','condomínio','condominio','água','agua','luz','energia','internet','gás','gas','móvel','movel','reforma','manutenção','manutencao','prestação','prestacao','iptu'] },
+      { cat: 'Lazer e Entretenimento', palavras: ['cinema','show','bar','balada','jogo','viagem','passeio','festa','ingresso','teatro','parque'] },
+      { cat: 'Vestuário',              palavras: ['roupa','sapato','tênis','tenis','calçado','calcado','acessório','acessorio','bolsa','camiseta','calça','calca','vestido'] },
+      { cat: 'Cuidados pessoais',      palavras: ['salão','salao','barbearia','estética','estetica','perfume','cosméticos','cosmeticos','higiene','cabelo','maquiagem','manicure','pedicure'] },
+      { cat: 'Pets',                   palavras: ['ração','racao','veterinário','veterinario','banho e tosa','pet shop','pet','animal'] },
+      { cat: 'Doações',                palavras: ['doação','doacao','caridade','esmola','contribuição','contribuicao','solidário','solidario'] },
+      { cat: 'Impostos',               palavras: ['ipva','iptu','imposto','taxa','multa','tributo','ir ','irpf'] },
+      { cat: 'Salário',                palavras: ['salário','salario','holerite','pró-labore','prolabore','pagamento recebido'] },
+      { cat: 'Viagem',                 palavras: ['hotel','hospedagem','passagem aérea','passagem aerea','turismo','airbnb','hostel'] },
+    ];
+    for (const { cat, palavras } of mapa) {
+      if (palavras.some(p => d.includes(p))) return cat;
+    }
+    return 'Outros';
+  }
+
   // ── interpretarTransacao — retorna sempre null | array ─────────────────
   async interpretarTransacao(texto) {
-    // Regex para múltiplas ocorrências: valor + descrição
+    // Tenta primeiro via IA (mais preciso: categorias corretas + múltiplas transações)
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
+          model: 'gpt-4o-mini', max_tokens: 500, temperature: 0,
+          messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: texto }],
+        }, { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 15000 });
+        const conteudo = resp.data.choices[0].message.content.trim();
+        if (conteudo && conteudo !== 'null') {
+          const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+          if (parsed) return Array.isArray(parsed) ? parsed : [parsed];
+        }
+      } catch (err) {
+        console.warn('GPT indisponível, usando fallback regex:', err.response?.data?.error?.message || err.message);
+      }
+    }
+
+    // Fallback regex (sem API key ou erro na IA)
+    // Tenta capturar múltiplas transações: "gastei X de A, Y de B e Z de C"
     const padraoMultiplo =
-      /(?:gastei|paguei|comprei|saiu|debitou?|recebi|ganhei|entrou|creditou?)?\s*(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)([^0-9,eE\n]+?)(?=\s*(?:e\s+)?(?:\d|gastei|paguei|comprei|recebi|ganhei|$))/gi;
+      /(?:(?:gastei|paguei|comprei|saiu|debitou?|recebi|ganhei|entrou|creditou?)\s+)?(?:R\$\s*)?(\d+(?:[,.]\d+)?)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)([^0-9\n,]+?)(?=\s*[,e]\s*(?:(?:mais\s+)?(?:\d|R\$|gastei|paguei|recebi))|$)/gi;
 
     const matches = [...texto.matchAll(padraoMultiplo)];
     if (matches.length >= 2) {
       const verbosReceita = /recebi|ganhei|entrou|creditou/i;
-      const resultados = matches.map(m => ({
-        tipo: verbosReceita.test(texto.slice(0, m.index + 10)) ? 'receita' : 'despesa',
-        valor: parseFloat(m[1].replace(',', '.')),
-        descricao: m[2].trim().replace(/[,;]+$/, ''),
-        categoria: 'Outros',
-      })).filter(t => t.valor > 0);
+      const resultados = matches.map(m => {
+        const descricao = m[2].trim().replace(/[,;.]+$/, '');
+        return {
+          tipo: verbosReceita.test(texto.slice(0, m.index + 20)) ? 'receita' : 'despesa',
+          valor: parseFloat(m[1].replace(',', '.')),
+          descricao,
+          categoria: this._detectarCategoria(descricao),
+        };
+      }).filter(t => t.valor > 0 && t.descricao.length > 0);
       if (resultados.length >= 2) return resultados;
     }
 
@@ -1501,29 +1548,20 @@ class BotGranaZen {
     ];
     for (const p of padroesGasto) {
       const m = texto.match(p);
-      if (m && parseFloat(m[1].replace(',', '.')) > 0)
-        return [{ tipo: 'despesa', valor: parseFloat(m[1].replace(',', '.')), descricao: m[2]?.trim() || 'Gasto', categoria: 'Outros' }];
+      if (m && parseFloat(m[1].replace(',', '.')) > 0) {
+        const descricao = m[2]?.trim() || 'Gasto';
+        return [{ tipo: 'despesa', valor: parseFloat(m[1].replace(',', '.')), descricao, categoria: this._detectarCategoria(descricao) }];
+      }
     }
     for (const p of padroesReceita) {
       const m = texto.match(p);
-      if (m && parseFloat(m[1].replace(',', '.')) > 0)
-        return [{ tipo: 'receita', valor: parseFloat(m[1].replace(',', '.')), descricao: m[2]?.trim() || 'Receita', categoria: 'Outros' }];
+      if (m && parseFloat(m[1].replace(',', '.')) > 0) {
+        const descricao = m[2]?.trim() || 'Receita';
+        return [{ tipo: 'receita', valor: parseFloat(m[1].replace(',', '.')), descricao, categoria: this._detectarCategoria(descricao) }];
+      }
     }
 
-    if (!process.env.OPENAI_API_KEY) return null;
-    try {
-      const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o-mini', max_tokens: 400, temperature: 0,
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: texto }],
-      }, { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' }, timeout: 15000 });
-      const conteudo = resp.data.choices[0].message.content.trim();
-      if (conteudo === 'null' || !conteudo) return null;
-      const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
-      return Array.isArray(parsed) ? parsed : [parsed];
-    } catch (err) {
-      console.warn('GPT indisponível:', err.response?.data?.error?.message || err.message);
-      return null;
-    }
+    return null;
   }
 
   async registrarTransacao(remoteJid, usuarioId, transacao, textoOriginal) {

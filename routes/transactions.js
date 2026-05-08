@@ -7,8 +7,6 @@ const autenticar = require('../middleware/auth');
 router.use(autenticar);
 
 // ── GET /api/transactions ────────────────────────────────────
-// Aceita: tipo, mes, ano, pago, conta_id, categoria_id, limit, offset
-// Retorna campos com data_transacao (alias de data_vencimento) para o dashboard
 router.get('/', async (req, res) => {
   const { tipo, mes, ano, pago, conta_id, categoria_id, limit = 50, offset = 0 } = req.query;
 
@@ -21,7 +19,6 @@ router.get('/', async (req, res) => {
   if (conta_id)   { where.push(`t.conta_id = $${i++}`);    params.push(conta_id); }
   if (categoria_id) { where.push(`t.categoria_id = $${i++}`); params.push(categoria_id); }
   if (mes && ano) {
-    // Filtra por data_vencimento OU data_pagamento para pegar transações do WhatsApp (pago=true, data_pagamento=hoje)
     where.push(`(
       EXTRACT(MONTH FROM t.data_vencimento) = $${i} AND EXTRACT(YEAR FROM t.data_vencimento) = $${i+1}
       OR
@@ -44,7 +41,6 @@ router.get('/', async (req, res) => {
          t.fixo,
          t.origem,
          t.mensagem_raw   AS mensagem_wa,
-         -- expõe data_transacao para compatibilidade com o dashboard
          COALESCE(t.data_pagamento, t.data_vencimento) AS data_transacao,
          t.data_vencimento,
          t.data_pagamento,
@@ -75,7 +71,7 @@ router.get('/', async (req, res) => {
 });
 
 // ── GET /api/transactions/resumo ─────────────────────────────
-// Retorna: { receita_total, despesa_total, saldo } — compatível com dashboard
+// ⚠️ DEVE vir antes de PUT /:id e DELETE /:id
 router.get('/resumo', async (req, res) => {
   const mes = parseInt(req.query.mes) || new Date().getMonth() + 1;
   const ano = parseInt(req.query.ano) || new Date().getFullYear();
@@ -122,7 +118,7 @@ router.get('/resumo', async (req, res) => {
 });
 
 // ── GET /api/transactions/por-categoria ──────────────────────
-// Retorna: [{ categoria, total }] — usado no painel de categorias
+// ⚠️ DEVE vir antes de PUT /:id e DELETE /:id
 router.get('/por-categoria', async (req, res) => {
   const mes = parseInt(req.query.mes) || new Date().getMonth() + 1;
   const ano = parseInt(req.query.ano) || new Date().getFullYear();
@@ -154,6 +150,36 @@ router.get('/por-categoria', async (req, res) => {
   }
 });
 
+// ── GET /api/transactions/contas ─────────────────────────────
+// ⚠️ DEVE vir antes de PUT /:id e DELETE /:id
+router.get('/contas', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT * FROM contas WHERE usuario_id = $1 ORDER BY padrao DESC, nome',
+      [req.usuarioId]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// ── GET /api/transactions/categorias ────────────────────────
+// ⚠️ DEVE vir antes de PUT /:id e DELETE /:id
+router.get('/categorias', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT * FROM categorias
+       WHERE usuario_id = $1 OR usuario_id IS NULL
+       ORDER BY nome`,
+      [req.usuarioId]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
 // ── POST /api/transactions ───────────────────────────────────
 router.post('/', async (req, res) => {
   const { tipo, descricao, valor, categoria_id, conta_id, data_vencimento, pago, fixo, origem } = req.body;
@@ -162,7 +188,7 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ erro: 'tipo, descricao e valor são obrigatórios' });
 
   try {
-    const isPago = pago !== false && pago !== 'false'; // padrão true para transações manuais
+    const isPago = pago !== false && pago !== 'false';
     const dataVenc = data_vencimento || new Date().toISOString().split('T')[0];
     const dataPag  = isPago ? dataVenc : null;
 
@@ -186,7 +212,6 @@ router.post('/', async (req, res) => {
       );
     }
 
-    // Retorna com campo data_transacao para compatibilidade
     const t = rows[0];
     res.status(201).json({
       ...t,
@@ -199,6 +224,7 @@ router.post('/', async (req, res) => {
 });
 
 // ── PUT /api/transactions/:id ────────────────────────────────
+// ⚠️ Rotas com :id SEMPRE por último para não engolir rotas estáticas acima
 router.put('/:id', async (req, res) => {
   const { descricao, valor, categoria_id, conta_id, data_vencimento, pago, fixo } = req.body;
 
@@ -225,7 +251,6 @@ router.put('/:id', async (req, res) => {
        req.params.id, req.usuarioId]
     );
 
-    // Ajusta saldo da conta
     if (original.conta_id) {
       const sinalOld = original.tipo === 'receita' ? 1 : -1;
       const sinalNew = original.tipo === 'receita' ? 1 : -1;
@@ -268,34 +293,6 @@ router.delete('/:id', async (req, res) => {
     res.json({ mensagem: 'Transação removida com sucesso' });
   } catch (err) {
     console.error('Erro deletar transação:', err);
-    res.status(500).json({ erro: 'Erro interno' });
-  }
-});
-
-// ── GET /api/transactions/contas ─────────────────────────────
-router.get('/contas', async (req, res) => {
-  try {
-    const { rows } = await db.query(
-      'SELECT * FROM contas WHERE usuario_id = $1 ORDER BY padrao DESC, nome',
-      [req.usuarioId]
-    );
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ erro: 'Erro interno' });
-  }
-});
-
-// ── GET /api/transactions/categorias ────────────────────────
-router.get('/categorias', async (req, res) => {
-  try {
-    const { rows } = await db.query(
-      `SELECT * FROM categorias
-       WHERE usuario_id = $1 OR usuario_id IS NULL
-       ORDER BY nome`,
-      [req.usuarioId]
-    );
-    res.json(rows);
-  } catch (err) {
     res.status(500).json({ erro: 'Erro interno' });
   }
 });

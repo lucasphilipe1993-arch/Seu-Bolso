@@ -11,16 +11,22 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- USUÁRIOS
 -- ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS usuarios (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  nome          VARCHAR(100) NOT NULL,
-  email         VARCHAR(150) UNIQUE NOT NULL,
-  senha_hash    VARCHAR(255) NOT NULL,
-  telefone      VARCHAR(30),          -- ex: 5511999998888 (formato Baileys)
-  whatsapp_ativo BOOLEAN DEFAULT FALSE,
-  plano         VARCHAR(20) DEFAULT 'gratuito', -- gratuito | premium | zen
-  criado_em     TIMESTAMPTZ DEFAULT NOW(),
-  atualizado_em TIMESTAMPTZ DEFAULT NOW()
+  id                     UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nome                   VARCHAR(100) NOT NULL,
+  email                  VARCHAR(150) UNIQUE NOT NULL,
+  senha_hash             VARCHAR(255) NOT NULL,
+  telefone               VARCHAR(30),          -- ex: 5511999998888 (formato Baileys)
+  whatsapp_ativo         BOOLEAN DEFAULT FALSE,
+  plano                  VARCHAR(20) DEFAULT 'gratuito', -- gratuito | pro | premium | zen
+  stripe_customer_id     TEXT,                 -- ID do customer no Stripe (cus_...)
+  stripe_subscription_id TEXT,                 -- ID da assinatura ativa (sub_...)
+  criado_em              TIMESTAMPTZ DEFAULT NOW(),
+  atualizado_em          TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Adiciona colunas Stripe caso a tabela já exista (migração segura)
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS stripe_customer_id     TEXT;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
 
 -- ──────────────────────────────────────────────────────────
 -- CATEGORIAS

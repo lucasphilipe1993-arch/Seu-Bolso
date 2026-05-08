@@ -327,24 +327,58 @@
             </div>
             <!-- ── RELATÓRIOS ─────────────────────────────────────────────── -->
             <div id="relatorios" class="page">
-                <div class="card">
-                    <h3 class="card-title">Relatório Mensal</h3>
-                    <div class="grid grid-2">
-                        <div>
-                            <div class="section-sub" style="margin-top:0">Resumo Financeiro</div>
-                            <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--gray-200)">
-                                <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Receita Total</div>
-                                <div id="rel-receita" style="font-size:22px;font-weight:700;color:var(--green)">—</div>
-                            </div>
-                            <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--gray-200)">
-                                <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Despesa Total</div>
-                                <div id="rel-despesa" style="font-size:22px;font-weight:700;color:var(--red)">—</div>
-                            </div>
-                            <div>
-                                <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Saldo Líquido</div>
-                                <div id="rel-saldo" style="font-size:22px;font-weight:700;color:var(--navy)">—</div>
-                            </div>
+                <!-- Filtro de período -->
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap">
+                    <select class="form-select" id="rel-mes" style="width:auto" onchange="carregarRelatorios()"></select>
+                    <select class="form-select" id="rel-ano" style="width:auto" onchange="carregarRelatorios()"></select>
+                    <span style="font-size:13px;color:var(--gray-400)" id="rel-periodo-label"></span>
+                </div>
+                <!-- KPIs topo -->
+                <div class="grid grid-3" style="margin-bottom:22px">
+                    <div class="stat-box" style="border-left:4px solid var(--green)">
+                        <div class="stat-label">Receita Total</div>
+                        <div class="stat-value" id="rel-receita" style="color:var(--green)">—</div>
+                        <div class="stat-meta" id="rel-receita-meta">Neste mês</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--red)">
+                        <div class="stat-label">Despesa Total</div>
+                        <div class="stat-value" id="rel-despesa" style="color:var(--red)">—</div>
+                        <div class="stat-meta" id="rel-despesa-meta">Neste mês</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--navy)">
+                        <div class="stat-label">Saldo Líquido</div>
+                        <div class="stat-value" id="rel-saldo" style="color:var(--navy)">—</div>
+                        <div class="stat-meta">Receita − Despesa</div>
+                    </div>
+                </div>
+                <!-- Gráficos linha -->
+                <div class="grid grid-2" style="margin-bottom:22px">
+                    <div class="card" style="margin:0">
+                        <h3 class="card-title">Evolução Mensal — Entradas vs Saídas</h3>
+                        <canvas id="chart-evolucao" height="200"></canvas>
+                    </div>
+                    <div class="card" style="margin:0">
+                        <h3 class="card-title">Top Despesas por Categoria</h3>
+                        <div style="display:flex;gap:20px;align-items:center">
+                            <canvas id="chart-pizza" width="160" height="160" style="flex-shrink:0"></canvas>
+                            <div id="rel-legenda-pizza" style="flex:1;font-size:13px"></div>
                         </div>
+                    </div>
+                </div>
+                <!-- Barras por categoria -->
+                <div class="card" style="margin-bottom:22px">
+                    <h3 class="card-title">Gastos por Categoria — Detalhado</h3>
+                    <canvas id="chart-barras" height="180"></canvas>
+                </div>
+                <!-- Tabela categorias + top transações -->
+                <div class="grid grid-2">
+                    <div class="card" style="margin:0">
+                        <h3 class="card-title">Ranking de Categorias</h3>
+                        <div id="rel-ranking"></div>
+                    </div>
+                    <div class="card" style="margin:0">
+                        <h3 class="card-title">Maiores Gastos do Mês</h3>
+                        <div id="rel-maiores-gastos"></div>
                     </div>
                 </div>
             </div>
@@ -641,6 +675,8 @@
         </div>
     </div>
 </div>
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- api.js deve vir antes da lógica do dashboard -->
 <script src="/api.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -707,9 +743,6 @@ async function carregarPainel() {
         document.getElementById('stat-receita').textContent = Fmt.moeda(resumo.receita_total);
         document.getElementById('stat-despesa').textContent = Fmt.moeda(resumo.despesa_total);
         document.getElementById('stat-saldo').textContent   = Fmt.moeda(resumo.saldo);
-        document.getElementById('rel-receita').textContent = Fmt.moeda(resumo.receita_total);
-        document.getElementById('rel-despesa').textContent = Fmt.moeda(resumo.despesa_total);
-        document.getElementById('rel-saldo').textContent   = Fmt.moeda(resumo.saldo);
         document.getElementById('fluxo-receita').textContent = Fmt.moeda(resumo.receita_total);
         document.getElementById('fluxo-despesa').textContent = Fmt.moeda(resumo.despesa_total);
     }
@@ -742,7 +775,196 @@ async function carregarPainel() {
             </div>`).join('');
     }
 }
-// ─── TRANSAÇÕES ──────────────────────────────────────────────────────────────
+// ─── RELATÓRIOS ───────────────────────────────────────────────────────────────
+let _chartEvolucao = null, _chartPizza = null, _chartBarras = null;
+const CORES_CATEGORIAS = ['#2d7a5f','#b89456','#0f2237','#c0392b','#1e4060','#d4b07a','#163047','#9e9689','#3d3830','#736c60'];
+
+function initRelFiltros() {
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const selMes = document.getElementById('rel-mes');
+    const selAno = document.getElementById('rel-ano');
+    if (!selMes || selMes.options.length > 0) return;
+    meses.forEach((m, i) => {
+        const opt = document.createElement('option');
+        opt.value = i + 1;
+        opt.textContent = m;
+        selMes.appendChild(opt);
+    });
+    const anoAtual = new Date().getFullYear();
+    for (let a = anoAtual; a >= anoAtual - 3; a--) {
+        const opt = document.createElement('option');
+        opt.value = a; opt.textContent = a;
+        selAno.appendChild(opt);
+    }
+    selMes.value = new Date().getMonth() + 1;
+    selAno.value = anoAtual;
+}
+
+async function carregarRelatorios() {
+    initRelFiltros();
+    const mes = parseInt(document.getElementById('rel-mes')?.value || new Date().getMonth() + 1);
+    const ano = parseInt(document.getElementById('rel-ano')?.value || new Date().getFullYear());
+    const nomeMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes - 1];
+    if (document.getElementById('rel-periodo-label')) {
+        document.getElementById('rel-periodo-label').textContent = `${nomeMes} / ${ano}`;
+    }
+
+    // Busca dados do mês selecionado + últimos 6 meses para evolução
+    const [resumo, categorias, transacoes] = await Promise.all([
+        API.resumo(mes, ano),
+        API.porCategoria(mes, ano),
+        API.transacoes({ mes, ano, limit: 100 })
+    ]);
+
+    // KPIs
+    if (resumo) {
+        document.getElementById('rel-receita').textContent = Fmt.moeda(resumo.receita_total || 0);
+        document.getElementById('rel-despesa').textContent = Fmt.moeda(resumo.despesa_total || 0);
+        const saldo = (resumo.receita_total || 0) - (resumo.despesa_total || 0);
+        const elSaldo = document.getElementById('rel-saldo');
+        elSaldo.textContent = Fmt.moeda(saldo);
+        elSaldo.style.color = saldo >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+
+    // Evolução últimos 6 meses
+    const evolLabels = [], evolReceitas = [], evolDespesas = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(ano, mes - 1 - i, 1);
+        const m2 = d.getMonth() + 1, a2 = d.getFullYear();
+        const r = await API.resumo(m2, a2);
+        evolLabels.push(['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][m2 - 1]);
+        evolReceitas.push(parseFloat(r?.receita_total || 0));
+        evolDespesas.push(parseFloat(r?.despesa_total || 0));
+    }
+    renderChartEvolucao(evolLabels, evolReceitas, evolDespesas);
+
+    // Pizza e barras por categoria
+    const cats = (categorias || []).slice(0, 8);
+    const labels = cats.map(c => c.categoria || 'Outros');
+    const valores = cats.map(c => parseFloat(c.total));
+    renderChartPizza(labels, valores);
+    renderChartBarras(labels, valores);
+
+    // Ranking de categorias
+    const totalGeral = valores.reduce((a, b) => a + b, 0);
+    const ranking = document.getElementById('rel-ranking');
+    if (cats.length) {
+        ranking.innerHTML = cats.map((c, i) => {
+            const pct = totalGeral > 0 ? Math.round((parseFloat(c.total) / totalGeral) * 100) : 0;
+            return `<div style="margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${CORES_CATEGORIAS[i % CORES_CATEGORIAS.length]};display:inline-block;flex-shrink:0"></span>
+                        <span style="font-size:13px;font-weight:600;color:var(--gray-900)">${c.categoria || 'Outros'}</span>
+                    </div>
+                    <div style="text-align:right">
+                        <span style="font-size:13px;font-weight:700;color:var(--red)">${Fmt.moeda(c.total)}</span>
+                        <span style="font-size:11px;color:var(--gray-400);margin-left:6px">${pct}%</span>
+                    </div>
+                </div>
+                <div style="height:6px;background:var(--gray-100);border-radius:4px;overflow:hidden">
+                    <div style="height:100%;width:${pct}%;background:${CORES_CATEGORIAS[i % CORES_CATEGORIAS.length]};border-radius:4px;transition:width .5s"></div>
+                </div>
+            </div>`;
+        }).join('');
+    } else {
+        ranking.innerHTML = '<div style="color:var(--gray-400);text-align:center;padding:20px">Sem dados neste período.</div>';
+    }
+
+    // Maiores gastos individuais
+    const lista = (transacoes?.transacoes || []).filter(t => t.tipo === 'despesa').sort((a, b) => b.valor - a.valor).slice(0, 6);
+    const mgEl = document.getElementById('rel-maiores-gastos');
+    if (lista.length) {
+        mgEl.innerHTML = lista.map(t => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+                <div>
+                    <div style="font-size:13px;font-weight:600;color:var(--gray-900)">${t.descricao}</div>
+                    <div style="font-size:11px;color:var(--gray-400)">${t.categoria_nome || '—'} · ${Fmt.data(t.data_transacao)}</div>
+                </div>
+                <span style="font-size:14px;font-weight:700;color:var(--red);flex-shrink:0;margin-left:12px">-${Fmt.moeda(t.valor)}</span>
+            </div>`).join('');
+    } else {
+        mgEl.innerHTML = '<div style="color:var(--gray-400);text-align:center;padding:20px">Sem despesas neste período.</div>';
+    }
+}
+
+function renderChartEvolucao(labels, receitas, despesas) {
+    const ctx = document.getElementById('chart-evolucao');
+    if (!ctx) return;
+    if (_chartEvolucao) _chartEvolucao.destroy();
+    _chartEvolucao = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Entradas', data: receitas, borderColor: '#2d7a5f', backgroundColor: 'rgba(45,122,95,.08)', fill: true, tension: .4, pointBackgroundColor: '#2d7a5f', pointRadius: 4 },
+                { label: 'Saídas',   data: despesas, borderColor: '#c0392b', backgroundColor: 'rgba(192,57,43,.08)',  fill: true, tension: .4, pointBackgroundColor: '#c0392b', pointRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 12 }, usePointStyle: true } } },
+            scales: {
+                y: { ticks: { callback: v => 'R$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v), font: { size: 11 } }, grid: { color: '#f0ede8' } },
+                x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderChartPizza(labels, valores) {
+    const ctx = document.getElementById('chart-pizza');
+    if (!ctx) return;
+    if (_chartPizza) _chartPizza.destroy();
+    if (!valores.length) return;
+    _chartPizza = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: valores, backgroundColor: CORES_CATEGORIAS, borderWidth: 2, borderColor: '#fff' }] },
+        options: {
+            responsive: false, cutout: '60%',
+            plugins: { legend: { display: false } }
+        }
+    });
+    // Legenda manual
+    const leg = document.getElementById('rel-legenda-pizza');
+    const total = valores.reduce((a, b) => a + b, 0);
+    if (leg) {
+        leg.innerHTML = labels.map((l, i) => `
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+                <span style="width:10px;height:10px;border-radius:50%;background:${CORES_CATEGORIAS[i]};flex-shrink:0"></span>
+                <span style="font-size:12px;color:var(--gray-700);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</span>
+                <span style="font-size:12px;font-weight:600;color:var(--gray-900)">${total > 0 ? Math.round(valores[i]/total*100) : 0}%</span>
+            </div>`).join('');
+    }
+}
+
+function renderChartBarras(labels, valores) {
+    const ctx = document.getElementById('chart-barras');
+    if (!ctx) return;
+    if (_chartBarras) _chartBarras.destroy();
+    if (!valores.length) return;
+    _chartBarras = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Despesas (R$)',
+                data: valores,
+                backgroundColor: CORES_CATEGORIAS,
+                borderRadius: 6,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { ticks: { callback: v => 'R$' + (v >= 1000 ? (v/1000).toFixed(1) + 'k' : v), font: { size: 11 } }, grid: { color: '#f0ede8' } },
+                x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+            }
+        }
+    });
+}
 async function carregarTransacoes() {
     const res = await API.transacoes({ limit: 50 });
     renderizarTransacoes(res?.transacoes || [], 'tabela-transacoes', true);
@@ -855,6 +1077,7 @@ function navigateTo(pageId) {
     document.querySelector(`.nav-item[data-page="${pageId}"]`)?.classList.add('active');
     document.getElementById('pageTitle').textContent = pageTitles[pageId] || pageId;
     if (pageId === 'transacoes') carregarTransacoes();
+    if (pageId === 'relatorios') { initRelFiltros(); carregarRelatorios(); }
     if (pageId === 'whatsapp') { carregarTransacoesWA(); waVerificarStatus(); }
 }
 document.querySelectorAll('.nav-item').forEach(item => {

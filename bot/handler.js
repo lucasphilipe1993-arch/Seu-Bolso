@@ -442,7 +442,7 @@ class BotGranaZen {
 
           const tipoMsg = this._tipoMensagem(msg);
           try {
-            await this._roteador(telefone, remoteJid, tipoMsg, msg);
+            await this._roteador(telefone, remoteJid, tipoMsg, msg, msg.pushName);
           } catch (err) {
             console.error(`Erro ao processar msg de ${telefone}:`, err.message);
             await this.enviar(remoteJid, '⚠️ Ocorreu um erro. Tente novamente em instantes.');
@@ -466,14 +466,14 @@ class BotGranaZen {
     return 'outro';
   }
 
-  async _roteador(telefone, remoteJid, tipo, msg) {
+  async _roteador(telefone, remoteJid, tipo, msg, pushName = null) {
     // Verifica se há fluxo de categoria em andamento
     if (this._estadosCategoriaFluxo.has(telefone) && tipo === 'texto') {
       const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
       return this._continuarFluxoCategoria(telefone, remoteJid, texto);
     }
 
-    const sessao = await this._buscarSessao(telefone, remoteJid);
+    const sessao = await this._buscarSessao(telefone, remoteJid, pushName);
     if (!sessao) {
       console.log(`⚠️ Sessão não encontrada para: ${telefone}`);
       return this.enviar(remoteJid,
@@ -514,7 +514,7 @@ class BotGranaZen {
     }
   }
 
-  async _buscarSessao(telefone, remoteJid = null) {
+  async _buscarSessao(telefone, remoteJid = null, pushName = null) {
     await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
 
     // Gera todas as variações possíveis do número (com/sem 9, com/sem DDI)
@@ -555,7 +555,6 @@ class BotGranaZen {
         const mapRes = await db.query('SELECT telefone FROM lid_map WHERE lid = $1', [remoteJid]);
         if (mapRes.rows.length > 0) {
           const telDoMap = mapRes.rows[0].telefone;
-          // Tenta as variações do telefone encontrado no lid_map também
           const variacoesMap = this._gerarVariacoesTelefone(telDoMap);
           for (const tel of variacoesMap) {
             res = await db.query(
@@ -567,6 +566,40 @@ class BotGranaZen {
           }
         }
       } catch {}
+    }
+
+    // Fallback final: busca por pushName quando tudo falhou (LID não resolvido)
+    if (res.rows.length === 0 && pushName && remoteJid?.endsWith('@lid')) {
+      try {
+        const primeiroNome = pushName.split(' ')[0];
+        res = await db.query(
+          `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
+           JOIN usuarios u ON u.id = s.usuario_id
+           WHERE LOWER(u.nome) LIKE LOWER($1)
+           LIMIT 1`,
+          [`${primeiroNome}%`]
+        );
+        if (res.rows.length > 0) {
+          const telEncontrado = res.rows[0].telefone;
+          console.log(`🔍 Sessão encontrada via pushName "${pushName}" → ${telEncontrado}`);
+          // Salva o LID no banco para próximas mensagens não precisarem do fallback
+          try {
+            await this._garantirTabelaLidMap();
+            await db.query(
+              `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+              [remoteJid, telEncontrado]
+            );
+            lidCache.set(remoteJid, telEncontrado);
+            await db.query(
+              `UPDATE sessoes_bot SET lid = $1 WHERE telefone = $2`,
+              [remoteJid, telEncontrado]
+            ).catch(() => {});
+            console.log(`✅ LID ${remoteJid} vinculado ao telefone ${telEncontrado} via pushName`);
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Erro no fallback por pushName:', err.message);
+      }
     }
 
     if (res.rows.length === 0) return null;

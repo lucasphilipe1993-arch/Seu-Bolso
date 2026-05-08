@@ -254,6 +254,28 @@
                 <div class="nav-section-title">Integrações</div>
                 <div class="nav-item admin-only" data-page="whatsapp" style="display:none"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><span>WhatsApp Bot</span></div>
             </div>
+            <!-- ── ADMIN SECTION ───────────────────────────────────── -->
+            <div class="nav-section admin-only" style="display:none">
+                <div class="nav-section-title" style="color:var(--gold)">Administração</div>
+                <div class="nav-item admin-only" data-page="admin-faturamento" style="display:none">
+                    <div class="nav-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </div>
+                    <span>Faturamento</span>
+                </div>
+                <div class="nav-item admin-only" data-page="admin-calendario" style="display:none">
+                    <div class="nav-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </div>
+                    <span>Google Agenda</span>
+                </div>
+                <div class="nav-item admin-only" data-page="admin-usuarios" style="display:none">
+                    <div class="nav-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <span>Usuários</span>
+                </div>
+            </div>
             <div class="nav-section">
                 <div class="nav-section-title">Conta</div>
                 <div class="nav-item" data-page="configuracoes"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><span>Configurações</span></div>
@@ -501,7 +523,174 @@
                 </div>
             </div>
 
-            <!-- ── WHATSAPP BOT ───────────────────────────────────────────── -->
+            <!-- ── ADMIN: FATURAMENTO DA EMPRESA ────────────────────────────── -->
+            <div id="admin-faturamento" class="page">
+                <!-- KPI Cards -->
+                <div class="grid grid-4" style="margin-bottom:22px">
+                    <div class="stat-box" style="border-left:4px solid var(--green)">
+                        <div class="stat-label">Receita do Mês</div>
+                        <div class="stat-value" id="adm-fat-receita" style="color:var(--green)">—</div>
+                        <div class="stat-meta">Entradas no período</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--red)">
+                        <div class="stat-label">Despesas do Mês</div>
+                        <div class="stat-value" id="adm-fat-despesas" style="color:var(--red)">—</div>
+                        <div class="stat-meta">Saídas no período</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--navy)">
+                        <div class="stat-label">Saldo do Mês</div>
+                        <div class="stat-value" id="adm-fat-saldo">—</div>
+                        <div class="stat-meta">Receita − Despesas</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--gold)">
+                        <div class="stat-label">Total de Usuários</div>
+                        <div class="stat-value" id="adm-fat-usuarios" style="color:var(--gold)">—</div>
+                        <div class="stat-meta">Contas cadastradas</div>
+                    </div>
+                </div>
+
+                <!-- Gráfico evolução mensal -->
+                <div class="grid grid-2" style="margin-bottom:22px">
+                    <div class="card" style="margin:0">
+                        <h3 class="card-title">Evolução Mensal — Entradas vs Saídas</h3>
+                        <canvas id="adm-chart-evolucao" height="200"></canvas>
+                    </div>
+                    <div class="card" style="margin:0">
+                        <h3 class="card-title">Despesas por Categoria</h3>
+                        <div style="display:flex;gap:20px;align-items:center">
+                            <canvas id="adm-chart-pizza" width="150" height="150" style="flex-shrink:0"></canvas>
+                            <div id="adm-legenda-pizza" style="flex:1;font-size:13px"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros e tabela de transações -->
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+                        <h3 class="card-title" style="margin:0">Lançamentos — Todos os Usuários</h3>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <select class="form-select" id="adm-fat-mes" style="width:auto" onchange="adminCarregarFaturamento()">
+                            </select>
+                            <select class="form-select" id="adm-fat-tipo" style="width:auto" onchange="adminFiltrarFaturamento()">
+                                <option value="">Todos</option>
+                                <option value="receita">Receita</option>
+                                <option value="despesa">Despesa</option>
+                            </select>
+                        </div>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Usuário</th>
+                                <th>Descrição</th>
+                                <th>Categoria</th>
+                                <th>Tipo</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adm-fat-tbody">
+                            <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── ADMIN: GOOGLE AGENDA ──────────────────────────────────────── -->
+            <div id="admin-calendario" class="page">
+                <div class="card" style="max-width:680px">
+                    <h3 class="card-title">Configuração do Google Calendar</h3>
+                    <p style="font-size:13px;color:var(--gray-400);margin-bottom:24px;line-height:1.7">
+                        Integre com o Google Calendar para que os agendamentos realizados pelo WhatsApp sejam sincronizados automaticamente na sua agenda.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Email da Conta Google (Service Account)</label>
+                        <input class="form-input" type="email" id="adm-gcal-email" placeholder="seu-servico@projeto.iam.gserviceaccount.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ID do Calendário</label>
+                        <input class="form-input" type="text" id="adm-gcal-calendar-id" placeholder="seuemail@gmail.com ou endereço do calendário">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Chave Privada (private_key)</label>
+                        <textarea class="form-textarea" id="adm-gcal-private-key" rows="6"
+                            placeholder="-----BEGIN PRIVATE KEY-----&#10;MIIEvQIBADANB...&#10;-----END PRIVATE KEY-----"
+                            style="font-family:monospace;font-size:12px;min-height:140px"></textarea>
+                    </div>
+                    <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--gray-500);line-height:1.8">
+                        📌 Para configurar: crie uma <strong>Service Account</strong> no
+                        <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--navy);text-decoration:underline">Google Cloud Console</a>,
+                        ative a API do Calendar e compartilhe seu calendário com o email da service account.
+                    </div>
+                    <div style="display:flex;gap:10px">
+                        <button class="btn btn-primary" onclick="adminSalvarCalendario()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Salvar Configuração
+                        </button>
+                        <button class="btn btn-secondary" onclick="adminTestarCalendario()">Testar Conexão</button>
+                    </div>
+                    <div id="adm-gcal-status" style="margin-top:14px;font-size:13px"></div>
+                </div>
+            </div>
+
+            <!-- ── ADMIN: USUÁRIOS DO SITE ────────────────────────────────────── -->
+            <div id="admin-usuarios" class="page">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+                    <div>
+                        <div style="display:flex;align-items:center;gap:12px">
+                            <h2 style="font-size:18px;font-weight:700;color:var(--navy)">Usuários Cadastrados</h2>
+                            <span id="adm-usr-badge" class="badge badge-navy" style="font-size:11px">—</span>
+                        </div>
+                        <p style="font-size:13px;color:var(--gray-400);margin-top:2px">Todos os usuários registrados na plataforma</p>
+                    </div>
+                    <div style="display:flex;gap:10px">
+                        <input class="form-input" type="text" id="adm-usr-busca" placeholder="🔍 Buscar por nome ou email..." style="width:260px" oninput="adminFiltrarUsuarios()">
+                        <button class="btn btn-primary" onclick="adminAbrirModalUsuario()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Novo Usuário
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPIs rápidos -->
+                <div class="grid grid-3" style="margin-bottom:18px">
+                    <div class="stat-box" style="border-left:4px solid var(--navy)">
+                        <div class="stat-label">Total de Usuários</div>
+                        <div class="stat-value" id="adm-usr-total" style="color:var(--navy)">—</div>
+                        <div class="stat-meta">Contas na plataforma</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--green)">
+                        <div class="stat-label">Plano Premium</div>
+                        <div class="stat-value" id="adm-usr-premium" style="color:var(--green)">—</div>
+                        <div class="stat-meta">Assinaturas ativas</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--gold)">
+                        <div class="stat-label">Plano Gratuito</div>
+                        <div class="stat-value" id="adm-usr-gratis" style="color:var(--gold)">—</div>
+                        <div class="stat-meta">Usuários free</div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:0;overflow-x:auto">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Email</th>
+                                <th>Plano</th>
+                                <th>Telefone</th>
+                                <th>Cadastrado em</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adm-usr-tbody">
+                            <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── FIM ADMIN PAGES ─────────────────────────────────────────── -->
             <div id="whatsapp" class="page">
                 <div class="grid grid-2" style="margin-bottom:22px">
                     <div class="stat-box" style="flex-direction:row;align-items:center;gap:16px;padding:22px 24px">
@@ -894,7 +1083,50 @@
         </div>
     </div>
 </div>
-<!-- Chart.js -->
+<!-- MODAL: Admin — Novo/Editar Usuário -->
+<div class="modal-overlay" id="modalAdminUsuario">
+    <div class="modal" style="max-width:520px">
+        <div class="modal-title" id="admUsrModalTitle">Novo Usuário</div>
+        <div class="modal-desc">Crie ou edite um usuário da plataforma.</div>
+        <input type="hidden" id="admUsrEditId">
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Nome</label>
+                <input class="form-input" type="text" id="admUsrNome" placeholder="Nome">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Sobrenome</label>
+                <input class="form-input" type="text" id="admUsrSobrenome" placeholder="Sobrenome">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" id="admUsrEmail" placeholder="usuario@email.com">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Telefone</label>
+            <input class="form-input" type="text" id="admUsrTelefone" placeholder="(11) 99999-9999">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Plano</label>
+                <select class="form-select" id="admUsrPlano">
+                    <option value="gratuito">Gratuito</option>
+                    <option value="premium">Premium</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Senha <small id="admUsrSenhaHint" style="color:var(--gray-400);font-weight:400;text-transform:none"></small></label>
+                <input class="form-input" type="password" id="admUsrSenha" placeholder="••••••••" autocomplete="new-password">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('modalAdminUsuario')">Cancelar</button>
+            <button class="btn btn-primary" onclick="adminSalvarUsuario()">Salvar</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- api.js deve vir antes da lógica do dashboard -->
 <script src="/api.js"></script>
@@ -910,7 +1142,10 @@ const pageTitles = {
     painel: 'Painel', transacoes: 'Transações', relatorios: 'Relatórios',
     fluxocaixa: 'Fluxo de Caixa', contas: 'Contas Bancárias', cartoes: 'Cartões',
     metas: 'Metas', areceber: 'A Receber', agenda: 'Agenda',
-    whatsapp: 'WhatsApp Bot', configuracoes: 'Configurações'
+    whatsapp: 'WhatsApp Bot', configuracoes: 'Configurações',
+    'admin-faturamento': 'Faturamento da Empresa',
+    'admin-calendario': 'Google Agenda',
+    'admin-usuarios': 'Usuários do Site'
 };
 let _usuario = null;
 // Carrega dados ao iniciar
@@ -919,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     _usuario = await API.me();
     // Compatibilidade: backend pode retornar { usuario: {...} } ou o objeto direto
     if (_usuario?.usuario) _usuario = _usuario.usuario;
-    // Mostra WhatsApp Bot só para o admin
+    // Mostra seções de admin só para o email administrador
     const ADMIN_EMAIL = 'matheus10201971@gmail.com';
     if (_usuario && _usuario.email === ADMIN_EMAIL) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
@@ -1427,6 +1662,9 @@ function navigateTo(pageId) {
     if (pageId === 'areceber') carregarDividas('pendente');
     if (pageId === 'agenda') carregarAgenda();
     if (pageId === 'whatsapp') { carregarTransacoesWA(); waVerificarStatus(); }
+    if (pageId === 'admin-faturamento') adminCarregarFaturamento();
+    if (pageId === 'admin-calendario') adminCarregarCalendario();
+    if (pageId === 'admin-usuarios') adminCarregarUsuarios();
 }
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -1706,6 +1944,339 @@ async function agCancelar(id) {
         }).then(r => r.json());
         if (res.mensagem) { showToast('Compromisso cancelado', 'success'); carregarAgenda(); }
         else showToast(res.erro || 'Erro ao cancelar', 'error');
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+// ─── ADMIN: FATURAMENTO ───────────────────────────────────────────────────────
+let _admFatDados = [];
+let _admFatChartEvolucao = null;
+let _admFatChartPizza = null;
+
+async function adminCarregarFaturamento() {
+    const token = localStorage.getItem('gz_token');
+    const mesEl = document.getElementById('adm-fat-mes');
+
+    // Preenche select de mês se vazio
+    if (!mesEl.options.length) {
+        const hoje = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+            const val = d.toISOString().slice(0, 7);
+            const lbl = d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+            const opt = new Option(lbl.charAt(0).toUpperCase() + lbl.slice(1), val);
+            mesEl.appendChild(opt);
+        }
+    }
+
+    const mesSel = mesEl.value || new Date().toISOString().slice(0, 7);
+    const [ano, mes] = mesSel.split('-').map(Number);
+
+    const tbody = document.getElementById('adm-fat-tbody');
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+
+    try {
+        // Busca todos os usuários e o resumo financeiro global
+        const [usersRes, resumoRes, transRes, categRes] = await Promise.all([
+            fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => []),
+            fetch(`/api/admin/resumo?mes=${mes}&ano=${ano}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => null),
+            fetch(`/api/admin/transactions?mes=${mes}&ano=${ano}&limit=200`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({})),
+            fetch(`/api/admin/categorias?mes=${mes}&ano=${ano}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])
+        ]);
+
+        // KPIs
+        const receita = resumoRes?.receita_total || 0;
+        const despesa = resumoRes?.despesa_total || 0;
+        const saldo = receita - despesa;
+        document.getElementById('adm-fat-receita').textContent = Fmt.moeda(receita);
+        document.getElementById('adm-fat-despesas').textContent = Fmt.moeda(despesa);
+        const saldoEl = document.getElementById('adm-fat-saldo');
+        saldoEl.textContent = Fmt.moeda(saldo);
+        saldoEl.style.color = saldo >= 0 ? 'var(--green)' : 'var(--red)';
+        const totalUsuarios = Array.isArray(usersRes) ? usersRes.length : (usersRes?.total || '—');
+        document.getElementById('adm-fat-usuarios').textContent = totalUsuarios;
+
+        // Gráfico evolução últimos 6 meses
+        const evolLabels = [], evolReceitas = [], evolDespesas = [];
+        const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(ano, mes - 1 - i, 1);
+            evolLabels.push(meses[d.getMonth()]);
+            try {
+                const r = await fetch(`/api/admin/resumo?mes=${d.getMonth()+1}&ano=${d.getFullYear()}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }).then(r => r.json()).catch(() => null);
+                evolReceitas.push(parseFloat(r?.receita_total || 0));
+                evolDespesas.push(parseFloat(r?.despesa_total || 0));
+            } catch { evolReceitas.push(0); evolDespesas.push(0); }
+        }
+
+        const ctxEv = document.getElementById('adm-chart-evolucao');
+        if (ctxEv && window.Chart) {
+            if (_admFatChartEvolucao) _admFatChartEvolucao.destroy();
+            _admFatChartEvolucao = new Chart(ctxEv, {
+                type: 'bar',
+                data: {
+                    labels: evolLabels,
+                    datasets: [
+                        { label: 'Receitas', data: evolReceitas, backgroundColor: 'rgba(45,122,95,.7)', borderRadius: 5 },
+                        { label: 'Despesas', data: evolDespesas, backgroundColor: 'rgba(192,57,43,.6)', borderRadius: 5 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#9e9689', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#9e9689' }, grid: { display: false } }, y: { ticks: { color: '#9e9689', callback: v => 'R$' + v.toLocaleString('pt-BR') }, grid: { color: 'rgba(0,0,0,.05)' } } } }
+            });
+        }
+
+        // Gráfico pizza categorias
+        const cats = Array.isArray(categRes) ? categRes.slice(0, 8) : [];
+        const CORES = ['#b89456','#0f2237','#2d7a5f','#c0392b','#1e4060','#d4b07a','#374151','#9e9689'];
+        if (cats.length) {
+            const ctxPz = document.getElementById('adm-chart-pizza');
+            if (ctxPz && window.Chart) {
+                if (_admFatChartPizza) _admFatChartPizza.destroy();
+                _admFatChartPizza = new Chart(ctxPz, {
+                    type: 'doughnut',
+                    data: { labels: cats.map(c => c.categoria || 'Outros'), datasets: [{ data: cats.map(c => parseFloat(c.total)), backgroundColor: CORES, borderWidth: 0 }] },
+                    options: { responsive: false, plugins: { legend: { display: false } } }
+                });
+            }
+            const totalG = cats.reduce((s, c) => s + parseFloat(c.total), 0);
+            document.getElementById('adm-legenda-pizza').innerHTML = cats.map((c, i) => `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                    <span style="width:10px;height:10px;border-radius:50%;background:${CORES[i]};display:inline-block;flex-shrink:0"></span>
+                    <span style="font-size:12px;color:var(--gray-700);flex:1">${c.categoria || 'Outros'}</span>
+                    <span style="font-size:12px;font-weight:600;color:var(--red)">${Fmt.moeda(c.total)}</span>
+                </div>`).join('');
+        }
+
+        // Tabela de transações
+        _admFatDados = transRes?.transacoes || [];
+        adminFiltrarFaturamento();
+
+    } catch (e) {
+        console.error('adminCarregarFaturamento', e);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--red)">Erro ao carregar dados. Verifique as rotas /api/admin/resumo e /api/admin/transactions.</td></tr>`;
+    }
+}
+
+function adminFiltrarFaturamento() {
+    const tipo = document.getElementById('adm-fat-tipo')?.value || '';
+    let lista = tipo ? _admFatDados.filter(t => t.tipo === tipo) : _admFatDados;
+    const tbody = document.getElementById('adm-fat-tbody');
+    if (!lista.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum lançamento encontrado no período.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = lista.map(t => {
+        const cor = t.tipo === 'receita' ? 'var(--green)' : 'var(--red)';
+        const sinal = t.tipo === 'receita' ? '+' : '-';
+        return `<tr>
+            <td style="font-size:12px;color:var(--gray-500)">${Fmt.data(t.data_transacao || t.data)}</td>
+            <td class="td-strong">${t.usuario_nome || t.usuario_email || '—'}</td>
+            <td>${t.descricao || '—'}</td>
+            <td>${t.categoria_nome || '—'}</td>
+            <td><span class="badge ${t.tipo === 'receita' ? 'badge-green' : 'badge-red'}">${t.tipo}</span></td>
+            <td style="color:${cor};font-weight:700">${sinal}${Fmt.moeda(t.valor)}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ─── ADMIN: GOOGLE CALENDAR ───────────────────────────────────────────────────
+async function adminCarregarCalendario() {
+    const token = localStorage.getItem('gz_token');
+    try {
+        const cfg = await fetch('/api/config', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+        if (cfg.google_cal_email)    document.getElementById('adm-gcal-email').value = cfg.google_cal_email;
+        if (cfg.google_cal_calendar_id) document.getElementById('adm-gcal-calendar-id').value = cfg.google_cal_calendar_id;
+        if (cfg.google_cal_private_key) document.getElementById('adm-gcal-private-key').value = cfg.google_cal_private_key;
+    } catch (e) {
+        console.warn('adminCarregarCalendario', e);
+    }
+}
+
+async function adminSalvarCalendario() {
+    const token = localStorage.getItem('gz_token');
+    const statusEl = document.getElementById('adm-gcal-status');
+    statusEl.textContent = '';
+    const data = {
+        google_cal_email:       document.getElementById('adm-gcal-email').value.trim(),
+        google_cal_calendar_id: document.getElementById('adm-gcal-calendar-id').value.trim(),
+        google_cal_private_key: document.getElementById('adm-gcal-private-key').value.trim(),
+    };
+    if (!data.google_cal_email || !data.google_cal_calendar_id || !data.google_cal_private_key) {
+        showToast('Preencha todos os campos', 'error'); return;
+    }
+    try {
+        const res = await fetch('/api/config', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(r => r.json());
+        if (res.ok || res.mensagem || !res.erro) {
+            showToast('Configuração do Google Calendar salva! ✅', 'success');
+            statusEl.style.color = 'var(--green)';
+            statusEl.textContent = '✅ Salvo com sucesso. Os agendamentos do WhatsApp serão sincronizados na agenda.';
+        } else {
+            showToast(res.erro || 'Erro ao salvar', 'error');
+        }
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+async function adminTestarCalendario() {
+    const token = localStorage.getItem('gz_token');
+    const statusEl = document.getElementById('adm-gcal-status');
+    statusEl.style.color = 'var(--gray-400)';
+    statusEl.textContent = '⏳ Testando conexão...';
+    try {
+        const res = await fetch('/api/gcal/test', {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json()).catch(() => null);
+        if (res?.ok) {
+            statusEl.style.color = 'var(--green)';
+            statusEl.textContent = '✅ Conexão com o Google Calendar estabelecida com sucesso!';
+        } else {
+            statusEl.style.color = 'var(--red)';
+            statusEl.textContent = '❌ ' + (res?.erro || 'Falha na conexão. Verifique as credenciais.');
+        }
+    } catch {
+        statusEl.style.color = 'var(--red)';
+        statusEl.textContent = '❌ Erro ao testar. Rota /api/gcal/test não disponível.';
+    }
+}
+
+// ─── ADMIN: USUÁRIOS ──────────────────────────────────────────────────────────
+let _admUsuarios = [];
+let _admUsrEditando = null;
+
+async function adminCarregarUsuarios() {
+    const token = localStorage.getItem('gz_token');
+    const tbody = document.getElementById('adm-usr-tbody');
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+    try {
+        const res = await fetch('/api/admin/users', {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        _admUsuarios = Array.isArray(res) ? res : (res?.usuarios || res?.users || []);
+        const total = _admUsuarios.length;
+        const premium = _admUsuarios.filter(u => u.plano === 'premium').length;
+        const gratis = total - premium;
+        document.getElementById('adm-usr-badge').textContent = `${total} usuário${total !== 1 ? 's' : ''}`;
+        document.getElementById('adm-usr-total').textContent = total;
+        document.getElementById('adm-usr-premium').textContent = premium;
+        document.getElementById('adm-usr-gratis').textContent = gratis;
+        adminFiltrarUsuarios();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--red)">Erro ao carregar usuários.<br><small style="color:var(--gray-400)">Verifique se a rota /api/admin/users existe e aceita JWT Bearer.</small></td></tr>`;
+    }
+}
+
+function adminFiltrarUsuarios() {
+    const q = (document.getElementById('adm-usr-busca')?.value || '').toLowerCase();
+    const lista = q ? _admUsuarios.filter(u =>
+        (u.nome || '').toLowerCase().includes(q) ||
+        (u.sobrenome || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+    ) : _admUsuarios;
+    const tbody = document.getElementById('adm-usr-tbody');
+    if (!lista.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum usuário encontrado.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = lista.map(u => {
+        const nome = [u.nome, u.sobrenome].filter(Boolean).join(' ') || '—';
+        const inicial = nome[0]?.toUpperCase() || '?';
+        const planoBadge = u.plano === 'premium'
+            ? '<span class="badge badge-gold">Premium ✨</span>'
+            : '<span class="badge badge-navy">Gratuito</span>';
+        const criado = u.criado_em || u.created_at || '';
+        const criadoFmt = criado ? new Date(criado).toLocaleDateString('pt-BR') : '—';
+        return `<tr>
+            <td>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">${inicial}</div>
+                    <span class="td-strong">${nome}</span>
+                </div>
+            </td>
+            <td style="color:var(--gray-500)">${u.email || '—'}</td>
+            <td>${planoBadge}</td>
+            <td style="color:var(--gray-500)">${u.telefone || '—'}</td>
+            <td style="font-size:12px;color:var(--gray-400)">${criadoFmt}</td>
+            <td>
+                <div style="display:flex;gap:6px">
+                    <button class="btn btn-secondary" style="padding:5px 11px;font-size:12px" onclick="adminAbrirModalUsuario(${u.id})">✏️ Editar</button>
+                    <button class="btn btn-danger" style="padding:5px 11px;font-size:12px" onclick="adminExcluirUsuario(${u.id},'${(nome).replace(/'/g,"\\'")}')">🗑</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function adminAbrirModalUsuario(id) {
+    _admUsrEditando = id || null;
+    document.getElementById('admUsrEditId').value = id || '';
+    document.getElementById('admUsrNome').value = '';
+    document.getElementById('admUsrSobrenome').value = '';
+    document.getElementById('admUsrEmail').value = '';
+    document.getElementById('admUsrTelefone').value = '';
+    document.getElementById('admUsrSenha').value = '';
+    document.getElementById('admUsrPlano').value = 'gratuito';
+    document.getElementById('admUsrModalTitle').textContent = id ? 'Editar Usuário' : 'Novo Usuário';
+    document.getElementById('admUsrEmail').disabled = !!id;
+    document.getElementById('admUsrSenhaHint').textContent = id ? '(em branco = manter)' : '';
+    if (id) {
+        const u = _admUsuarios.find(x => x.id === id);
+        if (u) {
+            document.getElementById('admUsrNome').value = u.nome || '';
+            document.getElementById('admUsrSobrenome').value = u.sobrenome || '';
+            document.getElementById('admUsrEmail').value = u.email || '';
+            document.getElementById('admUsrTelefone').value = u.telefone || '';
+            document.getElementById('admUsrPlano').value = u.plano || 'gratuito';
+        }
+    }
+    openModal('modalAdminUsuario');
+}
+
+async function adminSalvarUsuario() {
+    const token = localStorage.getItem('gz_token');
+    const nome    = document.getElementById('admUsrNome').value.trim();
+    const email   = document.getElementById('admUsrEmail').value.trim();
+    const senha   = document.getElementById('admUsrSenha').value;
+    const plano   = document.getElementById('admUsrPlano').value;
+    const sobrenome = document.getElementById('admUsrSobrenome').value.trim();
+    const telefone  = document.getElementById('admUsrTelefone').value.trim();
+    if (!nome) { showToast('Nome é obrigatório', 'error'); return; }
+    if (!_admUsrEditando && !email) { showToast('Email é obrigatório', 'error'); return; }
+    if (!_admUsrEditando && !senha) { showToast('Senha é obrigatória', 'error'); return; }
+    const body = { nome, sobrenome, telefone, plano };
+    if (!_admUsrEditando) { body.email = email; body.senha = senha; }
+    else if (senha) { body.senha = senha; }
+    try {
+        const url    = _admUsrEditando ? `/api/admin/users/${_admUsrEditando}` : '/api/admin/users';
+        const method = _admUsrEditando ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(r => r.json());
+        if (res.id || res.ok || res.mensagem) {
+            showToast(_admUsrEditando ? 'Usuário atualizado! ✅' : 'Usuário criado! ✅', 'success');
+            closeModal('modalAdminUsuario');
+            adminCarregarUsuarios();
+        } else {
+            showToast(res.erro || 'Erro ao salvar', 'error');
+        }
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+async function adminExcluirUsuario(id, nome) {
+    if (!confirm(`Excluir o usuário "${nome}"? Esta ação é irreversível.`)) return;
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch(`/api/admin/users/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        if (res.ok || res.mensagem) { showToast('Usuário excluído.', 'success'); adminCarregarUsuarios(); }
+        else showToast(res.erro || 'Erro ao excluir', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
 }
 </script>

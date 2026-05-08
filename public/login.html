@@ -18,7 +18,6 @@
   .container { width:100%; max-width:420px; padding:24px 16px; }
 
   .logo { display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:32px; }
-  .logo-circle { display:flex; align-items:center; overflow:visible; }
   .logo-text { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--gray-900); }
 
   .card { background:white; border-radius:16px; padding:32px; box-shadow:0 4px 24px rgba(0,0,0,.08); }
@@ -34,13 +33,15 @@
   .btn:hover { background:var(--blue-dark); }
   .btn:disabled { opacity:.6; cursor:not-allowed; }
 
+  .btn-secondary { width:100%; padding:13px; background:transparent; color:var(--blue); border:1.5px solid var(--blue); border-radius:10px; font-size:15px; font-weight:600; font-family:'Syne',sans-serif; cursor:pointer; transition:.2s; margin-top:12px; }
+  .btn-secondary:hover { background:var(--gray-100); }
+
   .erro { background:#fef2f2; color:var(--red); border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:16px; display:none; }
   .link-row { text-align:center; margin-top:20px; font-size:14px; color:var(--gray-500); }
   .link-row a { color:var(--blue); text-decoration:none; font-weight:600; }
 
-  .tabs { display:flex; background:var(--gray-100); border-radius:10px; padding:3px; margin-bottom:24px; }
-  .tab { flex:1; text-align:center; padding:8px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; color:var(--gray-500); transition:.2s; }
-  .tab.ativo { background:white; color:var(--gray-900); box-shadow:0 1px 4px rgba(0,0,0,.1); }
+  .divider { display:flex; align-items:center; gap:12px; margin:20px 0 4px; color:var(--gray-500); font-size:13px; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--gray-200); }
 </style>
 </head>
 <body>
@@ -50,46 +51,26 @@
   </div>
 
   <div class="card">
-    <div class="tabs">
-      <div class="tab ativo" onclick="trocarAba('login')">Entrar</div>
-      <div class="tab" onclick="trocarAba('cadastro')">Criar conta</div>
-    </div>
-
     <div id="erro" class="erro"></div>
 
-    <!-- FORMULÁRIO LOGIN -->
-    <div id="form-login">
-      <h2>Bem-vindo de volta 👋</h2>
-      <p>Entre com seu e-mail e senha</p>
-      <div class="field">
-        <label>E-mail</label>
-        <input id="l-email" type="email" placeholder="seu@email.com">
-      </div>
-      <div class="field">
-        <label>Senha</label>
-        <input id="l-senha" type="password" placeholder="••••••••">
-      </div>
-      <button class="btn" onclick="login()">Entrar</button>
-    </div>
+    <h2>Bem-vindo de volta 👋</h2>
+    <p>Entre com seu e-mail e senha para continuar</p>
 
-    <!-- FORMULÁRIO CADASTRO -->
-    <div id="form-cadastro" style="display:none">
-      <h2>Crie sua conta 🚀</h2>
-      <p>Comece a controlar suas finanças gratuitamente</p>
-      <div class="field">
-        <label>Nome completo</label>
-        <input id="c-nome" type="text" placeholder="João Silva">
-      </div>
-      <div class="field">
-        <label>E-mail</label>
-        <input id="c-email" type="email" placeholder="seu@email.com">
-      </div>
-      <div class="field">
-        <label>Senha</label>
-        <input id="c-senha" type="password" placeholder="Mínimo 6 caracteres">
-      </div>
-      <button class="btn" onclick="cadastrar()">Criar conta grátis</button>
+    <div class="field">
+      <label>E-mail</label>
+      <input id="l-email" type="email" placeholder="seu@email.com">
     </div>
+    <div class="field">
+      <label>Senha</label>
+      <input id="l-senha" type="password" placeholder="••••••••">
+    </div>
+    <button class="btn" onclick="login()">Entrar</button>
+
+    <div class="divider">ou</div>
+
+    <button class="btn-secondary" onclick="window.location.href='cadastro.html'">
+      Criar conta grátis 🚀
+    </button>
 
     <div class="link-row">
       <a href="/">← Voltar ao início</a>
@@ -99,15 +80,6 @@
 
 <script>
 const API = '/api';
-
-function trocarAba(aba) {
-  document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('ativo', (aba==='login' && i===0) || (aba==='cadastro' && i===1));
-  });
-  document.getElementById('form-login').style.display    = aba==='login'    ? 'block' : 'none';
-  document.getElementById('form-cadastro').style.display = aba==='cadastro' ? 'block' : 'none';
-  mostrarErro('');
-}
 
 function mostrarErro(msg) {
   const el = document.getElementById('erro');
@@ -135,37 +107,10 @@ async function login() {
   }
 }
 
-async function cadastrar() {
-  const nome  = document.getElementById('c-nome').value;
-  const email = document.getElementById('c-email').value;
-  const senha = document.getElementById('c-senha').value;
-  if (!nome || !email || !senha) return mostrarErro('Preencha todos os campos');
-  if (senha.length < 6) return mostrarErro('Senha deve ter pelo menos 6 caracteres');
-
-  try {
-    const r = await fetch(`${API}/auth/cadastro`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome, email, senha })
-    });
-    const data = await r.json();
-    if (!r.ok) return mostrarErro(data.erro || 'Erro ao criar conta');
-    localStorage.setItem('gz_token', data.token);
-    localStorage.setItem('gz_usuario', JSON.stringify(data.usuario));
-    window.location.href = '/dashboard.html';
-  } catch {
-    mostrarErro('Erro de conexão. Tente novamente.');
-  }
-}
-
-// Enter nos inputs
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    if (document.getElementById('form-login').style.display !== 'none') login();
-    else cadastrar();
-  }
+  if (e.key === 'Enter') login();
 });
 
-// Redireciona se já estiver logado
 if (localStorage.getItem('gz_token')) window.location.href = '/dashboard.html';
 </script>
 </body>

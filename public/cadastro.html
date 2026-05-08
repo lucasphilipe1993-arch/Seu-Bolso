@@ -2,8 +2,9 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seu Bolso — Cadastro</title>
+    <link rel="icon" href="/assets/favicon.png" type="image/png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seu Secretário — Cadastro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
     <style>
@@ -399,7 +400,7 @@
             Controle financeiro<br><span>inteligente</span> para você
         </h1>
         <p class="left-subtitle">
-            Junte-se a milhares de brasileiros que já organizam suas finanças com o Seu Bolso.
+            Junte-se a milhares de brasileiros que já organizam suas finanças com o Seu Secretário.
         </p>
 
         <div class="features">
@@ -433,7 +434,7 @@
         </div>
     </div>
 
-    <div class="left-footer">© 2026 Seu Bolso · Todos os direitos reservados</div>
+    <div class="left-footer">© 2026 Seu Secretário · Todos os direitos reservados</div>
 </div>
 
 <!-- ── RIGHT PANEL ── -->
@@ -537,7 +538,7 @@
                     <span class="toggle-slider"></span>
                 </label>
                 <div class="terms-text">
-                    Aceito os <a href="#">termos de uso</a> e a <a href="#">política de privacidade</a> do Seu Bolso.
+                    Aceito os <a href="#">termos de uso</a> e a <a href="#">política de privacidade</a> do Seu Secretário.
                 </div>
             </div>
 
@@ -652,7 +653,7 @@
             </div>
             <div class="success-title">Conta criada com sucesso!</div>
             <p class="success-sub">
-                Bem-vindo ao Seu Bolso! 🎉<br>
+                Bem-vindo ao Seu Secretário! 🎉<br>
                 Agora adicione o nosso número no WhatsApp e comece a registrar suas finanças por lá.
             </p>
             <a class="success-whatsapp" id="success-wa-link" href="#" target="_blank">
@@ -856,7 +857,7 @@ async function submeter() {
 
         // ── Número do bot: 31998321024 ──
         const nome = payload.nome.split(' ')[0];
-        const waMsg = encodeURIComponent(`Oi! Acabei de criar minha conta no Seu Bolso. Meu nome é ${nome} 😊`);
+        const waMsg = encodeURIComponent(`Oi! Acabei de criar minha conta no Seu Secretário. Meu nome é ${nome} 😊`);
         document.getElementById('success-wa-link').href = `https://wa.me/5531998321024?text=${waMsg}`;
 
         document.getElementById('success-screen').classList.add('show');

@@ -1,6 +1,6 @@
 // routes/stripe.js
 // ─────────────────────────────────────────────────────────────
-// Integração Stripe — suporta pagamento único E assinatura
+// Integração Stripe — Premium (mensal/anual) + Zen (mensal/anual)
 // ─────────────────────────────────────────────────────────────
 const express = require('express');
 const router  = express.Router();
@@ -10,39 +10,51 @@ const autenticar = require('../middleware/auth');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// ── Planos configurados (ajuste os price IDs do seu Stripe Dashboard) ──
+// ── Planos configurados ────────────────────────────────────
+// Crie os 4 produtos/preços no Stripe Dashboard e cole os IDs aqui:
+// https://dashboard.stripe.com/products
 const PLANOS = {
-  pro_mensal: {
-    priceId: process.env.STRIPE_PRICE_PRO_MENSAL,   // ex: price_1ABC...
+  premium_mensal: {
+    priceId: process.env.STRIPE_PRICE_PREMIUM_MENSAL,  // ex: price_1ABC...
     tipo: 'subscription',
-    nome: 'Pro Mensal',
+    nome: 'Premium Mensal',
+    planoDb: 'premium',
   },
-  pro_anual: {
-    priceId: process.env.STRIPE_PRICE_PRO_ANUAL,    // ex: price_1XYZ...
+  premium_anual: {
+    priceId: process.env.STRIPE_PRICE_PREMIUM_ANUAL,   // ex: price_1DEF...
     tipo: 'subscription',
-    nome: 'Pro Anual',
+    nome: 'Premium Anual',
+    planoDb: 'premium',
   },
-  // Exemplo de pagamento único (créditos, relatório avulso, etc.)
-  relatorio_avulso: {
-    priceId: process.env.STRIPE_PRICE_RELATORIO,    // ex: price_1DEF...
-    tipo: 'payment',
-    nome: 'Relatório Avulso',
+  zen_mensal: {
+    priceId: process.env.STRIPE_PRICE_ZEN_MENSAL,      // ex: price_1GHI...
+    tipo: 'subscription',
+    nome: 'Zen Mensal',
+    planoDb: 'zen',
+  },
+  zen_anual: {
+    priceId: process.env.STRIPE_PRICE_ZEN_ANUAL,       // ex: price_1JKL...
+    tipo: 'subscription',
+    nome: 'Zen Anual',
+    planoDb: 'zen',
   },
 };
 
-// ─────────────────────────────────────────────────────────────
 // POST /api/stripe/checkout
-// Cria uma Checkout Session (assinatura ou pagamento único)
-// Body: { plano: 'pro_mensal' | 'pro_anual' | 'relatorio_avulso' }
-// ─────────────────────────────────────────────────────────────
 router.post('/checkout', autenticar, async (req, res) => {
   const { plano } = req.body;
 
   if (!plano || !PLANOS[plano])
-    return res.status(400).json({ erro: 'Plano inválido' });
+    return res.status(400).json({ erro: 'Plano inválido. Use: premium_mensal, premium_anual, zen_mensal ou zen_anual' });
+
+  const config = PLANOS[plano];
+
+  if (!config.priceId) {
+    console.error('❌ Price ID não configurado para: ' + plano);
+    return res.status(500).json({ erro: 'Price ID do plano "' + plano + '" não configurado. Verifique as variáveis de ambiente.' });
+  }
 
   try {
-    // Busca ou cria customer Stripe para o usuário
     const { rows } = await db.query(
       'SELECT email, nome, stripe_customer_id FROM usuarios WHERE id = $1',
       [req.usuarioId]
@@ -66,20 +78,19 @@ router.post('/checkout', autenticar, async (req, res) => {
       );
     }
 
-    const config = PLANOS[plano];
-
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      mode:     config.tipo === 'subscription' ? 'subscription' : 'payment',
+      mode: 'subscription',
       line_items: [{ price: config.priceId, quantity: 1 }],
-      success_url: `${process.env.APP_URL}/dashboard.html?checkout=sucesso`,
-      cancel_url:  `${process.env.APP_URL}/planos.html?checkout=cancelado`,
+      success_url: process.env.APP_URL + '/index.html?checkout=sucesso#planos',
+      cancel_url:  process.env.APP_URL + '/index.html?checkout=cancelado#planos',
       metadata: {
         usuario_id: String(req.usuarioId),
         plano,
+        plano_db: config.planoDb,
       },
-      // Permite aplicar cupom de desconto na página de checkout
       allow_promotion_codes: true,
+      payment_method_types: ['card'],
     });
 
     res.json({ url: session.url });
@@ -89,10 +100,7 @@ router.post('/checkout', autenticar, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────
 // POST /api/stripe/portal
-// Abre o portal do cliente Stripe (gerenciar assinatura, faturas)
-// ─────────────────────────────────────────────────────────────
 router.post('/portal', autenticar, async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -106,7 +114,7 @@ router.post('/portal', autenticar, async (req, res) => {
 
     const session = await stripe.billingPortal.sessions.create({
       customer:   customerId,
-      return_url: `${process.env.APP_URL}/dashboard.html`,
+      return_url: process.env.APP_URL + '/index.html#planos',
     });
 
     res.json({ url: session.url });
@@ -116,10 +124,7 @@ router.post('/portal', autenticar, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────
 // GET /api/stripe/status
-// Retorna se o usuário logado tem assinatura ativa
-// ─────────────────────────────────────────────────────────────
 router.get('/status', autenticar, async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -137,11 +142,7 @@ router.get('/status', autenticar, async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────
 // POST /api/stripe/webhook
-// Recebe eventos do Stripe (pagamento confirmado, cancelado, etc.)
-// IMPORTANTE: Esta rota precisa receber o body RAW (não JSON parsed)
-// ─────────────────────────────────────────────────────────────
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
 
@@ -154,75 +155,66 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     );
   } catch (err) {
     console.error('⚠️  Webhook inválido:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    return res.status(400).send('Webhook Error: ' + err.message);
   }
 
-  console.log(`📦 Evento Stripe: ${event.type}`);
+  console.log('📦 Evento Stripe: ' + event.type);
 
   try {
     switch (event.type) {
-
-      // ── Assinatura criada ou renovada com sucesso ──
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const sub    = event.data.object;
-        const status = sub.status; // 'active', 'trialing', 'past_due', etc.
+        const status = sub.status;
 
         if (status === 'active' || status === 'trialing') {
+          const priceId = sub.items?.data?.[0]?.price?.id;
+          let planoDb = 'premium';
+          for (const [key, cfg] of Object.entries(PLANOS)) {
+            if (cfg.priceId === priceId) { planoDb = cfg.planoDb; break; }
+          }
           await db.query(
-            `UPDATE usuarios
-             SET plano = 'pro', stripe_subscription_id = $1, whatsapp_ativo = true
-             WHERE stripe_customer_id = $2`,
-            [sub.id, sub.customer]
+            'UPDATE usuarios SET plano = $1, stripe_subscription_id = $2, whatsapp_ativo = true WHERE stripe_customer_id = $3',
+            [planoDb, sub.id, sub.customer]
           );
-          console.log(`✅ Assinatura ativada para customer: ${sub.customer}`);
+          console.log('✅ Plano "' + planoDb + '" ativado para customer: ' + sub.customer);
         }
         break;
       }
 
-      // ── Assinatura cancelada ou expirada ──
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
         await db.query(
-          `UPDATE usuarios
-           SET plano = 'gratuito', stripe_subscription_id = NULL
-           WHERE stripe_customer_id = $1`,
+          "UPDATE usuarios SET plano = 'gratuito', stripe_subscription_id = NULL WHERE stripe_customer_id = $1",
           [sub.customer]
         );
-        console.log(`⚠️  Assinatura cancelada para customer: ${sub.customer}`);
+        console.log('⚠️  Assinatura cancelada para customer: ' + sub.customer);
         break;
       }
 
-      // ── Pagamento único concluído (checkout.session.completed) ──
       case 'checkout.session.completed': {
         const session = event.data.object;
-        const usuarioId = session.metadata?.usuario_id;
-        const plano     = session.metadata?.plano;
-
-        // Se for pagamento único (não assinatura), libera feature específica
-        if (session.mode === 'payment' && usuarioId) {
-          console.log(`💳 Pagamento único confirmado — usuário ${usuarioId}, plano: ${plano}`);
-          // Adicione aqui a lógica para liberar acesso ao feature pago
-          // Ex: await db.query('UPDATE usuarios SET relatorio_pago = true WHERE id = $1', [usuarioId])
+        if (session.mode === 'subscription') {
+          const planoDb    = session.metadata?.plano_db;
+          const customerId = session.customer;
+          if (planoDb && customerId) {
+            await db.query(
+              'UPDATE usuarios SET plano = $1, whatsapp_ativo = true WHERE stripe_customer_id = $2',
+              [planoDb, customerId]
+            );
+          }
         }
         break;
       }
 
-      // ── Pagamento de fatura falhou ──
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
-        console.warn(`❌ Pagamento falhou para customer: ${invoice.customer}`);
-        // Opcional: enviar aviso via WhatsApp ao usuário
+        console.warn('❌ Pagamento falhou para customer: ' + invoice.customer);
         break;
       }
-
-      default:
-        // Evento não tratado — ignorar
-        break;
     }
   } catch (err) {
     console.error('❌ Erro ao processar evento webhook:', err.message);
-    // Retorna 200 mesmo assim para o Stripe não retentar
   }
 
   res.json({ received: true });

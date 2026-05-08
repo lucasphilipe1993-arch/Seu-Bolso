@@ -16,6 +16,7 @@ const whatsappRoute     = require('./routes/whatsapp');
 const adminRoute        = require('./routes/admin');
 const dividasRoute      = require('./routes/dividas');
 const stripeRoute       = require('./routes/stripe'); // ← STRIPE
+const cuponsRoute       = require('./routes/cupons'); // ← CUPONS
 
 const app    = express();
 const server = http.createServer(app);
@@ -103,6 +104,7 @@ app.use('/api/whatsapp',     whatsappRoute.router);
 app.use('/api/admin',        adminRoute.router);
 app.use('/api/dividas',      dividasRoute);
 app.use('/api/stripe',       stripeRoute); // ← STRIPE
+app.use('/api/cupons',       cuponsRoute); // ← CUPONS
 
 // ─── Atalho /api/me → /api/auth/me ───────────────────────────
 const autenticar = require('./middleware/auth');

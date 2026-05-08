@@ -197,6 +197,49 @@ class BotGranaZen {
     return digits;
   }
 
+  // ─── Gera todas as variações possíveis de um número ──────────
+  _gerarVariacoesTelefone(telefone) {
+    if (!telefone || telefone.endsWith('@lid')) return [telefone];
+
+    const variacoes = new Set();
+    variacoes.add(telefone);
+
+    let digits = telefone.replace(/\D/g, '');
+
+    // Remove DDI 55 se presente
+    const semDDI = digits.startsWith('55') && digits.length > 11
+      ? digits.slice(2)
+      : digits;
+
+    // Adiciona versão com DDI
+    const comDDI = '55' + semDDI;
+
+    variacoes.add(semDDI);
+    variacoes.add(comDDI);
+
+    // Se tem 10 dígitos (sem o 9), gera versão com o 9
+    if (semDDI.length === 10) {
+      const ddd = semDDI.slice(0, 2);
+      const numero = semDDI.slice(2);
+      const com9 = ddd + '9' + numero;
+      variacoes.add(com9);
+      variacoes.add('55' + com9);
+    }
+
+    // Se tem 11 dígitos (com o 9), gera versão sem o 9
+    if (semDDI.length === 11) {
+      const ddd = semDDI.slice(0, 2);
+      const numero = semDDI.slice(2);
+      if (numero.startsWith('9')) {
+        const sem9 = ddd + numero.slice(1);
+        variacoes.add(sem9);
+        variacoes.add('55' + sem9);
+      }
+    }
+
+    return Array.from(variacoes);
+  }
+
   async _fecharSocket() {
     if (!this.socket) return;
     try {
@@ -468,24 +511,30 @@ class BotGranaZen {
   async _buscarSessao(telefone, remoteJid = null) {
     await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
 
-    let res = await db.query(
-      `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
-       JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
-      [telefone]
-    );
+    // Gera todas as variações possíveis do número (com/sem 9, com/sem DDI)
+    const variacoes = this._gerarVariacoesTelefone(telefone);
 
-    if (res.rows.length === 0 && !telefone.startsWith('55') && !telefone.endsWith('@lid')) {
+    let res = { rows: [] };
+
+    // Tenta cada variação do número
+    for (const tel of variacoes) {
       res = await db.query(
         `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
          JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
-        ['55' + telefone]
+        [tel]
       );
       if (res.rows.length > 0) {
-        await db.query(`UPDATE sessoes_bot SET telefone = $1 WHERE telefone = $2`, [telefone, '55' + telefone]);
-        await db.query(`UPDATE usuarios SET telefone = $1 WHERE telefone = $2`, [telefone, '55' + telefone]);
+        // Se achou com variação diferente, normaliza no banco
+        if (tel !== telefone) {
+          console.log(`🔄 Normalizando telefone no banco: ${tel} → ${telefone}`);
+          await db.query(`UPDATE sessoes_bot SET telefone = $1 WHERE telefone = $2`, [telefone, tel]).catch(() => {});
+          await db.query(`UPDATE usuarios SET telefone = $1 WHERE telefone = $2`, [telefone, tel]).catch(() => {});
+        }
+        break;
       }
     }
 
+    // Fallback: busca por LID na tabela sessoes_bot
     if (res.rows.length === 0 && remoteJid?.endsWith('@lid')) {
       res = await db.query(
         `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
@@ -494,16 +543,22 @@ class BotGranaZen {
       );
     }
 
+    // Fallback: busca LID na tabela lid_map
     if (res.rows.length === 0 && remoteJid?.endsWith('@lid')) {
       try {
         const mapRes = await db.query('SELECT telefone FROM lid_map WHERE lid = $1', [remoteJid]);
         if (mapRes.rows.length > 0) {
           const telDoMap = mapRes.rows[0].telefone;
-          res = await db.query(
-            `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
-             JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
-            [telDoMap]
-          );
+          // Tenta as variações do telefone encontrado no lid_map também
+          const variacoesMap = this._gerarVariacoesTelefone(telDoMap);
+          for (const tel of variacoesMap) {
+            res = await db.query(
+              `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
+               JOIN usuarios u ON u.id = s.usuario_id WHERE s.telefone = $1`,
+              [tel]
+            );
+            if (res.rows.length > 0) break;
+          }
         }
       } catch {}
     }
@@ -524,17 +579,16 @@ class BotGranaZen {
     if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello'].includes(textoLower))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
-    // Resumo / Saldo
-// Resumo / Saldo / Relatório
-const triggerResumo = [
-  'resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro',
-  'relatorio', 'relatório', 'gerar relatorio', 'gerar relatório',
-  'relatorio de gastos', 'relatório de gastos', 'ver relatorio',
-  'ver relatório', 'meus gastos', 'gastos do mes', 'gastos do mês',
-  'quanto gastei', 'quanto recebi', 'balanço', 'balanco',
-];
-if (triggerResumo.includes(textoLower) || textoLower.includes('relat'))
-  return this.enviarResumo(remoteJid, usuarioId, nome);
+    // Resumo / Saldo / Relatório
+    const triggerResumo = [
+      'resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro',
+      'relatorio', 'relatório', 'gerar relatorio', 'gerar relatório',
+      'relatorio de gastos', 'relatório de gastos', 'ver relatorio',
+      'ver relatório', 'meus gastos', 'gastos do mes', 'gastos do mês',
+      'quanto gastei', 'quanto recebi', 'balanço', 'balanco',
+    ];
+    if (triggerResumo.includes(textoLower) || textoLower.includes('relat'))
+      return this.enviarResumo(remoteJid, usuarioId, nome);
 
     // Ajuda
     if (['ajuda', 'help', '?', 'menu'].includes(textoLower))

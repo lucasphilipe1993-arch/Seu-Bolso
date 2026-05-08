@@ -51,6 +51,17 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 
 const DASHBOARD_PATH = path.join(__dirname, 'public');
+
+// ─── URLs limpas (sem .html) ──────────────────────────────────
+app.use((req, res, next) => {
+  const { existsSync } = require('fs');
+  // Ignora rotas de API, arquivos com extensão e raiz
+  if (req.path.startsWith('/api/') || req.path.includes('.') || req.path === '/') return next();
+  const filePath = path.join(DASHBOARD_PATH, req.path + '.html');
+  if (existsSync(filePath)) return res.sendFile(filePath);
+  next();
+});
+
 app.use(express.static(DASHBOARD_PATH));
 
 // ─── Socket.io ────────────────────────────────────────────────

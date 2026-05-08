@@ -500,22 +500,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function init() {
     const token = localStorage.getItem('token');
-    if (!token) { window.location.href = '/login.html'; return; }
+    if (!token) {
+        redirecionarLogin();
+        return;
+    }
 
     try {
         const res = await fetch('/api/me', {
             headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.json());
+        });
 
-        _usuario = res;
-        if (!_usuario) { logout(); return; }
+        // Se o servidor retornou 401/403, token inválido → redireciona
+        if (res.status === 401 || res.status === 403) {
+            redirecionarLogin();
+            return;
+        }
+
+        // Se a requisição falhou por outro motivo (rede, servidor fora),
+        // NÃO redireciona — apenas loga o erro e mostra o dashboard offline
+        if (!res.ok) {
+            console.warn('API /me indisponível, carregando dashboard sem dados do usuário.');
+            document.getElementById('sidebarName').textContent = 'Usuário';
+            document.getElementById('ntData').value = new Date().toISOString().split('T')[0];
+            return;
+        }
+
+        const data = await res.json();
+        _usuario = data;
+
+        if (!_usuario) {
+            redirecionarLogin();
+            return;
+        }
 
         preencherPerfil(_usuario);
         carregarPainel();
         document.getElementById('ntData').value = new Date().toISOString().split('T')[0];
     } catch (e) {
-        console.error('Erro ao carregar usuário:', e);
-        logout();
+        // Erro de rede (servidor fora, sem conexão) — NÃO faz logout automático
+        // para evitar loop. Apenas avisa no console.
+        console.error('Erro de rede ao carregar usuário:', e);
+        document.getElementById('sidebarName').textContent = 'Sem conexão';
+        document.getElementById('ntData').value = new Date().toISOString().split('T')[0];
+    }
+}
+
+function redirecionarLogin() {
+    // Proteção anti-loop: só redireciona se não estiver já na página de login
+    if (!window.location.pathname.includes('login')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
     }
 }
 
@@ -882,7 +916,7 @@ function escHtml(str) {
 function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
-    window.location.href = '/login.html';
+    redirecionarLogin();
 }
 </script>
 </body>

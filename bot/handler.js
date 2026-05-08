@@ -455,6 +455,22 @@ class BotGranaZen {
   }
 
   async _roteador(telefone, remoteJid, tipo, msg, pushName = null) {
+    console.log(`🔍 _roteador chamado: telefone=${telefone}, tipo=${tipo}`);
+    
+    if (this._estadosCategoriaFluxo.has(telefone) && tipo === 'texto') {
+      const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+      return this._continuarFluxoCategoria(telefone, remoteJid, texto);
+    }
+
+    const sessao = await this._buscarSessao(telefone, remoteJid, pushName);
+    console.log(`🔍 sessao encontrada:`, JSON.stringify(sessao));
+    
+    if (!sessao) {
+      console.log(`⚠️ Sessão não encontrada para: ${telefone}`);
+      return this.enviar(remoteJid,
+        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Bolso.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
+      );
+    }
     if (this._estadosCategoriaFluxo.has(telefone) && tipo === 'texto') {
       const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
       return this._continuarFluxoCategoria(telefone, remoteJid, texto);

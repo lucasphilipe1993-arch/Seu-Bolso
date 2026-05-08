@@ -245,7 +245,7 @@ h2 em { font-style: normal; }
 .author-role { font-size: 11px; color: var(--ink-50); margin-top: 2px; font-family: var(--font-mono); }
 
 /* ===== PRICING ===== */
-.pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 72px; max-width: 760px; margin-left: auto; margin-right: auto; }
+.pricing-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 72px; max-width: 1100px; margin-left: auto; margin-right: auto; }
 .price-card { background: var(--paper); border: 1px solid var(--ink-08); border-radius: var(--radius-xl); padding: 44px; position: relative; transition: all 0.2s; }
 .price-card:hover { box-shadow: var(--shadow-lg); }
 .price-card.featured { background: var(--ink); color: white; border-color: var(--ink); box-shadow: var(--shadow-xl); }
@@ -601,16 +601,41 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
     </div>
 
     <div class="pricing-grid">
-      <!-- Premium -->
+      <!-- Gratuito -->
       <div class="price-card">
-        <div class="price-tier">Premium</div>
+        <div class="price-tier">Gratuito</div>
+        <div class="price-desc">Para conhecer o Seu Secretário</div>
+        <div class="price-amt">
+          <span class="price-sym">R$</span>
+          <span class="price-num">0</span>
+          <span class="price-per">/sempre</span>
+        </div>
+        <div style="font-size:12px;color:#16a34a;font-weight:600;margin-bottom:24px;min-height:18px;">✓ Sem cartão de crédito</div>
+        <ul class="price-feats">
+          <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Até 20 registros por mês</li>
+          <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>1 conta bancária</li>
+          <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Resumo financeiro básico</li>
+          <li class="disabled"><span class="feat-check feat-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>IA e categorização automática</li>
+          <li class="disabled"><span class="feat-check feat-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>Gráficos e relatórios</li>
+          <li class="disabled"><span class="feat-check feat-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>Áudio, foto e PDF</li>
+        </ul>
+        <a href="/cadastro.html"
+          class="btn-ghost"
+          style="width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:9999px;cursor:pointer;text-decoration:none;display:flex;align-items:center;">
+          Começar grátis
+        </a>
+      </div>
+
+      <!-- Básico -->
+      <div class="price-card">
+        <div class="price-tier">Básico</div>
         <div class="price-desc">Perfeito para controle pessoal</div>
         <div class="price-amt">
           <span class="price-sym">R$</span>
-          <span class="price-num" id="preco-premium">19</span>
+          <span class="price-num" id="preco-basico">19,99</span>
           <span class="price-per">/mês</span>
         </div>
-        <div id="economia-premium" style="font-size:12px;color:#16a34a;font-weight:600;margin-bottom:24px;min-height:18px;"></div>
+        <div id="economia-basico" style="font-size:12px;color:#16a34a;font-weight:600;margin-bottom:24px;min-height:18px;"></div>
         <ul class="price-feats">
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Registros ilimitados via WhatsApp</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Texto, áudio, foto e PDF</li>
@@ -621,26 +646,26 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
           <li class="disabled"><span class="feat-check feat-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>Gestão compartilhada</li>
           <li class="disabled"><span class="feat-check feat-x"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>Exportação de dados</li>
         </ul>
-        <button id="btn-premium" onclick="assinar('premium')"
+        <button id="btn-basico" onclick="assinar('basico')"
           class="btn-ghost"
           style="width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:var(--radius-full);cursor:pointer;">
-          Assinar Premium
+          Assinar Básico
         </button>
       </div>
 
-      <!-- Zen -->
+      <!-- Pro -->
       <div class="price-card featured">
         <div class="featured-badge">Mais popular</div>
-        <div class="price-tier">Zen</div>
+        <div class="price-tier">Pro</div>
         <div class="price-desc">Para quem quer o máximo</div>
         <div class="price-amt">
           <span class="price-sym">R$</span>
-          <span class="price-num" id="preco-zen">39</span>
+          <span class="price-num" id="preco-pro">29,99</span>
           <span class="price-per">/mês</span>
         </div>
-        <div id="economia-zen" style="font-size:12px;color:#86efac;font-weight:600;margin-bottom:24px;min-height:18px;"></div>
+        <div id="economia-pro" style="font-size:12px;color:#86efac;font-weight:600;margin-bottom:24px;min-height:18px;"></div>
         <ul class="price-feats">
-          <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Tudo do Premium</li>
+          <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Tudo do Básico</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Contas bancárias ilimitadas</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Gestão compartilhada</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Exportação CSV e Excel</li>
@@ -648,10 +673,10 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Metas de investimento</li>
           <li><span class="feat-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>Relatório PDF mensal</li>
         </ul>
-        <button id="btn-zen" onclick="assinar('zen')"
+        <button id="btn-pro" onclick="assinar('pro')"
           class="btn-white"
           style="width:100%;justify-content:center;padding:14px;font-size:15px;border-radius:var(--radius-full);cursor:pointer;">
-          Assinar Zen
+          Assinar Pro
         </button>
       </div>
     </div>
@@ -675,18 +700,18 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
 
   // ── Preços por período ────────────────────────────────────
   const PRECOS = {
-    mensal: { premium: '19', zen: '39', economiaP: '', economiaZ: '' },
-    anual:  { premium: '15', zen: '31', economiaP: '💰 Economize R$48/ano', economiaZ: '💰 Economize R$96/ano' }
+    mensal: { basico: '19,99', pro: '29,99', economiaB: '', economiaP: '' },
+    anual:  { basico: '16,58', pro: '24,90', economiaB: '💰 Economize R$48/ano', economiaP: '💰 Economize R$96/ano' }
   };
 
   // ── Alterna período ────────────────────────────────────────
   window.alternarPeriodo = function(periodo) {
     periodoAtual = periodo;
     const p = PRECOS[periodo];
-    document.getElementById('preco-premium').textContent = p.premium;
-    document.getElementById('preco-zen').textContent     = p.zen;
-    document.getElementById('economia-premium').textContent = p.economiaP;
-    document.getElementById('economia-zen').textContent     = p.economiaZ;
+    document.getElementById('preco-basico').textContent = p.basico;
+    document.getElementById('preco-pro').textContent    = p.pro;
+    document.getElementById('economia-basico').textContent = p.economiaB;
+    document.getElementById('economia-pro').textContent    = p.economiaP;
 
     const btnM = document.getElementById('toggle-mensal');
     const btnA = document.getElementById('toggle-anual');
@@ -724,20 +749,20 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
   }
 
   function atualizarBotoesPlano() {
-    const btnP = document.getElementById('btn-premium');
-    const btnZ = document.getElementById('btn-zen');
-    if (!btnP || !btnZ) return;
+    const btnB = document.getElementById('btn-basico');
+    const btnP = document.getElementById('btn-pro');
+    if (!btnB || !btnP) return;
 
-    if (planoAtualUsuario === 'premium') {
+    if (planoAtualUsuario === 'basico') {
+      btnB.textContent = '✓ Plano atual';
+      btnB.disabled = true;
+      btnB.style.opacity = '0.6';
+      btnB.style.cursor = 'default';
+    } else if (planoAtualUsuario === 'pro') {
       btnP.textContent = '✓ Plano atual';
       btnP.disabled = true;
-      btnP.style.opacity = '0.6';
+      btnP.style.opacity = '0.8';
       btnP.style.cursor = 'default';
-    } else if (planoAtualUsuario === 'zen') {
-      btnZ.textContent = '✓ Plano atual';
-      btnZ.disabled = true;
-      btnZ.style.opacity = '0.8';
-      btnZ.style.cursor = 'default';
     }
   }
 
@@ -747,18 +772,16 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
 
     const token = localStorage.getItem('gz_token');
     if (!token) {
-      // Não logado: redireciona para cadastro com retorno para planos
-      window.location.href = '/cadastro.html?redirect=planos';
+      window.location.href = '/cadastro.html';
       return;
     }
 
-    // Se já tem este plano, abre portal de gerenciamento
     if (planoAtualUsuario === tipo) {
       abrirPortal();
       return;
     }
 
-    const btnId = tipo === 'premium' ? 'btn-premium' : 'btn-zen';
+    const btnId = tipo === 'basico' ? 'btn-basico' : 'btn-pro';
     const btn = document.getElementById(btnId);
     const textoOriginal = btn.textContent;
 
@@ -766,7 +789,7 @@ footer { background: var(--ink); color: white; padding: 72px 40px 40px; border-t
     btn.textContent = 'Aguarde...';
     btn.disabled = true;
 
-    // Monta nome do plano: premium_mensal, premium_anual, zen_mensal, zen_anual
+    // Monta nome do plano: basico_mensal, basico_anual, pro_mensal, pro_anual
     const planoKey = `${tipo}_${periodoAtual}`;
 
     try {

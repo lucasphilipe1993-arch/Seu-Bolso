@@ -697,23 +697,23 @@
                     </div>
                 </div>
 
-                <div class="plan-card" onclick="selectPlan(this,'premium_mensal')" data-plan="premium_mensal">
+                <div class="plan-card" onclick="selectPlan(this,'pro_mensal')" data-plan="pro_mensal">
                     <div class="plan-radio"></div>
                     <div class="plan-info">
-                        <div class="plan-name-row"><div class="plan-name">Premium Mensal</div></div>
+                        <div class="plan-name-row"><div class="plan-name">Pro Mensal</div></div>
                         <div class="plan-desc">Recursos ilimitados · 7 dias grátis</div>
                     </div>
                     <div class="plan-price-tag">
-                        <div class="plan-price-val">R$ 29,90</div>
+                        <div class="plan-price-val">R$ 29,99</div>
                         <div class="plan-price-period">por mês</div>
                     </div>
                 </div>
 
-                <div class="plan-card featured" onclick="selectPlan(this,'premium_anual')" data-plan="premium_anual">
+                <div class="plan-card featured" onclick="selectPlan(this,'pro_anual')" data-plan="pro_anual">
                     <div class="plan-badge-pill" style="background:var(--gold)">✦ POPULAR</div>
                     <div class="plan-radio"></div>
                     <div class="plan-info">
-                        <div class="plan-name-row"><div class="plan-name">Premium Anual</div></div>
+                        <div class="plan-name-row"><div class="plan-name">Pro Anual</div></div>
                         <div class="plan-desc">Melhor custo-benefício · R$ 299,00/ano</div>
                     </div>
                     <div class="plan-price-tag">
@@ -896,7 +896,7 @@
 <script>
 // ─── Config Stripe ─────────────────────────────────────────────
 // Substitua pela sua chave pública do Stripe (pk_live_... ou pk_test_...)
-const STRIPE_PUBLIC_KEY = window.STRIPE_PUBLIC_KEY || 'pk_test_SUBSTITUA_PELA_SUA_CHAVE_PUBLICA';
+const STRIPE_PUBLIC_KEY = window.STRIPE_PUBLIC_KEY || 'pk_live_SUBSTITUA_PELA_SUA_CHAVE_PUBLICA_LIVE';
 const stripe = Stripe(STRIPE_PUBLIC_KEY);
 const elements = stripe.elements({
     fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap' }]
@@ -942,10 +942,10 @@ let stripePaymentMethodId = null; // será preenchido ao validar cartão
 
 // Info dos planos
 const PLANOS = {
-    basico_mensal:  { label: 'Básico Mensal',   valor: 'R$ 19,90/mês',  priceKey: 'STRIPE_PRICE_BASICO_MENSAL'  },
-    basico_anual:   { label: 'Básico Anual',    valor: 'R$ 199,00/ano', priceKey: 'STRIPE_PRICE_BASICO_ANUAL'   },
-    premium_mensal: { label: 'Premium Mensal',  valor: 'R$ 29,90/mês',  priceKey: 'STRIPE_PRICE_PRO_MENSAL'    },
-    premium_anual:  { label: 'Premium Anual',   valor: 'R$ 299,00/ano', priceKey: 'STRIPE_PRICE_PRO_ANUAL'     },
+    basico_mensal: { label: 'Básico Mensal',   valor: 'R$ 19,99/mês',  priceKey: 'STRIPE_PRICE_BASICO_MENSAL' },
+    basico_anual:  { label: 'Básico Anual',    valor: 'R$ 199,00/ano', priceKey: 'STRIPE_PRICE_BASICO_ANUAL'  },
+    pro_mensal:    { label: 'Pro Mensal',       valor: 'R$ 29,99/mês',  priceKey: 'STRIPE_PRICE_PRO_MENSAL'   },
+    pro_anual:     { label: 'Pro Anual',        valor: 'R$ 299,00/ano', priceKey: 'STRIPE_PRICE_PRO_ANUAL'    },
 };
 
 // ─── Máscara de telefone ────────────────────────────────────────

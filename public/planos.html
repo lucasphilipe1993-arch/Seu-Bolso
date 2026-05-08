@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planos — Seu Secretário</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #132d4a; --blue-light: #1e4976; --blue-dark: #0d1f33;
+    --green: #16a34a; --green-light: #dcfce7;
+    --gold: #f59e0b; --gold-light: #fef3c7;
+    --gray-900: #111827; --gray-700: #374151; --gray-500: #6b7280;
+    --gray-200: #e5e7eb; --gray-100: #f3f4f6; --white: #ffffff;
+    --red: #ef4444;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',sans-serif; background:var(--gray-100); color:var(--gray-900); min-height:100vh; }
+  h1,h2,h3,h4 { font-family:'Syne',sans-serif; }
+
+  /* ── Header ── */
+  header {
+    background:white;
+    border-bottom:1px solid var(--gray-200);
+    padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
+  .logo img { height:40px; }
+  .logo span { font-family:'Syne',sans-serif; font-weight:800; font-size:18px; color:var(--gray-900); }
+  .btn-back { background:none; border:1.5px solid var(--gray-200); padding:8px 16px; border-radius:8px; font-size:14px; font-weight:600; font-family:'Syne',sans-serif; cursor:pointer; color:var(--gray-700); transition:.2s; }
+  .btn-back:hover { background:var(--gray-100); }
+
+  /* ── Hero ── */
+  .hero { text-align:center; padding:56px 24px 40px; }
+  .hero h1 { font-size:clamp(28px,5vw,42px); font-weight:800; margin-bottom:12px; }
+  .hero p { color:var(--gray-500); font-size:16px; max-width:480px; margin:0 auto 28px; }
+  .toggle-billing {
+    display:inline-flex; background:white; border:1.5px solid var(--gray-200);
+    border-radius:12px; padding:4px; gap:4px;
+  }
+  .toggle-billing button {
+    padding:8px 20px; border:none; border-radius:8px; font-size:14px; font-weight:600;
+    font-family:'Syne',sans-serif; cursor:pointer; transition:.2s; background:transparent; color:var(--gray-500);
+  }
+  .toggle-billing button.ativo { background:var(--blue); color:white; }
+  .badge-desconto {
+    background:var(--green-light); color:var(--green);
+    font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px;
+    margin-left:6px; vertical-align:middle;
+  }
+
+  /* ── Cards ── */
+  .planos { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; padding:0 24px 64px; max-width:900px; margin:0 auto; }
+
+  .card {
+    background:white; border-radius:20px; padding:32px; width:280px;
+    border:2px solid var(--gray-200);
+    transition:transform .2s, box-shadow .2s;
+    position:relative;
+  }
+  .card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,.1); }
+  .card.destaque {
+    border-color:var(--blue); box-shadow:0 8px 32px rgba(19,45,74,.15);
+  }
+
+  .badge-popular {
+    position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    background:var(--blue); color:white; font-size:12px; font-weight:700;
+    font-family:'Syne',sans-serif; padding:4px 16px; border-radius:20px;
+    white-space:nowrap;
+  }
+
+  .plano-nome { font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--gray-500); margin-bottom:8px; }
+  .plano-preco { display:flex; align-items:baseline; gap:4px; margin-bottom:4px; }
+  .plano-preco .cifrao { font-size:18px; font-weight:700; color:var(--gray-700); }
+  .plano-preco .valor { font-size:40px; font-weight:800; font-family:'Syne',sans-serif; line-height:1; }
+  .plano-preco .periodo { font-size:14px; color:var(--gray-500); }
+  .plano-economia { font-size:12px; color:var(--green); font-weight:600; margin-bottom:20px; min-height:18px; }
+
+  .plano-desc { font-size:14px; color:var(--gray-500); margin-bottom:20px; line-height:1.5; }
+
+  .recursos { list-style:none; margin-bottom:28px; display:flex; flex-direction:column; gap:10px; }
+  .recursos li { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:var(--gray-700); }
+  .recursos li .check { color:var(--green); font-size:16px; flex-shrink:0; margin-top:1px; }
+  .recursos li .x { color:var(--gray-500); font-size:16px; flex-shrink:0; margin-top:1px; opacity:.5; }
+
+  .btn-assinar {
+    width:100%; padding:14px; border:none; border-radius:12px;
+    font-size:15px; font-weight:700; font-family:'Syne',sans-serif;
+    cursor:pointer; transition:.2s;
+  }
+  .btn-assinar.primario { background:var(--blue); color:white; }
+  .btn-assinar.primario:hover { background:var(--blue-dark); }
+  .btn-assinar.primario:disabled { opacity:.6; cursor:not-allowed; }
+  .btn-assinar.secundario { background:var(--gray-100); color:var(--gray-700); }
+  .btn-assinar.secundario:hover { background:var(--gray-200); }
+  .btn-assinar.plano-atual { background:var(--green-light); color:var(--green); cursor:default; }
+
+  /* ── Toast ── */
+  .toast {
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--gray-900); color:white; padding:12px 24px;
+    border-radius:10px; font-size:14px; font-weight:600;
+    opacity:0; transition:opacity .3s; pointer-events:none; z-index:999;
+  }
+  .toast.visivel { opacity:1; }
+  .toast.erro { background:#dc2626; }
+  .toast.sucesso { background:var(--green); }
+
+  /* ── FAQ ── */
+  .faq-section { max-width:600px; margin:0 auto; padding:0 24px 64px; }
+  .faq-section h2 { font-size:22px; font-weight:800; margin-bottom:24px; text-align:center; }
+  .faq-item { border-bottom:1px solid var(--gray-200); }
+  .faq-pergunta {
+    width:100%; background:none; border:none; text-align:left;
+    padding:16px 0; font-size:15px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer; display:flex; justify-content:space-between; align-items:center; color:var(--gray-900);
+  }
+  .faq-resposta { font-size:14px; color:var(--gray-500); padding-bottom:16px; line-height:1.6; display:none; }
+  .faq-item.aberto .faq-resposta { display:block; }
+  .faq-item.aberto .faq-icone { transform:rotate(180deg); }
+  .faq-icone { transition:transform .2s; font-size:18px; color:var(--gray-500); }
+
+  @media(max-width:640px) {
+    .planos { flex-direction:column; align-items:center; }
+    .card { width:100%; max-width:340px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/dashboard.html" class="logo">
+    <img src="assets/seu_secretario.webp" alt="Seu Secretário">
+  </a>
+  <button class="btn-back" onclick="window.location.href='/dashboard.html'">← Voltar</button>
+</header>
+
+<div class="hero">
+  <h1>Escolha seu plano</h1>
+  <p>Controle total das suas finanças pelo WhatsApp. Cancele quando quiser.</p>
+  <div class="toggle-billing">
+    <button id="btn-mensal" class="ativo" onclick="alternarPeriodo('mensal')">Mensal</button>
+    <button id="btn-anual" onclick="alternarPeriodo('anual')">Anual <span class="badge-desconto">-20%</span></button>
+  </div>
+</div>
+
+<div class="planos">
+
+  <!-- Gratuito -->
+  <div class="card">
+    <div class="plano-nome">Gratuito</div>
+    <div class="plano-preco">
+      <span class="cifrao">R$</span>
+      <span class="valor">0</span>
+      <span class="periodo">/mês</span>
+    </div>
+    <div class="plano-economia"></div>
+    <div class="plano-desc">Para quem está começando a organizar as finanças.</div>
+    <ul class="recursos">
+      <li><span class="check">✓</span> Registrar gastos e receitas</li>
+      <li><span class="check">✓</span> Saldo do mês atual</li>
+      <li><span class="check">✓</span> Categorias básicas</li>
+      <li><span class="x">✕</span> <span style="opacity:.5">Relatórios detalhados</span></li>
+      <li><span class="x">✕</span> <span style="opacity:.5">Metas financeiras</span></li>
+      <li><span class="x">✕</span> <span style="opacity:.5">Exportar dados</span></li>
+    </ul>
+    <button id="btn-gratis" class="btn-assinar secundario" onclick="irParaDashboard()">Continuar grátis</button>
+  </div>
+
+  <!-- Pro -->
+  <div class="card destaque">
+    <div class="badge-popular">⭐ Mais popular</div>
+    <div class="plano-nome">Pro</div>
+    <div class="plano-preco">
+      <span class="cifrao">R$</span>
+      <span class="valor" id="preco-pro">19</span>
+      <span class="periodo">/mês</span>
+    </div>
+    <div class="plano-economia" id="economia-pro"></div>
+    <div class="plano-desc">Para quem quer controle completo e insights financeiros.</div>
+    <ul class="recursos">
+      <li><span class="check">✓</span> Tudo do plano Gratuito</li>
+      <li><span class="check">✓</span> Relatórios mensais detalhados</li>
+      <li><span class="check">✓</span> Metas e orçamentos</li>
+      <li><span class="check">✓</span> Histórico completo</li>
+      <li><span class="check">✓</span> Exportar para PDF/Excel</li>
+      <li><span class="check">✓</span> Suporte prioritário</li>
+    </ul>
+    <button id="btn-pro" class="btn-assinar primario" onclick="assinar()">
+      Assinar agora
+    </button>
+  </div>
+
+</div>
+
+<!-- FAQ -->
+<div class="faq-section">
+  <h2>Dúvidas frequentes</h2>
+
+  <div class="faq-item">
+    <button class="faq-pergunta" onclick="toggleFaq(this)">
+      Como funciona o pagamento? <span class="faq-icone">▾</span>
+    </button>
+    <div class="faq-resposta">O pagamento é processado com segurança pela Stripe. Aceitamos cartão de crédito, débito e Pix (quando disponível). Nenhum dado de pagamento fica armazenado no nosso servidor.</div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-pergunta" onclick="toggleFaq(this)">
+      Posso cancelar a qualquer momento? <span class="faq-icone">▾</span>
+    </button>
+    <div class="faq-resposta">Sim! Você pode cancelar sua assinatura a qualquer momento pelo portal de gerenciamento. O acesso Pro continua até o fim do período pago.</div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-pergunta" onclick="toggleFaq(this)">
+      O plano anual tem desconto? <span class="faq-icone">▾</span>
+    </button>
+    <div class="faq-resposta">Sim, o plano anual tem 20% de desconto em relação ao mensal — você paga o equivalente a ~R$15/mês em vez de R$19/mês.</div>
+  </div>
+
+  <div class="faq-item">
+    <button class="faq-pergunta" onclick="toggleFaq(this)">
+      Meus dados estão seguros? <span class="faq-icone">▾</span>
+    </button>
+    <div class="faq-resposta">Seus dados financeiros são armazenados de forma segura e nunca são compartilhados com terceiros. O acesso é protegido por autenticação JWT.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api';
+let periodoAtual = 'mensal';
+let planoAtual   = 'gratuito';
+let carregando   = false;
+
+// ── Busca plano atual do usuário ──────────────────────────
+async function carregarStatus() {
+  const token = localStorage.getItem('gz_token');
+  if (!token) return;
+  try {
+    const r = await fetch(`${API}/stripe/status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    planoAtual = data.plano || 'gratuito';
+    atualizarBotoes();
+  } catch {}
+}
+
+function atualizarBotoes() {
+  const btnPro   = document.getElementById('btn-pro');
+  const btnGratis = document.getElementById('btn-gratis');
+
+  if (planoAtual === 'pro' || planoAtual === 'premium') {
+    btnPro.textContent    = '✓ Plano atual';
+    btnPro.className      = 'btn-assinar plano-atual';
+    btnGratis.textContent = 'Fazer downgrade';
+    btnGratis.className   = 'btn-assinar secundario';
+  }
+}
+
+// ── Alternar mensal / anual ───────────────────────────────
+function alternarPeriodo(periodo) {
+  periodoAtual = periodo;
+  document.getElementById('btn-mensal').className = periodo === 'mensal' ? 'ativo' : '';
+  document.getElementById('btn-anual').className  = periodo === 'anual'  ? 'ativo' : '';
+
+  const precoEl    = document.getElementById('preco-pro');
+  const economiaEl = document.getElementById('economia-pro');
+
+  if (periodo === 'anual') {
+    precoEl.textContent    = '15';
+    economiaEl.textContent = '💰 Economize R$48 por ano';
+  } else {
+    precoEl.textContent    = '19';
+    economiaEl.textContent = '';
+  }
+}
+
+// ── Assinar ───────────────────────────────────────────────
+async function assinar() {
+  if (carregando) return;
+
+  const token = localStorage.getItem('gz_token');
+  if (!token) {
+    window.location.href = '/login.html';
+    return;
+  }
+
+  if (planoAtual === 'pro' || planoAtual === 'premium') {
+    abrirPortal();
+    return;
+  }
+
+  carregando = true;
+  const btn = document.getElementById('btn-pro');
+  btn.textContent = 'Aguarde...';
+  btn.disabled    = true;
+
+  const plano = periodoAtual === 'anual' ? 'pro_anual' : 'pro_mensal';
+
+  try {
+    const r = await fetch(`${API}/stripe/checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ plano }),
+    });
+
+    const data = await r.json();
+
+    if (!r.ok) {
+      mostrarToast(data.erro || 'Erro ao iniciar pagamento', 'erro');
+      btn.textContent = 'Assinar agora';
+      btn.disabled    = false;
+      carregando      = false;
+      return;
+    }
+
+    // Redireciona para o Stripe Checkout
+    window.location.href = data.url;
+  } catch {
+    mostrarToast('Erro de conexão. Tente novamente.', 'erro');
+    btn.textContent = 'Assinar agora';
+    btn.disabled    = false;
+    carregando      = false;
+  }
+}
+
+// ── Portal do cliente (gerenciar assinatura) ──────────────
+async function abrirPortal() {
+  const token = localStorage.getItem('gz_token');
+  if (!token) return;
+  try {
+    const r = await fetch(`${API}/stripe/portal`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await r.json();
+    if (data.url) window.location.href = data.url;
+  } catch {
+    mostrarToast('Erro ao abrir portal.', 'erro');
+  }
+}
+
+function irParaDashboard() {
+  window.location.href = '/dashboard.html';
+}
+
+function toggleFaq(btn) {
+  btn.closest('.faq-item').classList.toggle('aberto');
+}
+
+function mostrarToast(msg, tipo = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `toast visivel ${tipo}`;
+  setTimeout(() => el.className = 'toast', 3500);
+}
+
+// ── Checa parâmetros de retorno do Stripe ─────────────────
+const params = new URLSearchParams(window.location.search);
+if (params.get('checkout') === 'sucesso') {
+  mostrarToast('🎉 Pagamento confirmado! Seu plano foi ativado.', 'sucesso');
+} else if (params.get('checkout') === 'cancelado') {
+  mostrarToast('Pagamento cancelado. Você pode assinar quando quiser.', '');
+}
+
+// Inicia
+if (!localStorage.getItem('gz_token')) {
+  document.getElementById('btn-pro').textContent = 'Entrar para assinar';
+}
+carregarStatus();
+</script>
+</body>
+</html>

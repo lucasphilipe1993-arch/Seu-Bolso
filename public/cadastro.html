@@ -325,6 +325,59 @@
         .plan-price-val { font-size: 18px; font-weight: 800; color: var(--navy); line-height: 1; }
         .plan-price-period { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
 
+        /* COUPON */
+        .coupon-section {
+            margin-top: 8px;
+            margin-bottom: 4px;
+        }
+        .coupon-toggle {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 13px; color: var(--navy); font-weight: 600;
+            cursor: pointer; background: none; border: none;
+            font-family: 'DM Sans', sans-serif; padding: 0;
+            text-decoration: underline; text-underline-offset: 2px;
+            transition: opacity 0.15s;
+        }
+        .coupon-toggle:hover { opacity: 0.7; }
+
+        .coupon-input-row {
+            display: none; flex-direction: column; gap: 8px; margin-top: 12px;
+        }
+        .coupon-input-row.open { display: flex; }
+
+        .coupon-field-wrap {
+            display: flex; gap: 8px;
+        }
+        .coupon-input {
+            flex: 1; padding: 11px 14px;
+            border: 1.5px solid var(--gray-200); border-radius: 10px;
+            font-size: 14px; font-family: 'DM Sans', sans-serif;
+            background: var(--gray-50); color: var(--gray-900);
+            outline: none; transition: all 0.2s; letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .coupon-input::placeholder { text-transform: none; color: var(--gray-300); }
+        .coupon-input:focus { border-color: var(--navy); background: white; box-shadow: 0 0 0 4px rgba(15,34,55,0.07); }
+        .coupon-input.success { border-color: var(--green); background: var(--green-bg); }
+        .coupon-input.error { border-color: var(--red); background: var(--red-bg); }
+
+        .coupon-btn {
+            padding: 11px 18px; background: var(--navy); color: white;
+            border: none; border-radius: 10px; font-size: 13px; font-weight: 600;
+            font-family: 'DM Sans', sans-serif; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .coupon-btn:hover { background: var(--navy-lite); }
+        .coupon-btn:disabled { opacity: 0.6; pointer-events: none; }
+
+        .coupon-feedback {
+            font-size: 12px; display: none; align-items: center; gap: 6px;
+            padding: 10px 14px; border-radius: 8px; font-weight: 500;
+        }
+        .coupon-feedback.show { display: flex; }
+        .coupon-feedback.ok { background: var(--green-bg); color: var(--green); border: 1px solid rgba(45,122,95,0.2); }
+        .coupon-feedback.fail { background: var(--red-bg); color: var(--red); border: 1px solid rgba(192,57,43,0.2); }
+
         /* CONFIRM */
         .confirm-card {
             background: var(--gray-50); border: 1.5px solid var(--gray-200);
@@ -723,11 +776,26 @@
                 </div>
             </div>
 
-            <div style="display:flex;gap:10px">
+            <!-- ── CUPOM DE ACESSO ── -->
+            <div class="coupon-section">
+                <button type="button" class="coupon-toggle" onclick="toggleCoupon()">
+                    🎁 Tenho um cupom de acesso gratuito
+                </button>
+                <div class="coupon-input-row" id="coupon-row">
+                    <div class="coupon-field-wrap">
+                        <input class="coupon-input" id="f-coupon" type="text" placeholder="Digite o código do cupom"
+                            oninput="this.value = this.value.toUpperCase()" onkeydown="if(event.key==='Enter') aplicarCupom()">
+                        <button class="coupon-btn" id="btn-cupom" onclick="aplicarCupom()">Aplicar</button>
+                    </div>
+                    <div class="coupon-feedback" id="coupon-feedback"></div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px">
                 <button class="btn-submit" style="background:var(--gray-100);color:var(--navy);flex:0 0 auto;width:48px;padding:0;justify-content:center;box-shadow:none;" onclick="goStep(1)">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                 </button>
-                <button class="btn-submit" style="flex:1" onclick="goStep(3)">
+                <button class="btn-submit" style="flex:1" id="btn-continuar-plano" onclick="continuarDoPlano()">
                     Continuar
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </button>
@@ -846,12 +914,16 @@
                     <span class="confirm-label">Plano</span>
                     <span class="confirm-value" id="c-plan">—</span>
                 </div>
-                <div class="confirm-row">
+                <div class="confirm-row" id="c-row-card">
                     <span class="confirm-label">Cartão</span>
                     <span class="confirm-value" id="c-card">—</span>
                 </div>
+                <div class="confirm-row" id="c-row-coupon" style="display:none">
+                    <span class="confirm-label">Cupom</span>
+                    <span class="confirm-value" id="c-coupon" style="color:var(--green)">—</span>
+                </div>
                 <div class="confirm-row">
-                    <span class="confirm-label">Cobrança em</span>
+                    <span class="confirm-label" id="c-cobranca-label">Cobrança em</span>
                     <span class="confirm-value" id="c-cobranca" style="color:var(--green)">—</span>
                 </div>
             </div>
@@ -939,6 +1011,7 @@ function montarStripe() {
 let planoSelecionado = '';
 let stepAtual = 1;
 let stripePaymentMethodId = null; // será preenchido ao validar cartão
+let cupomAplicado = null;         // { codigo, plano, descricao } — se cupom gratuito válido
 
 // Info dos planos
 const PLANOS = {
@@ -997,6 +1070,105 @@ function togglePass(inputId, btn) {
     btn.querySelector('svg').innerHTML = isText
         ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
         : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+}
+
+// ─── Cupom de acesso gratuito ───────────────────────────────────
+function toggleCoupon() {
+    const row = document.getElementById('coupon-row');
+    row.classList.toggle('open');
+    if (row.classList.contains('open')) {
+        document.getElementById('f-coupon').focus();
+    }
+}
+
+async function aplicarCupom() {
+    const input    = document.getElementById('f-coupon');
+    const btn      = document.getElementById('btn-cupom');
+    const feedback = document.getElementById('coupon-feedback');
+    const codigo   = input.value.trim().toUpperCase();
+
+    if (!codigo) return;
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    feedback.className = 'coupon-feedback';
+    input.className = 'coupon-input';
+
+    try {
+        const resp = await fetch('/api/cupons/validar', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ codigo }),
+        });
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok || !data.valido) {
+            input.classList.add('error');
+            feedback.className = 'coupon-feedback fail show';
+            feedback.innerHTML = '✗ ' + (data.erro || 'Cupom inválido ou expirado.');
+            cupomAplicado = null;
+        } else {
+            input.classList.add('success');
+            feedback.className = 'coupon-feedback ok show';
+            feedback.innerHTML = '✓ ' + (data.descricao || 'Cupom válido! Acesso gratuito liberado por ' + (data.dias || 30) + ' dias.');
+            cupomAplicado = { codigo, plano: data.plano || 'basico', dias: data.dias || 30, descricao: data.descricao };
+
+            // Se o cupom define o plano automaticamente, seleciona e desabilita
+            if (data.plano) {
+                const card = document.querySelector(`[data-plan="${data.plano}"]`);
+                if (card) {
+                    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    planoSelecionado = data.plano;
+                }
+            }
+        }
+    } catch (err) {
+        feedback.className = 'coupon-feedback fail show';
+        feedback.innerHTML = '✗ Erro ao verificar cupom. Tente novamente.';
+        cupomAplicado = null;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Aplicar';
+    }
+}
+
+function continuarDoPlano() {
+    if (!planoSelecionado) {
+        alert('Selecione um plano para continuar.');
+        return;
+    }
+
+    if (cupomAplicado) {
+        // Pula step de pagamento — vai direto para confirmação sem cartão
+        const info = PLANOS[planoSelecionado];
+        document.getElementById('c-name').textContent  = document.getElementById('f-name').value.trim();
+        document.getElementById('c-email').textContent = document.getElementById('f-email').value.trim();
+        document.getElementById('c-phone').textContent = document.getElementById('f-phone').value.trim();
+        document.getElementById('c-plan').textContent  = info ? info.label : planoSelecionado;
+
+        // Oculta linha de cartão, exibe linha de cupom
+        document.getElementById('c-row-card').style.display   = 'none';
+        document.getElementById('c-row-coupon').style.display = '';
+        document.getElementById('c-coupon').textContent = cupomAplicado.codigo + ' — acesso gratuito por ' + cupomAplicado.dias + ' dias';
+
+        document.getElementById('c-cobranca-label').textContent = 'Acesso até';
+        const ate = new Date();
+        ate.setDate(ate.getDate() + cupomAplicado.dias);
+        document.getElementById('c-cobranca').textContent = ate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        // Atualiza texto do botão de confirmar
+        document.getElementById('btn-criar').innerHTML =
+            'Criar conta gratuitamente <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+        // Atualiza rodapé
+        const rodape = document.querySelector('#panel-4 p[style*="text-align"]');
+        if (rodape) rodape.innerHTML = 'Ao criar a conta, você concorda com nossos termos de uso.<br>Nenhuma cobrança durante o período do cupom.';
+
+        goStepDireto(4);
+    } else {
+        goStep(3);
+    }
 }
 
 // ─── Seleção de plano ───────────────────────────────────────────
@@ -1136,13 +1308,14 @@ function goStep(destino) {
         if (!validarStep1()) return;
     }
 
-    if (destino === 2 && !planoSelecionado) {
-        // ok, usuário ainda vai escolher
-    }
-
     if (destino === 3) {
         if (!planoSelecionado) {
             alert('Selecione um plano para continuar.');
+            return;
+        }
+        // Se veio de step 4 voltando (e há cupom), vai para step 2
+        if (cupomAplicado && destino === 3) {
+            goStepDireto(2);
             return;
         }
         atualizarResumoPagamento();
@@ -1203,7 +1376,8 @@ async function submeter() {
         senha:            document.getElementById('f-pass').value,
         telefone:         telefoneRaw(),
         plano:            planoSelecionado,
-        paymentMethodId:  stripePaymentMethodId,
+        paymentMethodId:  cupomAplicado ? null : stripePaymentMethodId,
+        cupomCodigo:      cupomAplicado ? cupomAplicado.codigo : null,
     };
 
     try {

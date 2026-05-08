@@ -32,15 +32,31 @@ router.post('/reconectar', autenticar, async (req, res) => {
 // ── POST /api/whatsapp/vincular ──────────────────────────
 // Vincula o telefone autenticado ao bot
 router.post('/vincular', autenticar, async (req, res) => {
-  const { telefone } = req.body;
+  let { telefone } = req.body;
   if (!telefone) return res.status(400).json({ erro: 'Telefone obrigatório' });
+
+  // ─── Normaliza o número antes de salvar ───────────────────────
+  // Remove tudo que não for dígito
+  telefone = telefone.replace(/\D/g, '');
+  // Remove DDI 55 se vier junto
+  if (telefone.startsWith('55') && telefone.length > 11) {
+    telefone = telefone.slice(2);
+  }
+  // Adiciona o 9º dígito se o número tiver apenas 10 dígitos (celular sem o 9)
+  if (telefone.length === 10) {
+    const ddd = telefone.slice(0, 2);
+    const numero = telefone.slice(2);
+    if (['6', '7', '8', '9'].includes(numero[0])) {
+      telefone = ddd + '9' + numero;
+    }
+  }
+  // ─────────────────────────────────────────────────────────────
 
   try {
     await db.query(
       'UPDATE usuarios SET telefone = $1, whatsapp_ativo = true WHERE id = $2',
       [telefone, req.usuarioId]
     );
-
     // Cria (ou atualiza) a sessão do bot para este número
     await db.query(
       `INSERT INTO sessoes_bot (telefone, usuario_id)
@@ -48,7 +64,6 @@ router.post('/vincular', autenticar, async (req, res) => {
        ON CONFLICT (telefone) DO UPDATE SET usuario_id = $2`,
       [telefone, req.usuarioId]
     );
-
     res.json({ mensagem: 'WhatsApp vinculado com sucesso' });
   } catch (err) {
     console.error('Erro ao vincular WhatsApp:', err);

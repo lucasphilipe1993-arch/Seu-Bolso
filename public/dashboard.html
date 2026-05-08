@@ -21,7 +21,6 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background: var(--off-white); color: var(--gray-900); font-size: 14px; }
         .app { display: flex; min-height: 100vh; }
-
         /* SIDEBAR */
         .sidebar { width: var(--sidebar-w); background: #fff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; overflow-y: auto; }
         .sidebar-logo { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: white; display: flex; align-items: center; gap: 10px; }
@@ -44,7 +43,6 @@
         .user-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
         .user-name { font-size: 13px; font-weight: 600; color: #111827; }
         .user-plan { font-size: 11px; color: var(--gold); font-weight: 600; }
-
         /* MAIN */
         .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
         .topbar { background: var(--white); padding: 0 36px; height: 66px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 40; border-bottom: 1px solid var(--gray-200); }
@@ -53,7 +51,6 @@
         .content { padding: 32px 36px; flex: 1; }
         .page { display: none; }
         .page.active { display: block; }
-
         /* CARDS */
         .card { background: var(--white); border-radius: 14px; padding: 26px; border: 1px solid var(--gray-200); margin-bottom: 22px; }
         .card-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; color: var(--navy); }
@@ -65,7 +62,6 @@
         .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--gray-400); margin-bottom: 10px; }
         .stat-value { font-size: 26px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
         .stat-meta { font-size: 12px; color: var(--gray-400); }
-
         /* BUTTONS */
         .btn { padding: 9px 20px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: 8px; font-family: 'Inter', sans-serif; }
         .btn-primary { background: var(--navy); color: white; }
@@ -77,7 +73,6 @@
         .btn-outline-green { background: var(--green-bg); color: var(--green); border: 1px solid #b7ddd0; }
         .btn-danger { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
         .btn-danger:hover { background: #fecaca; }
-
         /* FORM */
         .form-group { margin-bottom: 16px; }
         .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--gray-500); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em; }
@@ -85,27 +80,23 @@
         .form-textarea { resize: vertical; min-height: 80px; }
         .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,148,86,.12); }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-
         /* TABLE */
         .table { width: 100%; border-collapse: collapse; }
         .table th { text-align: left; padding: 11px 14px; background: var(--gray-50); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-400); border-bottom: 1px solid var(--gray-200); }
         .table td { padding: 13px 14px; border-bottom: 1px solid var(--gray-100); font-size: 13.5px; color: var(--gray-700); }
         .table tr:hover td { background: var(--gray-50); }
         .td-strong { font-weight: 600; color: var(--gray-900); }
-
         /* BADGES */
         .badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
         .badge-green { background: var(--green-bg); color: var(--green); }
         .badge-red { background: var(--red-bg); color: var(--red); }
         .badge-navy { background: #dde8f2; color: var(--navy); }
         .badge-gold { background: var(--gold-pale); color: #7a6130; }
-
         /* TABS */
         .tabs { display: flex; border-bottom: 2px solid var(--gray-200); margin-bottom: 22px; }
         .tab { padding: 10px 18px; font-size: 13.5px; font-weight: 500; color: var(--gray-400); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
         .tab:hover { color: var(--navy); }
         .tab.active { color: var(--navy); font-weight: 700; border-bottom-color: var(--navy); }
-
         /* SETTINGS */
         .settings-layout { display: flex; gap: 28px; }
         .settings-sidebar { width: 220px; flex-shrink: 0; background: var(--white); border-radius: 14px; border: 1px solid var(--gray-200); padding: 16px 12px; height: fit-content; }
@@ -116,7 +107,6 @@
         .settings-content { flex: 1; }
         .settings-panel { display: none; }
         .settings-panel.active { display: block; }
-
         /* TOGGLE */
         .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--gray-100); }
         .toggle-info { flex: 1; }
@@ -128,17 +118,14 @@
         .toggle-slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 4px; bottom: 4px; background: white; border-radius: 50%; transition: .3s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
         .toggle input:checked + .toggle-slider { background: var(--green); }
         .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
-
         /* PROGRESS BAR */
         .progress-bar-wrap { height: 7px; background: var(--gray-200); border-radius: 4px; overflow: hidden; margin-top: 8px; }
         .progress-bar-fill { height: 100%; border-radius: 4px; transition: width .4s; }
-
         /* TOAST */
         .toast { position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: white; padding: 14px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; z-index: 9999; display: flex; align-items: center; gap: 10px; transform: translateY(100px); opacity: 0; transition: all .3s ease; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: var(--green); }
         .toast.error { background: var(--red); }
-
         /* MODAL */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .2s; }
         .modal-overlay.open { opacity: 1; pointer-events: all; }
@@ -147,32 +134,26 @@
         .modal-title { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
         .modal-desc { font-size: 13px; color: var(--gray-400); margin-bottom: 22px; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
-
         /* CREDIT CARD */
         .credit-card-visual { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-lite) 100%); border-radius: 16px; padding: 24px; color: white; position: relative; overflow: hidden; }
         .credit-card-visual::before { content: ''; position: absolute; top: -30px; right: -30px; width: 140px; height: 140px; border-radius: 50%; background: rgba(184,148,86,.15); }
-
         /* DANGER ZONE */
         .danger-zone { border: 1px solid #fca5a5; border-radius: 12px; padding: 20px; background: #fff5f5; }
         .danger-title { font-size: 14px; font-weight: 700; color: var(--red); margin-bottom: 4px; }
         .danger-desc { font-size: 13px; color: #9b2c2c; margin-bottom: 14px; }
-
         .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
         .divider { height: 1px; background: var(--gray-200); margin: 20px 0; }
         .section-sub { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--gray-400); margin-bottom: 12px; margin-top: 20px; }
         .cashflow-box { padding: 20px; border-radius: 12px; }
         .cashflow-in { background: var(--green-bg); border: 1px solid #b7ddd0; }
         .cashflow-out { background: var(--red-bg); border: 1px solid #f5c6c2; }
-
         /* LOADING skeleton */
         .skeleton { background: linear-gradient(90deg, var(--gray-100) 25%, var(--gray-200) 50%, var(--gray-100) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         @keyframes spin { to { transform: rotate(360deg); } }
-
         /* AVATAR */
         .user-avatar-large { width: 72px; height: 72px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 26px; flex-shrink: 0; cursor: pointer; overflow: hidden; }
         .user-avatar-large img { width: 100%; height: 100%; object-fit: cover; display: none; }
-
         /* PLAN CARDS */
         .plan-card { border: 2px solid var(--gray-200); border-radius: 14px; padding: 24px; cursor: pointer; transition: all .2s; position: relative; }
         .plan-card:hover { border-color: var(--navy); }
@@ -183,11 +164,9 @@
         .plan-price span { font-size: 14px; font-weight: 500; color: var(--gray-400); }
         .plan-feature { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-700); margin-bottom: 8px; }
         .plan-feature::before { content: '✓'; color: var(--green); font-weight: 700; }
-
         /* SHARED */
         .shared-user-card { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--gray-200); border-radius: 10px; margin-bottom: 10px; }
         .shared-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--navy-mid); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
-
         /* THEME */
         .theme-option { border: 2px solid var(--gray-200); border-radius: 12px; padding: 16px; cursor: pointer; transition: all .15s; text-align: center; }
         .theme-option:hover { border-color: var(--navy); }
@@ -196,17 +175,16 @@
         .color-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
         .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: all .15s; }
         .color-swatch.selected { border-color: var(--gray-900); transform: scale(1.15); }
-
         @media (max-width: 900px) { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 <div class="app">
-
     <!-- SIDEBAR -->
-<div class="sidebar-logo">
-    <img src="/assets/logo.gif" alt="Seu Bolso" style="height:48px;object-fit:contain;">
-</div>
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <img src="/assets/logo.gif" alt="Seu Bolso" style="height:48px;object-fit:contain;">
+        </div>
         <nav class="sidebar-nav">
             <div class="nav-section">
                 <div class="nav-section-title">Principal</div>
@@ -226,7 +204,7 @@
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Integrações</div>
-               <div class="nav-item admin-only" data-page="whatsapp" style="display:none"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><span>WhatsApp Bot</span></div>
+                <div class="nav-item admin-only" data-page="whatsapp" style="display:none"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><span>WhatsApp Bot</span></div>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Conta</div>
@@ -244,7 +222,6 @@
             </button>
         </div>
     </div>
-
     <!-- MAIN -->
     <div class="main">
         <div class="topbar">
@@ -256,9 +233,7 @@
                 </button>
             </div>
         </div>
-
         <div class="content">
-
             <!-- ── PAINEL ─────────────────────────────────────────────────── -->
             <div id="painel" class="page active">
                 <div class="grid grid-3">
@@ -278,7 +253,6 @@
                         <div class="stat-meta">Saldo líquido</div>
                     </div>
                 </div>
-
                 <div class="card">
                     <h3 class="card-title">Despesas por Categoria</h3>
                     <table class="table">
@@ -286,7 +260,6 @@
                         <tbody id="tabela-categorias"><tr><td colspan="3" style="text-align:center;padding:20px;color:var(--gray-400)">Carregando...</td></tr></tbody>
                     </table>
                 </div>
-
                 <div class="card">
                     <h3 class="card-title">Últimas Transações</h3>
                     <table class="table">
@@ -295,7 +268,6 @@
                     </table>
                 </div>
             </div>
-
             <!-- ── TRANSAÇÕES ─────────────────────────────────────────────── -->
             <div id="transacoes" class="page">
                 <div class="btn-row">
@@ -312,7 +284,6 @@
                     </table>
                 </div>
             </div>
-
             <!-- ── RELATÓRIOS ─────────────────────────────────────────────── -->
             <div id="relatorios" class="page">
                 <div class="card">
@@ -336,7 +307,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- ── FLUXO DE CAIXA ─────────────────────────────────────────── -->
             <div id="fluxocaixa" class="page">
                 <div class="card">
@@ -353,7 +323,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- ── CONTAS BANCÁRIAS ───────────────────────────────────────── -->
             <div id="contas" class="page">
                 <div class="card">
@@ -364,7 +333,6 @@
                     <div class="grid grid-auto" id="lista-contas"><div style="color:var(--gray-400)">Carregando...</div></div>
                 </div>
             </div>
-
             <!-- ── CARTÕES ────────────────────────────────────────────────── -->
             <div id="cartoes" class="page">
                 <div class="card" style="text-align:center;padding:50px">
@@ -374,7 +342,6 @@
                     <button class="btn btn-primary" onclick="showToast('Em breve!','')">+ Adicionar Cartão</button>
                 </div>
             </div>
-
             <!-- ── METAS ─────────────────────────────────────────────────── -->
             <div id="metas" class="page">
                 <div class="card" style="text-align:center;padding:50px">
@@ -384,7 +351,6 @@
                     <button class="btn btn-primary" onclick="showToast('Em breve!','')">+ Nova Meta</button>
                 </div>
             </div>
-
             <!-- ── WHATSAPP BOT ───────────────────────────────────────────── -->
             <div id="whatsapp" class="page">
                 <div class="grid grid-2" style="margin-bottom:22px">
@@ -409,7 +375,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
                         <h3 class="card-title" style="margin:0">Conexão WhatsApp</h3>
@@ -448,7 +413,6 @@
                         <div style="font-size:15px;color:var(--gray-500)">Iniciando conexão...</div>
                     </div>
                 </div>
-
                 <!-- Transações recebidas via WhatsApp -->
                 <div class="card">
                     <h4 class="card-title" style="font-size:15px">Registros via WhatsApp</h4>
@@ -457,7 +421,6 @@
                         <tbody id="tabela-wa"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray-400)">Nenhum registro via WhatsApp ainda.</td></tr></tbody>
                     </table>
                 </div>
-
                 <div class="card" style="background:linear-gradient(135deg,#f0fdf4,#e8f5ef);border-color:#b7ddd0">
                     <h4 class="card-title" style="font-size:15px;color:var(--green)">Como funciona</h4>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
@@ -476,7 +439,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- ── CONFIGURAÇÕES ──────────────────────────────────────────── -->
             <div id="configuracoes" class="page">
                 <div class="settings-layout">
@@ -569,14 +531,11 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 </div>
-
 <!-- TOAST -->
 <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg">Salvo!</span></div>
-
 <!-- MODAL: Nova Transação -->
 <div class="modal-overlay" id="modalNovaTransacao">
     <div class="modal">
@@ -619,7 +578,6 @@
         </div>
     </div>
 </div>
-
 <!-- MODAL: Logout -->
 <div class="modal-overlay" id="modalLogout">
     <div class="modal">
@@ -631,7 +589,6 @@
         </div>
     </div>
 </div>
-
 <!-- MODAL: Excluir Conta -->
 <div class="modal-overlay" id="modalDeleteAccount">
     <div class="modal">
@@ -643,11 +600,9 @@
         </div>
     </div>
 </div>
-
 <!-- api.js deve vir antes da lógica do dashboard -->
 <script src="/api.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-
 <script>
 // ─── INICIALIZAÇÃO ───────────────────────────────────────────────────────────
 const pageTitles = {
@@ -655,28 +610,23 @@ const pageTitles = {
     fluxocaixa: 'Fluxo de Caixa', contas: 'Contas Bancárias', cartoes: 'Cartões',
     metas: 'Metas', whatsapp: 'WhatsApp Bot', configuracoes: 'Configurações'
 };
-
 let _usuario = null;
-
 // Carrega dados ao iniciar
 document.addEventListener('DOMContentLoaded', async () => {
     // Carrega perfil do usuário
     _usuario = await API.me();
     // Mostra WhatsApp Bot só para o admin
-const ADMIN_EMAIL = 'matheus10201971@gmail.com';
-if (_usuario && _usuario.email === ADMIN_EMAIL) {
-  document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
-}
+    const ADMIN_EMAIL = 'matheus10201971@gmail.com';
+    if (_usuario && _usuario.email === ADMIN_EMAIL) {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+    }
     if (!_usuario) { API.logout(); return; }
-
     preencherPerfil(_usuario);
     carregarPainel();
     carregarTransacoesWA();
     initSocket();
-
     // Data padrão do modal
     document.getElementById('ntData').value = new Date().toISOString().split('T')[0];
-
     // Carrega categorias e contas para o modal
     const [cats, contas] = await Promise.all([API.categorias(), API.contas()]);
     const selCat = document.getElementById('ntCategoria');
@@ -686,7 +636,6 @@ if (_usuario && _usuario.email === ADMIN_EMAIL) {
     selConta.innerHTML = '<option value="">Sem conta</option>' +
         (contas || []).map(c => `<option value="${c.id}">${c.nome} — ${Fmt.moeda(c.saldo)}</option>`).join('');
 });
-
 function preencherPerfil(u) {
     const inicial = (u.nome || '?')[0].toUpperCase();
     document.getElementById('sidebarAvatar').textContent = inicial;
@@ -697,10 +646,8 @@ function preencherPerfil(u) {
     document.getElementById('profileEmail').value = u.email || '';
     document.getElementById('profilePhone').value = u.telefone || '';
     document.getElementById('profileAvatar').textContent = inicial;
-    // Atualiza localStorage
     localStorage.setItem('usuario', JSON.stringify(u));
 }
-
 // ─── PAINEL ──────────────────────────────────────────────────────────────────
 async function carregarPainel() {
     const m = Fmt.mesAtual(), y = Fmt.anoAtual();
@@ -710,20 +657,16 @@ async function carregarPainel() {
         API.transacoes({ mes: m, ano: y, limit: 5 }),
         API.contas()
     ]);
-
     if (resumo) {
         document.getElementById('stat-receita').textContent = Fmt.moeda(resumo.receita_total);
         document.getElementById('stat-despesa').textContent = Fmt.moeda(resumo.despesa_total);
         document.getElementById('stat-saldo').textContent   = Fmt.moeda(resumo.saldo);
-        // Relatórios
         document.getElementById('rel-receita').textContent = Fmt.moeda(resumo.receita_total);
         document.getElementById('rel-despesa').textContent = Fmt.moeda(resumo.despesa_total);
         document.getElementById('rel-saldo').textContent   = Fmt.moeda(resumo.saldo);
-        // Fluxo
         document.getElementById('fluxo-receita').textContent = Fmt.moeda(resumo.receita_total);
         document.getElementById('fluxo-despesa').textContent = Fmt.moeda(resumo.despesa_total);
     }
-
     // Categorias
     const tbCat = document.getElementById('tabela-categorias');
     if (categorias && categorias.length) {
@@ -740,10 +683,8 @@ async function carregarPainel() {
     } else {
         tbCat.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--gray-400)">Sem despesas neste mês.</td></tr>';
     }
-
     // Recentes
     renderizarTransacoes(recentes?.transacoes || [], 'tabela-recentes', false);
-
     // Contas
     const listaContas = document.getElementById('lista-contas');
     if (contas && contas.length) {
@@ -755,13 +696,11 @@ async function carregarPainel() {
             </div>`).join('');
     }
 }
-
 // ─── TRANSAÇÕES ──────────────────────────────────────────────────────────────
 async function carregarTransacoes() {
     const res = await API.transacoes({ limit: 50 });
     renderizarTransacoes(res?.transacoes || [], 'tabela-transacoes', true);
 }
-
 function renderizarTransacoes(lista, tbId, mostrarOrigem) {
     const tb = document.getElementById(tbId);
     if (!lista.length) {
@@ -785,7 +724,6 @@ function renderizarTransacoes(lista, tbId, mostrarOrigem) {
         </tr>`;
     }).join('');
 }
-
 async function carregarTransacoesWA() {
     const res = await API.transacoes({ limit: 20 });
     const waTransacoes = (res?.transacoes || []).filter(t => t.origem === 'whatsapp');
@@ -801,7 +739,6 @@ async function carregarTransacoesWA() {
         <td>${Fmt.data(t.data_transacao)}</td>
     </tr>`).join('');
 }
-
 async function salvarTransacao() {
     const dados = {
         tipo: document.getElementById('ntTipo').value,
@@ -812,11 +749,9 @@ async function salvarTransacao() {
         conta_id: document.getElementById('ntConta').value || null,
         origem: 'manual'
     };
-
     if (!dados.descricao || !dados.valor || dados.valor <= 0) {
         showToast('Preencha descrição e valor', 'error'); return;
     }
-
     const res = await API.criarTransacao(dados);
     if (res && res.id) {
         closeModal('modalNovaTransacao');
@@ -829,7 +764,6 @@ async function salvarTransacao() {
         showToast(res?.erro || 'Erro ao salvar', 'error');
     }
 }
-
 // ─── PERFIL ──────────────────────────────────────────────────────────────────
 async function salvarPerfil() {
     const dados = {
@@ -841,7 +775,6 @@ async function salvarPerfil() {
     if (res?.usuario) { preencherPerfil(res.usuario); showToast('Perfil atualizado!', 'success'); }
     else showToast(res?.erro || 'Erro ao salvar', 'error');
 }
-
 async function trocarSenha() {
     const senhaAtual   = document.getElementById('senhaAtual').value;
     const novaSenha    = document.getElementById('novaSenha').value;
@@ -856,7 +789,6 @@ async function trocarSenha() {
         document.getElementById('confirmarSenha').value = '';
     } else showToast(res?.erro || 'Erro ao alterar senha', 'error');
 }
-
 function handleAvatarChange(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -869,7 +801,6 @@ function handleAvatarChange(e) {
     };
     reader.readAsDataURL(file);
 }
-
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function navigateTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -877,15 +808,12 @@ function navigateTo(pageId) {
     document.getElementById(pageId)?.classList.add('active');
     document.querySelector(`.nav-item[data-page="${pageId}"]`)?.classList.add('active');
     document.getElementById('pageTitle').textContent = pageTitles[pageId] || pageId;
-
     if (pageId === 'transacoes') carregarTransacoes();
     if (pageId === 'whatsapp') { carregarTransacoesWA(); waVerificarStatus(); }
 }
-
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => navigateTo(item.dataset.page));
 });
-
 document.querySelectorAll('.settings-nav-item').forEach(item => {
     item.addEventListener('click', function() {
         document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
@@ -894,7 +822,6 @@ document.querySelectorAll('.settings-nav-item').forEach(item => {
         document.getElementById('panel-' + this.dataset.panel)?.classList.add('active');
     });
 });
-
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 let _toastTimer;
 function showToast(msg, type) {
@@ -906,29 +833,24 @@ function showToast(msg, type) {
     t.classList.add('show');
     _toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
-
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 function openModal(id) { document.getElementById(id)?.classList.add('open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(o => {
     o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
 });
-
 // ─── WHATSAPP ─────────────────────────────────────────────────────────────────
 const WA_STATES = ['wa-state-qr','wa-state-connected','wa-state-disconnected','wa-state-loading'];
-
 function waShowState(id) {
     WA_STATES.forEach(s => {
         const el = document.getElementById(s);
         if (el) el.style.display = s === id ? '' : 'none';
     });
 }
-
 function waSetStatus(text, sub) {
     document.getElementById('wa-status-text').textContent = text;
     document.getElementById('wa-status-sub').textContent = sub;
 }
-
 async function waVerificarStatus() {
     const res = await API.waStatus();
     if (res?.status === 'conectado') {
@@ -943,16 +865,13 @@ async function waVerificarStatus() {
         waSetStatus('Desconectado', 'Bot offline');
     }
 }
-
 async function waIniciar() {
     waShowState('wa-state-loading');
     waSetStatus('Conectando...', 'Aguarde');
     initSocket();
     await API.waReconectar();
 }
-
 window.waReconectar = waIniciar;
-
 // Eventos em tempo real do WhatsApp via Socket.io
 window.addEventListener('wa:status', e => {
     const s = e.detail?.status;
@@ -967,7 +886,6 @@ window.addEventListener('wa:status', e => {
         waSetStatus('Desconectado', 'Bot offline');
     }
 });
-
 window.addEventListener('wa:qr', e => {
     const img = document.getElementById('wa-qr-img');
     if (img && e.detail?.url) {
@@ -975,21 +893,17 @@ window.addEventListener('wa:qr', e => {
         waShowState('wa-state-qr');
     }
 });
-
 window.addEventListener('wa:qr_clear', () => {
     document.getElementById('wa-qr-img').src = '';
 });
-
 window.addEventListener('wa:numero', e => {
     if (e.detail?.numero) {
         document.getElementById('wa-number-text').textContent = '+' + e.detail.numero;
         document.getElementById('wa-number-sub').textContent = 'Número ativo';
     }
 });
-
 window.addEventListener('wa:transacao', async e => {
     showToast(`💸 Nova transação via WhatsApp: ${e.detail?.descricao || ''}`, 'success');
-    // Atualiza painel em tempo real
     await carregarPainel();
     await carregarTransacoesWA();
 });

@@ -29,7 +29,7 @@
         .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
         .nav-section { margin-bottom: 20px; }
         .nav-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: #9ca3af; padding: 0 10px; margin-bottom: 4px; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px; color: #374151; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; margin-bottom: 3px; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px; color: #374151; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; margin-bottom: 3px; user-select: none; }
         .nav-item:hover { background: #f3f4f6; color: #111827; }
         .nav-item.active { background: var(--navy); color: white; font-weight: 600; }
         .nav-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: #f3f4f6; }
@@ -121,59 +121,82 @@
     </style>
 </head>
 <body>
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 <div class="app">
     <!-- SIDEBAR -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-logo">
             <img src="/assets/logo.gif" alt="Seu Bolso" style="height:48px;object-fit:contain;">
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section">
                 <div class="nav-section-title">Principal</div>
-                <div class="nav-item active" data-page="painel"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span>Painel</span></div>
-                <div class="nav-item" data-page="transacoes"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><span>Transações</span></div>
+                <div class="nav-item active" data-page="painel">
+                    <div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+                    <span>Painel</span>
+                </div>
+                <div class="nav-item" data-page="transacoes">
+                    <div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+                    <span>Transações</span>
+                </div>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Análise</div>
-                <div class="nav-item" data-page="relatorios"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><span>Relatórios</span></div>
+                <div class="nav-item" data-page="relatorios">
+                    <div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+                    <span>Relatórios</span>
+                </div>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Gestão</div>
-                <div class="nav-item" data-page="areceber"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><span>A Receber</span></div>
+                <div class="nav-item" data-page="areceber">
+                    <div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                    <span>A Receber</span>
+                </div>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Conta</div>
-                <div class="nav-item" data-page="configuracoes"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><span>Configurações</span></div>
+                <div class="nav-item" data-page="configuracoes">
+                    <div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+                    <span>Configurações</span>
+                </div>
             </div>
         </nav>
         <div class="sidebar-user">
-            <div class="user-avatar" id="sidebarAvatar" style="cursor:pointer" onclick="navigateTo('configuracoes')"></div>
+            <!-- FIX: removed onclick inline, controlled via JS listener -->
+            <div class="user-avatar" id="sidebarAvatar" style="cursor:pointer"></div>
             <div style="min-width:0;flex:1">
                 <div class="user-name" id="sidebarName">Carregando...</div>
                 <div class="user-plan" id="sidebarPlan">✦ Gratuito</div>
             </div>
-            <button title="Sair" onclick="openModal('modalLogout')" class="btn-logout">
+            <!-- FIX: type="button" prevents accidental form submit -->
+            <button type="button" title="Sair" id="btnLogout" class="btn-logout">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>
         </div>
     </div>
+
     <!-- MAIN -->
     <div class="main">
         <div class="topbar">
             <div style="display:flex;align-items:center;gap:12px">
-                <button class="hamburger" onclick="toggleSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+                <!-- FIX: type="button" on all topbar buttons -->
+                <button type="button" class="hamburger" id="btnHamburger">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
                 <h1 class="topbar-title" id="pageTitle">Painel</h1>
             </div>
             <div class="topbar-actions">
-                <button class="btn btn-primary" onclick="openModal('modalNovaTransacao')">
+                <!-- FIX: type="button" prevents page reload -->
+                <button type="button" class="btn btn-primary" id="btnNovaTransacaoTop">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Nova transação
                 </button>
             </div>
         </div>
+
         <div class="content">
-            <!-- ── PAINEL ─────────────────────────────────────────────────────── -->
+            <!-- ── PAINEL ──────────────────────────────────────────────────── -->
             <div id="painel" class="page active">
                 <div class="grid grid-4">
                     <div class="stat-box">
@@ -191,7 +214,7 @@
                         <div class="stat-value" id="stat-saldo">—</div>
                         <div class="stat-meta">Saldo líquido</div>
                     </div>
-                    <div class="stat-box" style="border-left: 4px solid var(--gold); position: relative;">
+                    <div class="stat-box" style="border-left: 4px solid var(--gold);">
                         <div class="stat-label">Valores a Receber</div>
                         <div class="stat-value" id="stat-areceber" style="color:var(--gold)">—</div>
                         <div class="stat-meta" id="stat-areceber-meta">Pendente</div>
@@ -212,10 +235,12 @@
                     </table>
                 </div>
             </div>
-            <!-- ── TRANSAÇÕES ─────────────────────────────────────────────────── -->
+
+            <!-- ── TRANSAÇÕES ─────────────────────────────────────────────── -->
             <div id="transacoes" class="page">
                 <div class="btn-row">
-                    <button class="btn btn-primary" onclick="openModal('modalNovaTransacao')">
+                    <!-- FIX: type="button" -->
+                    <button type="button" class="btn btn-primary" id="btnNovaTransacaoPage">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Nova Transação
                     </button>
@@ -228,22 +253,24 @@
                     </table>
                 </div>
             </div>
-            <!-- ── RELATÓRIOS ─────────────────────────────────────────────────── -->
+
+            <!-- ── RELATÓRIOS ─────────────────────────────────────────────── -->
             <div id="relatorios" class="page">
                 <div class="card">
                     <h3 class="card-title">Relatórios</h3>
                     <p style="color: var(--gray-400); text-align: center; padding: 40px;">Módulo de relatórios em desenvolvimento.</p>
                 </div>
             </div>
-            <!-- ── A RECEBER ──────────────────────────────────────────────────── -->
+
+            <!-- ── A RECEBER ──────────────────────────────────────────────── -->
             <div id="areceber" class="page">
                 <div class="btn-row">
-                    <button class="btn btn-primary" onclick="openModal('modalNovaDivida')">
+                    <!-- FIX: type="button" -->
+                    <button type="button" class="btn btn-primary" id="btnNovaDivida">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Nova Dívida a Receber
                     </button>
                 </div>
-                <!-- KPIs -->
                 <div class="grid grid-3" style="margin-bottom:22px">
                     <div class="stat-box">
                         <div class="stat-label">Total Pendente</div>
@@ -261,29 +288,23 @@
                         <div class="stat-meta">Dívidas quitadas</div>
                     </div>
                 </div>
-                <!-- Alertas dinâmicos -->
                 <div id="ar-alertas" style="margin-bottom:16px"></div>
-                <!-- Tabela -->
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
                         <h3 class="card-title" style="margin:0">Devedores</h3>
                         <div style="display:flex;gap:8px">
-                            <button class="btn btn-primary" id="btn-filtro-pendente" onclick="filtrarDividas('pendente')" style="font-size:12px;padding:6px 14px">Pendentes</button>
-                            <button class="btn btn-secondary" id="btn-filtro-recebido" onclick="filtrarDividas('recebido')" style="font-size:12px;padding:6px 14px">Recebidas</button>
-                            <button class="btn btn-secondary" id="btn-filtro-todas" onclick="filtrarDividas('todas')" style="font-size:12px;padding:6px 14px">Todas</button>
+                            <!-- FIX: type="button" em todos os filtros -->
+                            <button type="button" class="btn btn-primary" id="btn-filtro-pendente" style="font-size:12px;padding:6px 14px">Pendentes</button>
+                            <button type="button" class="btn btn-secondary" id="btn-filtro-recebido" style="font-size:12px;padding:6px 14px">Recebidas</button>
+                            <button type="button" class="btn btn-secondary" id="btn-filtro-todas" style="font-size:12px;padding:6px 14px">Todas</button>
                         </div>
                     </div>
                     <div style="overflow-x:auto">
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Devedor</th>
-                                    <th>Descrição</th>
-                                    <th>Valor</th>
-                                    <th>Vencimento</th>
-                                    <th>Status</th>
-                                    <th>ID</th>
-                                    <th>Ações</th>
+                                    <th>Devedor</th><th>Descrição</th><th>Valor</th>
+                                    <th>Vencimento</th><th>Status</th><th>ID</th><th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="tabela-dividas">
@@ -292,7 +313,6 @@
                         </table>
                     </div>
                 </div>
-                <!-- Dica WhatsApp -->
                 <div class="card" style="background:linear-gradient(135deg,#f0fdf4,#e8f5ef);border-color:#b7ddd0;margin-top:0">
                     <h4 class="card-title" style="font-size:14px;color:var(--green);margin-bottom:12px">💬 Registrar pelo WhatsApp</h4>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;font-size:13px">
@@ -302,7 +322,8 @@
                     </div>
                 </div>
             </div>
-            <!-- ── CONFIGURAÇÕES ──────────────────────────────────────────────── -->
+
+            <!-- ── CONFIGURAÇÕES ──────────────────────────────────────────── -->
             <div id="configuracoes" class="page">
                 <div class="card">
                     <h3 class="card-title">Configurações</h3>
@@ -343,8 +364,9 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeModal('modalNovaTransacao')">Cancelar</button>
-            <button class="btn btn-primary" onclick="salvarTransacao()">Salvar</button>
+            <!-- FIX: type="button" em TODOS os botões de modal -->
+            <button type="button" class="btn btn-secondary" id="btnCancelarTransacao">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnSalvarTransacao">Salvar</button>
         </div>
     </div>
 </div>
@@ -373,8 +395,9 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeModal('modalNovaDivida')">Cancelar</button>
-            <button class="btn btn-primary" onclick="salvarDivida()">Salvar</button>
+            <!-- FIX: type="button" -->
+            <button type="button" class="btn btn-secondary" id="btnCancelarDivida">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnSalvarDivida">Salvar</button>
         </div>
     </div>
 </div>
@@ -385,8 +408,9 @@
         <div class="modal-title">Sair da conta</div>
         <div class="modal-desc">Tem certeza que deseja sair?</div>
         <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeModal('modalLogout')">Cancelar</button>
-            <button class="btn btn-danger" onclick="logout()">Sair</button>
+            <!-- FIX: type="button" -->
+            <button type="button" class="btn btn-secondary" id="btnCancelarLogout">Cancelar</button>
+            <button type="button" class="btn btn-danger" id="btnConfirmarLogout">Sair</button>
         </div>
     </div>
 </div>
@@ -409,14 +433,83 @@ let _usuario = null;
 let _filtroAtualDividas = 'pendente';
 
 // ─── INICIALIZAÇÃO ────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
+    // FIX: Todos os event listeners centralizados aqui, sem onclick inline no HTML
+    // Isso elimina o risco de double-fire (onclick + addEventListener)
+
+    // Sidebar overlay
+    document.getElementById('sidebarOverlay').addEventListener('click', toggleSidebar);
+
+    // Hamburger
+    document.getElementById('btnHamburger').addEventListener('click', toggleSidebar);
+
+    // Avatar → configurações
+    document.getElementById('sidebarAvatar').addEventListener('click', () => navigateTo('configuracoes'));
+
+    // Logout
+    document.getElementById('btnLogout').addEventListener('click', () => openModal('modalLogout'));
+    document.getElementById('btnCancelarLogout').addEventListener('click', () => closeModal('modalLogout'));
+    document.getElementById('btnConfirmarLogout').addEventListener('click', logout);
+
+    // Nova Transação (botões que abrem o modal)
+    document.getElementById('btnNovaTransacaoTop').addEventListener('click', () => openModal('modalNovaTransacao'));
+    document.getElementById('btnNovaTransacaoPage').addEventListener('click', () => openModal('modalNovaTransacao'));
+
+    // Modal Transação
+    document.getElementById('btnCancelarTransacao').addEventListener('click', () => closeModal('modalNovaTransacao'));
+    document.getElementById('btnSalvarTransacao').addEventListener('click', salvarTransacao);
+
+    // Nova Dívida
+    document.getElementById('btnNovaDivida').addEventListener('click', () => openModal('modalNovaDivida'));
+    document.getElementById('btnCancelarDivida').addEventListener('click', () => closeModal('modalNovaDivida'));
+    document.getElementById('btnSalvarDivida').addEventListener('click', salvarDivida);
+
+    // Filtros A Receber
+    document.getElementById('btn-filtro-pendente').addEventListener('click', () => filtrarDividas('pendente'));
+    document.getElementById('btn-filtro-recebido').addEventListener('click', () => filtrarDividas('recebido'));
+    document.getElementById('btn-filtro-todas').addEventListener('click', () => filtrarDividas('todas'));
+
+    // FIX: Nav items — apenas addEventListener, sem onclick inline
+    document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+        item.addEventListener('click', () => navigateTo(item.dataset.page));
+    });
+
+    // FIX: Fechar modais clicando no overlay (sem conflito)
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.classList.remove('open');
+        });
+    });
+
+    // FIX: Tecla Enter nos inputs do modal de transação dispara salvar
+    // mas sem recarregar a página
+    ['ntDesc', 'ntValor', 'ntData'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); salvarTransacao(); }
+        });
+    });
+    ['ndDevedor', 'ndDesc', 'ndValor', 'ndVencimento'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); salvarDivida(); }
+        });
+    });
+
+    // Inicializar app
+    init();
+});
+
+async function init() {
     const token = localStorage.getItem('token');
     if (!token) { window.location.href = '/login.html'; return; }
-    
+
     try {
-        const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+        const res = await fetch('/api/me', {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+
         _usuario = res;
         if (!_usuario) { logout(); return; }
+
         preencherPerfil(_usuario);
         carregarPainel();
         document.getElementById('ntData').value = new Date().toISOString().split('T')[0];
@@ -424,7 +517,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Erro ao carregar usuário:', e);
         logout();
     }
-});
+}
 
 function preencherPerfil(u) {
     const inicial = (u.nome || '?')[0].toUpperCase();
@@ -433,10 +526,11 @@ function preencherPerfil(u) {
     document.getElementById('sidebarPlan').textContent = u.plano === 'premium' ? '✦ Premium ✨' : '✦ Gratuito';
 }
 
+// ─── PAINEL ───────────────────────────────────────────────────────────────────
 async function carregarPainel() {
     const m = Fmt.mesAtual(), y = Fmt.anoAtual();
     const token = localStorage.getItem('token');
-    
+
     try {
         const [resumoRes, categoriasRes, transacoesRes, dividasRes] = await Promise.all([
             fetch(`/api/resumo?mes=${m}&ano=${y}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
@@ -445,20 +539,17 @@ async function carregarPainel() {
             fetch('/api/dividas?status=pendente', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
         ]);
 
-        const resumo = resumoRes;
-        if (resumo) {
-            document.getElementById('stat-receita').textContent = Fmt.moeda(resumo.receita_total || 0);
-            document.getElementById('stat-despesa').textContent = Fmt.moeda(resumo.despesa_total || 0);
-            document.getElementById('stat-saldo').textContent = Fmt.moeda((resumo.receita_total || 0) - (resumo.despesa_total || 0));
+        if (resumoRes) {
+            document.getElementById('stat-receita').textContent = Fmt.moeda(resumoRes.receita_total || 0);
+            document.getElementById('stat-despesa').textContent = Fmt.moeda(resumoRes.despesa_total || 0);
+            document.getElementById('stat-saldo').textContent = Fmt.moeda((resumoRes.receita_total || 0) - (resumoRes.despesa_total || 0));
         }
 
-        // Card de Valores a Receber
         const dividasKpi = dividasRes.kpi || {};
         document.getElementById('stat-areceber').textContent = Fmt.moeda(dividasKpi.pendente || 0);
         const qtdDividas = dividasRes.dividas?.length || 0;
         document.getElementById('stat-areceber-meta').textContent = qtdDividas > 0 ? `${qtdDividas} devedor(es)` : 'Pendente';
 
-        // Categorias
         const tbCat = document.getElementById('tabela-categorias');
         const categorias = categoriasRes || [];
         if (categorias.length) {
@@ -466,7 +557,7 @@ async function carregarPainel() {
             tbCat.innerHTML = categorias.map(c => {
                 const pct = totalDespesa > 0 ? Math.round((c.total / totalDespesa) * 100) : 0;
                 return `<tr>
-                    <td class="td-strong">${c.categoria || 'Outros'}</td>
+                    <td class="td-strong">${escHtml(c.categoria || 'Outros')}</td>
                     <td class="td-strong">${Fmt.moeda(c.total)}</td>
                     <td><span class="badge badge-${pct > 60 ? 'red' : pct > 30 ? 'navy' : 'green'}">${pct}%</span></td>
                 </tr>`;
@@ -475,16 +566,15 @@ async function carregarPainel() {
             tbCat.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--gray-400)">Sem despesas neste mês.</td></tr>';
         }
 
-        // Transações
         const transacoes = transacoesRes || [];
         const tbTx = document.getElementById('tabela-recentes');
         if (transacoes.length) {
             tbTx.innerHTML = transacoes.map(t => `<tr>
-                <td class="td-strong">${t.descricao}</td>
-                <td>${t.categoria_nome || '—'}</td>
+                <td class="td-strong">${escHtml(t.descricao)}</td>
+                <td>${escHtml(t.categoria_nome || '—')}</td>
                 <td>${Fmt.data(t.data_transacao)}</td>
                 <td style="color:${t.tipo === 'receita' ? 'var(--green)' : 'var(--red)'}; font-weight:600">${t.tipo === 'receita' ? '+' : '-'}${Fmt.moeda(t.valor)}</td>
-                <td><span class="badge badge-${t.status === 'pago' ? 'green' : 'navy'}">${t.status}</span></td>
+                <td><span class="badge badge-${t.status === 'pago' ? 'green' : 'navy'}">${escHtml(t.status)}</span></td>
             </tr>`).join('');
         } else {
             tbTx.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--gray-400)">Nenhuma transação ainda.</td></tr>';
@@ -494,10 +584,14 @@ async function carregarPainel() {
     }
 }
 
+// ─── TRANSAÇÕES ───────────────────────────────────────────────────────────────
 async function carregarTransacoes() {
     const token = localStorage.getItem('token');
     try {
-        const res = await fetch('/api/transactions?limit=50', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
+        const res = await fetch('/api/transactions?limit=50', {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+
         const tb = document.getElementById('tabela-transacoes');
         const transacoes = res || [];
         if (!transacoes.length) {
@@ -505,12 +599,12 @@ async function carregarTransacoes() {
             return;
         }
         tb.innerHTML = transacoes.map(t => `<tr>
-            <td class="td-strong">${t.descricao}</td>
-            <td>${t.categoria_nome || '—'}</td>
+            <td class="td-strong">${escHtml(t.descricao)}</td>
+            <td>${escHtml(t.categoria_nome || '—')}</td>
             <td>${Fmt.data(t.data_transacao)}</td>
             <td style="color:${t.tipo === 'receita' ? 'var(--green)' : 'var(--red)'}; font-weight:600">${t.tipo === 'receita' ? '+' : '-'}${Fmt.moeda(t.valor)}</td>
-            <td><span class="badge badge-${t.tipo === 'receita' ? 'green' : 'red'}">${t.tipo}</span></td>
-            <td><span class="badge badge-${t.status === 'pago' ? 'green' : 'navy'}">${t.status}</span></td>
+            <td><span class="badge badge-${t.tipo === 'receita' ? 'green' : 'red'}">${escHtml(t.tipo)}</span></td>
+            <td><span class="badge badge-${t.status === 'pago' ? 'green' : 'navy'}">${escHtml(t.status)}</span></td>
         </tr>`).join('');
     } catch (e) {
         console.error('Erro ao carregar transações:', e);
@@ -535,6 +629,7 @@ async function salvarTransacao() {
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(dados)
         }).then(r => r.json());
+
         if (res.id) {
             closeModal('modalNovaTransacao');
             showToast('Transação registrada!', 'success');
@@ -553,7 +648,7 @@ async function salvarTransacao() {
 // ─── A RECEBER ────────────────────────────────────────────────────────────────
 async function carregarDividas(status = 'pendente') {
     _filtroAtualDividas = status;
-    
+
     const mapa = { pendente: 'btn-filtro-pendente', recebido: 'btn-filtro-recebido', todas: 'btn-filtro-todas' };
     Object.entries(mapa).forEach(([k, id]) => {
         const el = document.getElementById(id);
@@ -573,12 +668,10 @@ async function carregarDividas(status = 'pendente') {
         const dividas = res.dividas || [];
         const kpi = res.kpi || {};
 
-        // KPIs
         document.getElementById('ar-total-pendente').textContent = Fmt.moeda(kpi.pendente || 0);
         document.getElementById('ar-vencendo').textContent = Fmt.moeda(kpi.vencendo7dias || 0);
         document.getElementById('ar-recebido-mes').textContent = Fmt.moeda(kpi.recebidoMes || 0);
 
-        // Alertas
         const alertasEl = document.getElementById('ar-alertas');
         let alertHtml = '';
         if (kpi.atrasadas > 0) {
@@ -593,7 +686,6 @@ async function carregarDividas(status = 'pendente') {
         }
         alertasEl.innerHTML = alertHtml;
 
-        // Tabela
         if (!dividas.length) {
             tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">${status === 'pendente' ? 'Nenhuma dívida pendente! 🎉' : 'Nenhum registro encontrado.'}</td></tr>`;
             return;
@@ -608,7 +700,6 @@ async function carregarDividas(status = 'pendente') {
                 const venc = new Date(d.data_vencimento + 'T12:00:00');
                 const diffDias = Math.round((venc - hoje) / 86400000);
                 const dataFmt = venc.toLocaleDateString('pt-BR');
-                
                 if (diffDias < 0) {
                     vencLabel = `⚠️ ${dataFmt} (${Math.abs(diffDias)}d atrás)`;
                     vencStyle = 'color:var(--red);font-weight:600';
@@ -626,9 +717,11 @@ async function carregarDividas(status = 'pendente') {
             const badgeMap = { pendente: 'badge-red', recebido: 'badge-green', cancelado: 'badge-navy' };
             const labelMap = { pendente: 'Pendente', recebido: 'Recebido', cancelado: 'Cancelado' };
 
+            // FIX: botões gerados dinamicamente também precisam de type="button"
+            // e usam data attributes em vez de onclick inline com parâmetros
             const acoes = d.status === 'pendente'
-                ? `<button class="btn btn-outline-green" style="padding:4px 10px;font-size:11px" onclick="quitarDividaWeb('${d.id}')">✓ Recebido</button>
-                   <button class="btn btn-danger" style="padding:4px 10px;font-size:11px;margin-left:4px" onclick="cancelarDividaWeb('${d.id}')">✕</button>`
+                ? `<button type="button" class="btn btn-outline-green btn-quitar" data-id="${escHtml(d.id)}" style="padding:4px 10px;font-size:11px">✓ Recebido</button>
+                   <button type="button" class="btn btn-danger btn-cancelar" data-id="${escHtml(d.id)}" style="padding:4px 10px;font-size:11px;margin-left:4px">✕</button>`
                 : '—';
 
             return `<tr>
@@ -636,11 +729,21 @@ async function carregarDividas(status = 'pendente') {
                 <td>${escHtml(d.descricao || '—')}</td>
                 <td style="color:var(--red);font-weight:600">+${Fmt.moeda(d.valor)}</td>
                 <td style="${vencStyle}">${vencLabel}</td>
-                <td><span class="badge ${badgeMap[d.status] || 'badge-navy'}">${labelMap[d.status] || d.status}</span></td>
-                <td><span style="font-family:monospace;font-size:12px;background:var(--gray-100);padding:2px 7px;border-radius:4px">${d.id_curto || '—'}</span></td>
+                <td><span class="badge ${badgeMap[d.status] || 'badge-navy'}">${labelMap[d.status] || escHtml(d.status)}</span></td>
+                <td><span style="font-family:monospace;font-size:12px;background:var(--gray-100);padding:2px 7px;border-radius:4px">${escHtml(d.id_curto || '—')}</span></td>
                 <td style="white-space:nowrap">${acoes}</td>
             </tr>`;
         }).join('');
+
+        // FIX: delegar eventos dos botões gerados dinamicamente via event delegation
+        // em vez de onclick inline — evita reload
+        tb.querySelectorAll('.btn-quitar').forEach(btn => {
+            btn.addEventListener('click', () => quitarDividaWeb(btn.dataset.id));
+        });
+        tb.querySelectorAll('.btn-cancelar').forEach(btn => {
+            btn.addEventListener('click', () => cancelarDividaWeb(btn.dataset.id));
+        });
+
     } catch (e) {
         console.error('Erro ao carregar dívidas:', e);
         tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">Erro ao carregar. Tente novamente.</td></tr>`;
@@ -736,21 +839,21 @@ function navigateTo(pageId) {
     if (pageId === 'transacoes') carregarTransacoes();
     if (pageId === 'areceber') carregarDividas('pendente');
 
-    if (window.innerWidth <= 768) toggleSidebar();
+    if (window.innerWidth <= 768) closeSidebar();
 }
 
-document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-        navigateTo(item.dataset.page);
-    });
-});
-
-// ─── MODAIS E TOAST ───────────────────────────────────────────────────────────
+// ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 function toggleSidebar() {
-    document.querySelector('.sidebar').classList.toggle('open');
+    document.getElementById('sidebar').classList.toggle('open');
     document.getElementById('sidebarOverlay').classList.toggle('open');
 }
 
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ─── MODAIS ───────────────────────────────────────────────────────────────────
 function openModal(id) {
     document.getElementById(id)?.classList.add('open');
 }
@@ -759,12 +862,7 @@ function closeModal(id) {
     document.getElementById(id)?.classList.remove('open');
 }
 
-document.querySelectorAll('.modal-overlay').forEach(o => {
-    o.addEventListener('click', e => {
-        if (e.target === o) o.classList.remove('open');
-    });
-});
-
+// ─── TOAST ────────────────────────────────────────────────────────────────────
 let _toastTimer;
 function showToast(msg, type) {
     clearTimeout(_toastTimer);
@@ -776,6 +874,7 @@ function showToast(msg, type) {
     _toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 function escHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

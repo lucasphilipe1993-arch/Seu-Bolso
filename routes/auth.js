@@ -65,7 +65,7 @@ function gerarToken(usuario) {
 
 // ── POST /api/auth/cadastro ──────────────────────────────────
 router.post('/cadastro', async (req, res) => {
-  const { nome, email, senha, telefone, plano } = req.body;
+  const { nome, email, senha, telefone, plano, cupomCodigo } = req.body;
 
   if (!nome || !email || !senha)
     return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios' });
@@ -104,6 +104,45 @@ router.post('/cadastro', async (req, res) => {
       `INSERT INTO contas (usuario_id, nome, padrao, saldo) VALUES ($1, 'Carteira', true, 0)`,
       [usuario.id]
     );
+
+    // ── Resgata cupom de acesso gratuito (se informado) ──────────
+    if (cupomCodigo) {
+      try {
+        const { rows: cupomRows } = await db.query(
+          `SELECT id, dias, plano FROM cupons
+           WHERE UPPER(codigo) = UPPER($1) AND ativo = true
+           AND (expira_em IS NULL OR expira_em > NOW())
+           AND (usos_max IS NULL OR usos_atual < usos_max)`,
+          [cupomCodigo.trim()]
+        );
+
+        if (cupomRows.length > 0) {
+          const cupom = cupomRows[0];
+          const expira = new Date();
+          expira.setDate(expira.getDate() + cupom.dias);
+
+          await db.query(
+            `UPDATE usuarios
+             SET plano = $1, whatsapp_ativo = true,
+                 cupom_codigo = $2, acesso_expira_em = $3
+             WHERE id = $4`,
+            [cupom.plano || 'basico', cupomCodigo.trim().toUpperCase(), expira.toISOString(), usuario.id]
+          );
+
+          await db.query(
+            `UPDATE cupons SET usos_atual = usos_atual + 1 WHERE id = $1`,
+            [cupom.id]
+          );
+
+          usuario.plano = cupom.plano || 'basico';
+          console.log(`🎁 Cupom "${cupomCodigo}" resgatado pelo usuário ${usuario.id} — acesso até ${expira.toLocaleDateString('pt-BR')}`);
+        } else {
+          console.warn(`⚠️  Cupom "${cupomCodigo}" inválido ou esgotado no momento do cadastro`);
+        }
+      } catch (err) {
+        console.warn('⚠️  Erro ao resgatar cupom (não crítico):', err.message);
+      }
+    }
 
     // Vincula WhatsApp
     if (telefoneLimpo) {

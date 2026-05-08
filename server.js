@@ -9,6 +9,9 @@ const path = require('path');
 const db = require('./database/db');
 const BotGranaZen = require('./bot/handler');
 
+const agendaRouter = require('./routes/agenda');
+app.use('/api/agenda', agendaRouter);
+
 // Rotas
 const authRoutes        = require('./routes/auth');
 const transactionRoutes = require('./routes/transactions');

@@ -112,7 +112,19 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter') login();
 });
 
-if (localStorage.getItem('gz_token')) window.location.href = '/dashboard.html';
+(async function verificarToken() {
+  const token = localStorage.getItem('gz_token');
+  if (!token) return;
+  try {
+    const r = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (r.ok) {
+      window.location.href = '/dashboard.html';
+    } else {
+      localStorage.removeItem('gz_token');
+      localStorage.removeItem('gz_usuario');
+    }
+  } catch {}
+})();
 </script>
 </body>
 </html>

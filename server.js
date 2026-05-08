@@ -9,9 +9,6 @@ const path = require('path');
 const db = require('./database/db');
 const BotGranaZen = require('./bot/handler');
 
-const agendaRouter = require('./routes/agenda');
-app.use('/api/agenda', agendaRouter);
-
 // Rotas
 const authRoutes        = require('./routes/auth');
 const transactionRoutes = require('./routes/transactions');
@@ -20,6 +17,7 @@ const adminRoute        = require('./routes/admin');
 const dividasRoute      = require('./routes/dividas');
 const stripeRoute       = require('./routes/stripe'); // ← STRIPE
 const cuponsRoute       = require('./routes/cupons'); // ← CUPONS
+const agendaRouter      = require('./routes/agenda'); // ← AGENDA
 
 const app    = express();
 const server = http.createServer(app);
@@ -108,6 +106,7 @@ app.use('/api/admin',        adminRoute.router);
 app.use('/api/dividas',      dividasRoute);
 app.use('/api/stripe',       stripeRoute); // ← STRIPE
 app.use('/api/cupons',       cuponsRoute); // ← CUPONS
+app.use('/api/agenda',       agendaRouter); // ← AGENDA
 
 // ─── Atalho /api/me → /api/auth/me ───────────────────────────
 const autenticar = require('./middleware/auth');

@@ -79,9 +79,16 @@ Categorias e quando usar:
 - Salário: salário, holerite, pagamento recebido, pró-labore
 - Outros: qualquer coisa não listada acima`;
 
-// ─── Gerador de ID curto ──────────────────────────────────────
+// ─── Gerador de ID curto (3 caracteres alfanuméricos simples) ─
+// Usa apenas letras maiúsculas e números fáceis de ler/falar
+// Evita caracteres confusos: 0/O, 1/I, etc.
+const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function gerarIdCurto() {
-  return Math.random().toString(36).substring(2, 7).toUpperCase();
+  let id = '';
+  for (let i = 0; i < 3; i++) {
+    id += ID_CHARS[Math.floor(Math.random() * ID_CHARS.length)];
+  }
+  return id;
 }
 
 // ─── Auth State no PostgreSQL ─────────────────────────────────
@@ -188,12 +195,10 @@ class BotGranaZen {
     // Remove DDI 55 se presente
     if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
 
-    // 8 dígitos = número sem DDD — improvável, ignora
     // 10 dígitos = DDD + 8 dígitos (sem o 9) → adiciona o 9
     if (digits.length === 10) {
       const ddd = digits.slice(0, 2);
       const numero = digits.slice(2);
-      // Celular começa com 6,7,8,9 — sempre adiciona o 9
       if (['6','7','8','9'].includes(numero[0])) {
         digits = ddd + '9' + numero;
         console.log(`📞 Número normalizado (sem 9 → com 9): ${telefone} → ${digits}`);
@@ -212,18 +217,15 @@ class BotGranaZen {
 
     let digits = telefone.replace(/\D/g, '');
 
-    // Remove DDI 55 se presente
     const semDDI = digits.startsWith('55') && digits.length > 11
       ? digits.slice(2)
       : digits;
 
-    // Adiciona versão com DDI
     const comDDI = '55' + semDDI;
 
     variacoes.add(semDDI);
     variacoes.add(comDDI);
 
-    // Se tem 10 dígitos (sem o 9), gera versão com o 9
     if (semDDI.length === 10) {
       const ddd = semDDI.slice(0, 2);
       const numero = semDDI.slice(2);
@@ -232,7 +234,6 @@ class BotGranaZen {
       variacoes.add('55' + com9);
     }
 
-    // Se tem 11 dígitos (com o 9), gera versão sem o 9
     if (semDDI.length === 11) {
       const ddd = semDDI.slice(0, 2);
       const numero = semDDI.slice(2);
@@ -289,7 +290,6 @@ class BotGranaZen {
          ON CONFLICT DO NOTHING`,
         [usuarioId, cat.nome, cat.tipo]
       ).catch(() => {
-        // Fallback sem coluna tipo
         return db.query(
           `INSERT INTO categorias (usuario_id, nome)
            VALUES ($1, $2)
@@ -517,12 +517,10 @@ class BotGranaZen {
   async _buscarSessao(telefone, remoteJid = null, pushName = null) {
     await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
 
-    // Gera todas as variações possíveis do número (com/sem 9, com/sem DDI)
     const variacoes = this._gerarVariacoesTelefone(telefone);
 
     let res = { rows: [] };
 
-    // Tenta cada variação do número
     for (const tel of variacoes) {
       res = await db.query(
         `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
@@ -530,7 +528,6 @@ class BotGranaZen {
         [tel]
       );
       if (res.rows.length > 0) {
-        // Se achou com variação diferente, normaliza no banco
         if (tel !== telefone) {
           console.log(`🔄 Normalizando telefone no banco: ${tel} → ${telefone}`);
           await db.query(`UPDATE sessoes_bot SET telefone = $1 WHERE telefone = $2`, [telefone, tel]).catch(() => {});
@@ -540,7 +537,6 @@ class BotGranaZen {
       }
     }
 
-    // Fallback: busca por LID na tabela sessoes_bot
     if (res.rows.length === 0 && remoteJid?.endsWith('@lid')) {
       res = await db.query(
         `SELECT s.usuario_id, u.nome, s.telefone FROM sessoes_bot s
@@ -549,7 +545,6 @@ class BotGranaZen {
       );
     }
 
-    // Fallback: busca LID na tabela lid_map
     if (res.rows.length === 0 && remoteJid?.endsWith('@lid')) {
       try {
         const mapRes = await db.query('SELECT telefone FROM lid_map WHERE lid = $1', [remoteJid]);
@@ -568,7 +563,6 @@ class BotGranaZen {
       } catch {}
     }
 
-    // Fallback final: busca por pushName quando tudo falhou (LID não resolvido)
     if (res.rows.length === 0 && pushName && remoteJid?.endsWith('@lid')) {
       try {
         const primeiroNome = pushName.split(' ')[0];
@@ -582,7 +576,6 @@ class BotGranaZen {
         if (res.rows.length > 0) {
           const telEncontrado = res.rows[0].telefone;
           console.log(`🔍 Sessão encontrada via pushName "${pushName}" → ${telEncontrado}`);
-          // Salva o LID no banco para próximas mensagens não precisarem do fallback
           try {
             await this._garantirTabelaLidMap();
             await db.query(
@@ -613,9 +606,11 @@ class BotGranaZen {
   // ─── Processamento de texto com todos os comandos ─────────────
   async processarTexto(remoteJid, usuarioId, nome, texto, telefone) {
     const textoLower = texto.toLowerCase().trim();
+    // Remove pontuação do final para comparações (ex: áudio transcreve com ponto)
+    const textoClean = textoLower.replace(/[.,!?;:]+$/, '').trim();
 
     // Saudações
-    if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello'].includes(textoLower))
+    if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello'].includes(textoClean))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
     // Resumo / Saldo / Relatório
@@ -626,29 +621,48 @@ class BotGranaZen {
       'ver relatório', 'meus gastos', 'gastos do mes', 'gastos do mês',
       'quanto gastei', 'quanto recebi', 'balanço', 'balanco',
     ];
-    if (triggerResumo.includes(textoLower) || textoLower.includes('relat'))
+    if (triggerResumo.includes(textoClean) || textoClean.includes('relat'))
       return this.enviarResumo(remoteJid, usuarioId, nome);
 
     // Ajuda
-    if (['ajuda', 'help', '?', 'menu'].includes(textoLower))
+    if (['ajuda', 'help', '?', 'menu'].includes(textoClean))
       return this.enviar(remoteJid, this.msgAjuda());
 
     // Listar categorias
-    if (['categorias', 'ver categorias', 'minhas categorias', 'listar categorias'].includes(textoLower))
+    if (['categorias', 'ver categorias', 'minhas categorias', 'listar categorias'].includes(textoClean))
       return this.enviarCategorias(remoteJid, usuarioId);
 
     // Adicionar categoria
-    if (textoLower.startsWith('nova categoria') || textoLower.startsWith('adicionar categoria') || textoLower === 'add categoria')
+    if (textoClean.startsWith('nova categoria') || textoClean.startsWith('adicionar categoria') || textoClean === 'add categoria')
       return this.iniciarFluxoNovaCategoria(remoteJid, telefone);
 
-    // Excluir transação: "excluir transação XYZAB" ou "cancelar XYZAB" ou "desfazer XYZAB"
-    const matchExcluir = texto.match(/^(?:excluir\s+(?:transa[çc][aã]o\s+)?|cancelar\s+|desfazer\s+|deletar\s+)([A-Z0-9]{4,6})$/i);
+    // ── Excluir última transação ──────────────────────────────────
+    // Aceita: "excluir última", "desfazer último", "apagar ultimo", "cancelar última"
+    const triggerUltima = [
+      'excluir ultima', 'excluir última', 'excluir ultimo', 'excluir último',
+      'desfazer ultima', 'desfazer última', 'desfazer ultimo', 'desfazer último',
+      'apagar ultima', 'apagar última', 'apagar ultimo', 'apagar último',
+      'cancelar ultima', 'cancelar última', 'cancelar ultimo', 'cancelar último',
+      'deletar ultima', 'deletar última', 'deletar ultimo', 'deletar último',
+      'excluir a ultima', 'excluir a última', 'excluir a ultima transacao',
+      'excluir a última transação', 'excluir ultima transacao', 'excluir última transação',
+      'desfazer', 'undo',
+    ];
+    if (triggerUltima.includes(textoClean))
+      return this.excluirUltimaTransacao(remoteJid, usuarioId);
+
+    // ── Excluir transação por ID ──────────────────────────────────
+    // FIX: regex agora ignora pontuação no final (resolve problema do áudio)
+    // Aceita IDs de 2 a 6 caracteres (cobre IDs antigos e novos de 3 chars)
+    const matchExcluir = texto.match(
+      /^(?:excluir\s+(?:transa[çc][aã]o\s+)?|cancelar\s+|desfazer\s+|deletar\s+|apagar\s+)([A-Z0-9]{2,6})[.,!?;:\s]*$/i
+    );
     if (matchExcluir) {
       return this.excluirTransacao(remoteJid, usuarioId, matchExcluir[1].toUpperCase());
     }
 
     // Últimas transações
-    if (['últimas', 'ultimas', 'últimos', 'historico', 'histórico', 'últimas transações'].includes(textoLower))
+    if (['últimas', 'ultimas', 'últimos', 'historico', 'histórico', 'últimas transações', 'historico de transacoes', 'histórico de transações'].includes(textoClean))
       return this.enviarUltimasTransacoes(remoteJid, usuarioId);
 
     // Transação normal
@@ -739,18 +753,64 @@ class BotGranaZen {
     await this.enviar(remoteJid, msg);
   }
 
+  // ─── Excluir a ÚLTIMA transação do usuário ────────────────────
+  async excluirUltimaTransacao(remoteJid, usuarioId) {
+    try {
+      const { rows } = await db.query(
+        `SELECT id, descricao, valor, tipo, conta_id, id_curto FROM transacoes
+         WHERE usuario_id = $1
+         ORDER BY created_at DESC LIMIT 1`,
+        [usuarioId]
+      );
+
+      if (rows.length === 0) {
+        return this.enviar(remoteJid, '📭 Você não tem nenhuma transação registrada para excluir.');
+      }
+
+      const tx = rows[0];
+      const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+      // Estorna saldo da conta
+      if (tx.conta_id) {
+        const sinal = tx.tipo === 'receita' ? -1 : 1;
+        await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [sinal * tx.valor, tx.conta_id]);
+      }
+
+      await db.query(`DELETE FROM transacoes WHERE id = $1`, [tx.id]);
+
+      await this.enviar(remoteJid,
+        `🗑️ *Última transação excluída!*\n\n` +
+        `📋 Descrição: ${tx.descricao}\n` +
+        `💵 Valor: ${fmt(tx.valor)}\n` +
+        (tx.id_curto ? `🔖 ID: ${tx.id_curto}\n` : '') +
+        `\n✅ Saldo atualizado.\n\n` +
+        `Digite *resumo* para ver seu saldo atual.`
+      );
+    } catch (err) {
+      console.error('Erro ao excluir última transação:', err.message);
+      await this.enviar(remoteJid, '❌ Erro ao excluir transação. Tente novamente.');
+    }
+  }
+
   // ─── Excluir transação por ID curto ──────────────────────────
   async excluirTransacao(remoteJid, usuarioId, idCurto) {
     try {
+      // Garante a coluna antes de buscar
+      await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
+
       const { rows } = await db.query(
         `SELECT id, descricao, valor, tipo, conta_id FROM transacoes
-         WHERE usuario_id = $1 AND id_curto = $2`,
+         WHERE usuario_id = $1 AND UPPER(id_curto) = $2`,
         [usuarioId, idCurto]
       );
 
       if (rows.length === 0) {
         return this.enviar(remoteJid,
-          `❌ Transação *${idCurto}* não encontrada.\n\nVerifique o identificador e tente novamente.\n\n_Dica: O identificador aparece quando você registra uma transação._`
+          `❌ Transação *${idCurto}* não encontrada.\n\n` +
+          `Dicas:\n` +
+          `• Verifique o ID na mensagem de confirmação\n` +
+          `• Digite *histórico* para ver suas últimas transações\n` +
+          `• Para excluir a última, diga: _excluir última_`
         );
       }
 
@@ -770,7 +830,7 @@ class BotGranaZen {
         `📋 Descrição: ${tx.descricao}\n` +
         `💵 Valor: ${fmt(tx.valor)}\n` +
         `🔖 ID: ${idCurto}\n\n` +
-        `✅ O saldo da sua conta foi atualizado.\n\n` +
+        `✅ Saldo atualizado.\n\n` +
         `Digite *resumo* para ver seu saldo atual.`
       );
     } catch (err) {
@@ -781,6 +841,9 @@ class BotGranaZen {
 
   // ─── Últimas transações ───────────────────────────────────────
   async enviarUltimasTransacoes(remoteJid, usuarioId) {
+    // Garante a coluna antes de buscar
+    await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
+
     const { rows } = await db.query(
       `SELECT t.id_curto, t.descricao, t.valor, t.tipo, c.nome AS categoria, t.data_pagamento
        FROM transacoes t
@@ -795,7 +858,7 @@ class BotGranaZen {
     }
 
     const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    let msg = `🕐 *Últimas 5 transações:*\n\n`;
+    let msg = `🕐 *Últimas transações:*\n\n`;
     for (const tx of rows) {
       const emoji = tx.tipo === 'despesa' ? '💸' : '💰';
       const data = tx.data_pagamento
@@ -803,10 +866,13 @@ class BotGranaZen {
         : '—';
       msg += `${emoji} *${tx.descricao}* — ${fmt(tx.valor)}\n`;
       msg += `   🏷️ ${tx.categoria || 'Outros'} | 📅 ${data}`;
-      if (tx.id_curto) msg += ` | 🔖 ${tx.id_curto}`;
+      if (tx.id_curto) msg += ` | 🔖 *${tx.id_curto}*`;
       msg += `\n\n`;
     }
-    msg += `_Para excluir, envie: excluir [ID]_\n_Ex: excluir B6EGY_`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🗑️ *Para excluir:*\n`;
+    msg += `• _excluir última_ — remove a mais recente\n`;
+    msg += `• _excluir [ID]_ — Ex: excluir A3B`;
     await this.enviar(remoteJid, msg);
   }
 
@@ -893,9 +959,8 @@ class BotGranaZen {
     }
   }
 
-  // ─── Registra transação com ID curto e mensagem rica ─────────
+  // ─── Registra transação com ID curto de 3 chars e mensagem rica ─
   async registrarTransacao(remoteJid, usuarioId, transacao, textoOriginal) {
-    // Garante categorias padrão
     await this._garantirCategoriasPadrao(usuarioId);
 
     // Garante que a coluna id_curto existe
@@ -918,7 +983,7 @@ class BotGranaZen {
     const contaId = contaRes.rows[0]?.id || null;
     const contaNome = contaRes.rows[0]?.nome || 'carteira';
 
-    // Gera ID curto único
+    // Gera ID curto único de 3 chars (fácil de falar e digitar)
     let idCurto;
     let tentativas = 0;
     do {
@@ -926,7 +991,7 @@ class BotGranaZen {
       const existe = await db.query(`SELECT id FROM transacoes WHERE id_curto = $1`, [idCurto]);
       if (existe.rows.length === 0) break;
       tentativas++;
-    } while (tentativas < 10);
+    } while (tentativas < 20);
 
     const dataHoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -960,19 +1025,17 @@ class BotGranaZen {
     const valorFmt = transacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
     await this.enviar(remoteJid,
-      `${emojiBanner} *Transação registrada com sucesso!*\n\n` +
-      `Identificador: *${idCurto}*\n\n` +
-      `📋 Resumo da transação:\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `✏️ Descrição: ${transacao.descricao}\n` +
+      `${emojiBanner} *Transação registrada!*\n\n` +
+      `📋 Descrição: ${transacao.descricao}\n` +
       `💵 Valor: ${valorFmt}\n` +
       `🔄 Tipo: ${emojiTipo} ${labelTipo}\n` +
       `${emojiCat} Categoria: ${categoriaNome}\n` +
       `🏦 Conta: ${contaNome}\n` +
-      `📅 Data: ${dataHoje}\n` +
-      `✅ Pago: ✔️\n\n` +
-      `❌ Para excluir diga: "Excluir transação *${idCurto}*".\n\n` +
-      `📊 Consulte gráficos e relatórios completos em: *${process.env.APP_URL}/painel*`
+      `📅 Data: ${dataHoje}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🔖 ID: *${idCurto}*\n\n` +
+      `🗑️ Para excluir diga:\n_"excluir ${idCurto}"_ ou _"excluir última"_\n\n` +
+      `📊 Painel: *${process.env.APP_URL}/painel*`
     );
   }
 
@@ -987,7 +1050,6 @@ class BotGranaZen {
                        'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
     const nomeMes = mesesNome[mes - 1];
 
-    // Totais do mês
     const { rows: totais } = await db.query(
       `SELECT
         COALESCE(SUM(CASE WHEN tipo='receita' AND pago=true THEN valor END), 0) AS recebido,
@@ -1001,7 +1063,6 @@ class BotGranaZen {
       [usuarioId, mes, ano]
     );
 
-    // Categorias de despesas
     const { rows: catDespesas } = await db.query(
       `SELECT c.nome, SUM(t.valor) AS total
        FROM transacoes t
@@ -1014,7 +1075,6 @@ class BotGranaZen {
       [usuarioId, mes, ano]
     );
 
-    // Categorias de receitas
     const { rows: catReceitas } = await db.query(
       `SELECT c.nome, SUM(t.valor) AS total
        FROM transacoes t
@@ -1041,7 +1101,6 @@ class BotGranaZen {
 
     let msg = `🏦 *Resumo Financeiro - ${nomeMes}/${ano}*\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🏛️ *Seu Saldo* até dia ${ultimoDia.toString().padStart(2,'0')}/${mes.toString().padStart(2,'0')}\n\n`;
     msg += `${emojiSaldo} Disponível: *${fmt(saldoDisponivel)}*\n`;
     msg += `📈 Previsto: *${fmt(saldoPrevisto)}* (até ${ultimoDia.toString().padStart(2,'0')}/${mes.toString().padStart(2,'0')})\n\n`;
 
@@ -1057,7 +1116,7 @@ class BotGranaZen {
 
     if (catDespesas.length > 0) {
       msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `📊 *Categorias de Despesas*\n\n`;
+      msg += `📊 *Top Despesas por Categoria*\n\n`;
       for (const cat of catDespesas) {
         const catNome = cat.nome || 'Outros';
         const emoji = EMOJI_CATEGORIA[catNome] || '📦';
@@ -1069,17 +1128,13 @@ class BotGranaZen {
 
     if (catReceitas.length > 0) {
       msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `💰 *Categorias de Receitas*\n\n`;
+      msg += `💰 *Receitas por Categoria*\n\n`;
       for (const cat of catReceitas) {
         const catNome = cat.nome || 'Outros';
         const emoji = EMOJI_CATEGORIA[catNome] || '📦';
         msg += `${emoji} ${catNome} → *${fmt(parseFloat(cat.total))}*\n`;
       }
       msg += `\n`;
-    } else {
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `💰 *Categorias de Receitas*\n`;
-      msg += `_Nenhuma receita no período._\n\n`;
     }
 
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -1107,7 +1162,6 @@ class BotGranaZen {
       return;
     }
 
-    // Garante categorias padrão para novos usuários
     await this._garantirCategoriasPadrao(usuarioId);
 
     const jid = `55${telefone}@s.whatsapp.net`;
@@ -1169,11 +1223,13 @@ class BotGranaZen {
       `📸 *Foto:* Tire foto de nota fiscal ou comprovante\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📊 *resumo* — Ver saldo e relatório do mês\n` +
-      `🕐 *histórico* — Ver últimas 5 transações\n` +
+      `🕐 *histórico* — Ver últimas transações e IDs\n` +
       `📂 *categorias* — Ver suas categorias\n` +
-      `➕ *nova categoria* — Adicionar categoria personalizada\n` +
-      `🗑️ *excluir [ID]* — Excluir uma transação\n` +
-      `   _Ex: excluir B6EGY_\n\n` +
+      `➕ *nova categoria* — Adicionar categoria personalizada\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🗑️ *Excluir transações:*\n` +
+      `_excluir última_ — remove a mais recente\n` +
+      `_excluir [ID]_ — Ex: excluir A3B\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🌐 Painel web: *${process.env.APP_URL}*`
     );

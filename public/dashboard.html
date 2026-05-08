@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function init() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
     if (!token) {
         redirecionarLogin();
         return;
@@ -548,7 +548,7 @@ async function init() {
 function redirecionarLogin() {
     // Proteção anti-loop: só redireciona se não estiver já na página de login
     if (!window.location.pathname.includes('login')) {
-        localStorage.removeItem('token');
+        localStorage.removeItem('gz_token');
         window.location.href = '/login.html';
     }
 }
@@ -563,7 +563,7 @@ function preencherPerfil(u) {
 // ─── PAINEL ───────────────────────────────────────────────────────────────────
 async function carregarPainel() {
     const m = Fmt.mesAtual(), y = Fmt.anoAtual();
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
 
     try {
         const [resumoRes, categoriasRes, transacoesRes, dividasRes] = await Promise.all([
@@ -620,7 +620,7 @@ async function carregarPainel() {
 
 // ─── TRANSAÇÕES ───────────────────────────────────────────────────────────────
 async function carregarTransacoes() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
     try {
         const res = await fetch('/api/transactions?limit=50', {
             headers: { Authorization: `Bearer ${token}` }
@@ -656,7 +656,7 @@ async function salvarTransacao() {
         showToast('Preencha descrição e valor', 'error');
         return;
     }
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
     try {
         const res = await fetch('/api/transactions', {
             method: 'POST',
@@ -690,7 +690,7 @@ async function carregarDividas(status = 'pendente') {
         el.className = 'btn ' + (k === status ? 'btn-primary' : 'btn-secondary');
     });
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
     const tb = document.getElementById('tabela-dividas');
     tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--gray-400)">Carregando...</td></tr>`;
 
@@ -790,7 +790,7 @@ function filtrarDividas(status) {
 
 async function quitarDividaWeb(id) {
     if (!confirm('Marcar como recebido? Uma receita será registrada automaticamente.')) return;
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
     try {
         const res = await fetch(`/api/dividas/${id}/quitar`, {
             method: 'POST',
@@ -811,7 +811,7 @@ async function quitarDividaWeb(id) {
 
 async function cancelarDividaWeb(id) {
     if (!confirm('Cancelar esta dívida? Ela não será mais listada nas pendentes.')) return;
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
     try {
         const res = await fetch(`/api/dividas/${id}/cancelar`, {
             method: 'POST',
@@ -838,7 +838,7 @@ async function salvarDivida() {
     if (!devedor) { showToast('Informe o nome do devedor', 'error'); return; }
     if (!valor || valor <= 0) { showToast('Informe um valor válido', 'error'); return; }
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gz_token');
     try {
         const res = await fetch('/api/dividas', {
             method: 'POST',
@@ -914,8 +914,8 @@ function escHtml(str) {
 }
 
 function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('usuario');
+    localStorage.removeItem('gz_token');
+    localStorage.removeItem('gz_usuario');
     redirecionarLogin();
 }
 </script>

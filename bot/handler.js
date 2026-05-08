@@ -883,7 +883,7 @@ class BotGranaZen {
     for (const tx of rows) {
       const emoji = tx.tipo === 'despesa' ? '💸' : '💰';
       const data = tx.data_pagamento
-        ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR')
+        ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
         : '—';
       msg += `${emoji} *${tx.descricao}* — ${fmt(tx.valor)}\n`;
       msg += `   🏷️ ${tx.categoria || 'Outros'} | 📅 ${data}`;
@@ -1014,7 +1014,7 @@ class BotGranaZen {
       tentativas++;
     } while (tentativas < 20);
 
-    const dataHoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const dataHoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' });
 
     const { rows } = await db.query(
       `INSERT INTO transacoes (usuario_id, tipo, descricao, valor, categoria_id, conta_id, data_vencimento, data_pagamento, pago, origem, mensagem_raw, id_curto)
@@ -1062,7 +1062,8 @@ class BotGranaZen {
 
   // ─── Resumo financeiro rico ───────────────────────────────────
   async enviarResumo(remoteJid, usuarioId, nome) {
-    const agora = new Date();
+    // Usa fuso horario de Brasilia para nao virar o dia errado
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     const mes = agora.getMonth() + 1;
     const ano = agora.getFullYear();
     const ultimoDia = new Date(ano, mes, 0).getDate();

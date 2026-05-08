@@ -113,6 +113,21 @@ router.post('/cadastro', async (req, res) => {
       await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
       await db.query(`CREATE INDEX IF NOT EXISTS idx_sessoes_bot_lid ON sessoes_bot(lid)`).catch(() => {});
 
+      // ── Limpa sessões órfãs do mesmo telefone (usuário deletado) ──
+      await db.query(
+        `DELETE FROM sessoes_bot
+         WHERE telefone = $1
+         AND usuario_id NOT IN (SELECT id FROM usuarios)`,
+        [telefoneLimpo]
+      );
+
+      // ── Também limpa lid_map órfão ────────────────────────────────
+      await db.query(
+        `DELETE FROM lid_map
+         WHERE telefone = $1`,
+        [telefoneLimpo]
+      ).catch(() => {});
+
       await db.query(
         `INSERT INTO sessoes_bot (telefone, usuario_id, estado, lid)
          VALUES ($1, $2, 'ativo', $3)
@@ -229,6 +244,14 @@ router.put('/perfil', autenticar, async (req, res) => {
     );
 
     if (telefoneLimpo) {
+      // Limpa sessões órfãs antes de atualizar
+      await db.query(
+        `DELETE FROM sessoes_bot
+         WHERE telefone = $1
+         AND usuario_id NOT IN (SELECT id FROM usuarios)`,
+        [telefoneLimpo]
+      );
+
       await db.query(
         `INSERT INTO sessoes_bot (telefone, usuario_id, estado)
          VALUES ($1, $2, 'ativo')

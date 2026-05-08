@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/assets/favicon.png" type="image/png">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seu Secretário — Cadastro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <!-- Stripe.js -->
+    <script src="https://js.stripe.com/v3/"></script>
     <style>
         :root {
             --navy:      #0f2237;
@@ -371,6 +373,110 @@
         }
         .success-whatsapp:hover { opacity: 0.9; }
 
+        /* ── STRIPE PAYMENT STEP ── */
+        .trial-banner {
+            background: linear-gradient(135deg, #e8f5ef 0%, #d4f0e2 100%);
+            border: 1.5px solid var(--green);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .trial-banner-icon {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--green); color: white;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; font-size: 16px;
+        }
+        .trial-banner-text { flex: 1; }
+        .trial-banner-title { font-size: 14px; font-weight: 700; color: var(--green); margin-bottom: 3px; }
+        .trial-banner-desc { font-size: 12.5px; color: #2a6b52; line-height: 1.5; }
+
+        /* Stripe Element wrapper */
+        .stripe-field-wrap {
+            border: 1.5px solid var(--gray-200);
+            border-radius: 10px;
+            background: var(--gray-50);
+            padding: 13px 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .stripe-field-wrap.StripeElement--focus {
+            border-color: var(--navy);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(15,34,55,0.07);
+        }
+        .stripe-field-wrap.StripeElement--invalid {
+            border-color: var(--red);
+            background: var(--red-bg);
+        }
+
+        /* Card brand icon */
+        .card-field-row {
+            position: relative;
+        }
+        .card-brand-icon {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0.5;
+        }
+
+        /* Security badges */
+        .security-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin: 16px 0 20px;
+        }
+        .security-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: var(--gray-400);
+            font-weight: 500;
+        }
+        .security-badge svg { opacity: 0.6; }
+
+        /* Payment summary box */
+        .payment-summary {
+            background: var(--navy-dark);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+            color: white;
+        }
+        .payment-summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .payment-summary-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .payment-summary-label { color: rgba(255,255,255,0.55); }
+        .payment-summary-value { font-weight: 600; color: white; }
+        .payment-summary-value.highlight { color: var(--gold-lite); font-size: 15px; }
+        .payment-summary-value.free { color: #6ee7b7; }
+
+        /* Stripe error */
+        #stripe-error {
+            background: var(--red-bg);
+            border: 1.5px solid var(--red);
+            border-radius: 10px;
+            padding: 11px 16px;
+            font-size: 13px;
+            color: var(--red);
+            margin-bottom: 16px;
+            display: none;
+        }
+        #stripe-error.show { display: block; }
+
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         @media (max-width: 900px) {
@@ -449,7 +555,7 @@
             </button>
         </div>
 
-        <!-- STEPPER -->
+        <!-- STEPPER (4 steps) -->
         <div class="stepper" id="stepper">
             <div class="step active" id="step-1">
                 <div class="step-circle">
@@ -467,6 +573,13 @@
             <div class="step-line" id="line-2"></div>
             <div class="step" id="step-3">
                 <div class="step-circle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </div>
+                <div class="step-label">Pagamento</div>
+            </div>
+            <div class="step-line" id="line-3"></div>
+            <div class="step" id="step-4">
+                <div class="step-circle">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/></svg>
                 </div>
                 <div class="step-label">Finalizar</div>
@@ -476,7 +589,7 @@
         <!-- ── STEP 1: DADOS PESSOAIS ── -->
         <div class="step-panel active" id="panel-1">
             <h2 class="form-heading">Crie sua conta</h2>
-            <p class="form-subtitle">Preencha seus dados para começar gratuitamente.</p>
+            <p class="form-subtitle">Preencha seus dados para começar.</p>
 
             <div class="form-group">
                 <label class="form-label">Nome completo</label>
@@ -556,27 +669,39 @@
         <!-- ── STEP 2: PLANO ── -->
         <div class="step-panel" id="panel-2">
             <h2 class="form-heading">Escolha seu plano</h2>
-            <p class="form-subtitle">Comece grátis ou desbloqueie todos os recursos com o Premium.</p>
+            <p class="form-subtitle">7 dias grátis em qualquer plano. Cancele a qualquer momento.</p>
 
             <div class="plan-grid">
-                <div class="plan-card" onclick="selectPlan(this,'gratuito')" data-plan="gratuito">
+                <div class="plan-card" onclick="selectPlan(this,'basico_mensal')" data-plan="basico_mensal">
                     <div class="plan-radio"></div>
                     <div class="plan-info">
-                        <div class="plan-name-row"><div class="plan-name">Gratuito</div></div>
-                        <div class="plan-desc">Ideal para começar · Sem cartão de crédito</div>
+                        <div class="plan-name-row"><div class="plan-name">Básico Mensal</div></div>
+                        <div class="plan-desc">Recursos essenciais · 7 dias grátis</div>
                     </div>
                     <div class="plan-price-tag">
-                        <div class="plan-price-val">R$ 0</div>
-                        <div class="plan-price-period">para sempre</div>
+                        <div class="plan-price-val">R$ 19,90</div>
+                        <div class="plan-price-period">por mês</div>
                     </div>
                 </div>
 
-                <div class="plan-card featured" onclick="selectPlan(this,'mensal')" data-plan="mensal">
-                    <div class="plan-badge-pill">✦ POPULAR</div>
+                <div class="plan-card featured" onclick="selectPlan(this,'basico_anual')" data-plan="basico_anual">
+                    <div class="plan-badge-pill">2 MESES GRÁTIS</div>
+                    <div class="plan-radio"></div>
+                    <div class="plan-info">
+                        <div class="plan-name-row"><div class="plan-name">Básico Anual</div></div>
+                        <div class="plan-desc">Melhor custo · R$ 199,00/ano</div>
+                    </div>
+                    <div class="plan-price-tag">
+                        <div class="plan-price-val">R$ 16,58</div>
+                        <div class="plan-price-period">por mês</div>
+                    </div>
+                </div>
+
+                <div class="plan-card" onclick="selectPlan(this,'premium_mensal')" data-plan="premium_mensal">
                     <div class="plan-radio"></div>
                     <div class="plan-info">
                         <div class="plan-name-row"><div class="plan-name">Premium Mensal</div></div>
-                        <div class="plan-desc">Recursos ilimitados · Cancele quando quiser</div>
+                        <div class="plan-desc">Recursos ilimitados · 7 dias grátis</div>
                     </div>
                     <div class="plan-price-tag">
                         <div class="plan-price-val">R$ 29,90</div>
@@ -584,8 +709,8 @@
                     </div>
                 </div>
 
-                <div class="plan-card" onclick="selectPlan(this,'anual')" data-plan="anual">
-                    <div class="plan-badge-pill" style="background:var(--green);color:white">2 MESES GRÁTIS</div>
+                <div class="plan-card featured" onclick="selectPlan(this,'premium_anual')" data-plan="premium_anual">
+                    <div class="plan-badge-pill" style="background:var(--gold)">✦ POPULAR</div>
                     <div class="plan-radio"></div>
                     <div class="plan-info">
                         <div class="plan-name-row"><div class="plan-name">Premium Anual</div></div>
@@ -609,8 +734,98 @@
             </div>
         </div>
 
-        <!-- ── STEP 3: FINALIZAR ── -->
+        <!-- ── STEP 3: PAGAMENTO (Stripe) ── -->
         <div class="step-panel" id="panel-3">
+            <h2 class="form-heading">Dados de pagamento</h2>
+            <p class="form-subtitle">Seu cartão será cobrado após os 7 dias de teste grátis.</p>
+
+            <!-- Trial banner -->
+            <div class="trial-banner">
+                <div class="trial-banner-icon">🎁</div>
+                <div class="trial-banner-text">
+                    <div class="trial-banner-title">7 dias completamente grátis</div>
+                    <div class="trial-banner-desc">Nenhum valor será cobrado agora. A cobrança começa somente após o período de teste, e você pode cancelar antes disso a qualquer momento.</div>
+                </div>
+            </div>
+
+            <!-- Payment summary -->
+            <div class="payment-summary" id="payment-summary">
+                <div class="payment-summary-row">
+                    <span class="payment-summary-label">Plano</span>
+                    <span class="payment-summary-value" id="ps-plan">—</span>
+                </div>
+                <div class="payment-summary-row">
+                    <span class="payment-summary-label">Hoje você paga</span>
+                    <span class="payment-summary-value free">R$ 0,00</span>
+                </div>
+                <div class="payment-summary-row">
+                    <span class="payment-summary-label">Após 7 dias</span>
+                    <span class="payment-summary-value highlight" id="ps-valor">—</span>
+                </div>
+            </div>
+
+            <!-- Card fields via Stripe Elements -->
+            <div class="form-group">
+                <label class="form-label">Número do cartão</label>
+                <div class="card-field-row">
+                    <div id="stripe-card-number" class="stripe-field-wrap"></div>
+                    <div class="card-brand-icon" id="card-brand-icon">
+                        <svg width="24" height="16" viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="24" height="16" rx="2" fill="#E2DDD6"/>
+                            <rect x="2" y="6" width="6" height="4" rx="1" fill="#9e9689"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">Validade</label>
+                    <div id="stripe-card-expiry" class="stripe-field-wrap"></div>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label class="form-label">CVC</label>
+                    <div id="stripe-card-cvc" class="stripe-field-wrap"></div>
+                </div>
+            </div>
+
+            <div style="margin-top:18px" class="form-group">
+                <label class="form-label">Nome no cartão</label>
+                <input class="form-input" type="text" id="f-card-name" placeholder="Como está no cartão" autocomplete="cc-name">
+                <div class="field-error" id="err-card-name">Informe o nome impresso no cartão.</div>
+            </div>
+
+            <!-- Security badges -->
+            <div class="security-row">
+                <div class="security-badge">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    SSL Seguro
+                </div>
+                <div class="security-badge">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Stripe Payments
+                </div>
+                <div class="security-badge">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    PCI Compliant
+                </div>
+            </div>
+
+            <div id="stripe-error"></div>
+
+            <div style="display:flex;gap:10px">
+                <button class="btn-submit" style="background:var(--gray-100);color:var(--navy);flex:0 0 auto;width:48px;padding:0;justify-content:center;box-shadow:none;" onclick="goStep(2)">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                </button>
+                <button class="btn-submit" id="btn-continuar-pagamento" style="flex:1" onclick="validarCartao()">
+                    Continuar
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ── STEP 4: CONFIRMAR ── -->
+        <div class="step-panel" id="panel-4">
             <h2 class="form-heading">Confirme seus dados</h2>
             <p class="form-subtitle">Revise as informações antes de criar sua conta.</p>
 
@@ -631,19 +846,32 @@
                     <span class="confirm-label">Plano</span>
                     <span class="confirm-value" id="c-plan">—</span>
                 </div>
+                <div class="confirm-row">
+                    <span class="confirm-label">Cartão</span>
+                    <span class="confirm-value" id="c-card">—</span>
+                </div>
+                <div class="confirm-row">
+                    <span class="confirm-label">Cobrança em</span>
+                    <span class="confirm-value" id="c-cobranca" style="color:var(--green)">—</span>
+                </div>
             </div>
 
             <div class="global-error" id="global-error"></div>
 
             <div style="display:flex;gap:10px">
-                <button class="btn-submit" id="btn-back-3" style="background:var(--gray-100);color:var(--navy);flex:0 0 auto;width:48px;padding:0;justify-content:center;box-shadow:none;" onclick="goStep(2)">
+                <button class="btn-submit" id="btn-back-4" style="background:var(--gray-100);color:var(--navy);flex:0 0 auto;width:48px;padding:0;justify-content:center;box-shadow:none;" onclick="goStep(3)">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                 </button>
                 <button class="btn-submit" id="btn-criar" style="flex:1" onclick="submeter()">
-                    Criar conta
+                    Criar conta e iniciar teste grátis
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </button>
             </div>
+
+            <p style="text-align:center;font-size:11.5px;color:var(--gray-400);margin-top:12px;line-height:1.6">
+                Ao criar a conta, você concorda com nossos termos de uso.<br>
+                Cobrança automática após 7 dias. Cancele antes para não ser cobrado.
+            </p>
         </div>
 
         <!-- ── SUCESSO ── -->
@@ -654,7 +882,7 @@
             <div class="success-title">Conta criada com sucesso!</div>
             <p class="success-sub">
                 Bem-vindo ao Seu Secretário! 🎉<br>
-                Agora adicione o nosso número no WhatsApp e comece a registrar suas finanças por lá.
+                Seu teste grátis começa agora. Adicione nosso número no WhatsApp e comece a organizar suas finanças.
             </p>
             <a class="success-whatsapp" id="success-wa-link" href="#" target="_blank">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -666,11 +894,61 @@
 </div>
 
 <script>
-// ─── Estado global ────────────────────────────────────────────
-let planoSelecionado = 'gratuito';
-let stepAtual = 1;
+// ─── Config Stripe ─────────────────────────────────────────────
+// Substitua pela sua chave pública do Stripe (pk_live_... ou pk_test_...)
+const STRIPE_PUBLIC_KEY = window.STRIPE_PUBLIC_KEY || 'pk_test_SUBSTITUA_PELA_SUA_CHAVE_PUBLICA';
+const stripe = Stripe(STRIPE_PUBLIC_KEY);
+const elements = stripe.elements({
+    fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap' }]
+});
 
-// ─── Máscara de telefone → (XX) XXXXX-XXXX ────────────────────
+// Stripe Elements styling
+const stripeStyle = {
+    base: {
+        color: '#1a1713',
+        fontFamily: '"DM Sans", sans-serif',
+        fontSize: '14px',
+        fontWeight: '400',
+        '::placeholder': { color: '#c9c3b8' },
+        iconColor: '#9e9689',
+    },
+    invalid: { color: '#c0392b', iconColor: '#c0392b' }
+};
+
+const cardNumber = elements.create('cardNumber', { style: stripeStyle, showIcon: true });
+const cardExpiry = elements.create('cardExpiry', { style: stripeStyle });
+const cardCvc    = elements.create('cardCvc',    { style: stripeStyle });
+
+// Monta os elementos quando o step 3 for exibido pela primeira vez
+let stripeMonted = false;
+function montarStripe() {
+    if (stripeMonted) return;
+    cardNumber.mount('#stripe-card-number');
+    cardExpiry.mount('#stripe-card-expiry');
+    cardCvc.mount('#stripe-card-cvc');
+    stripeMonted = true;
+
+    cardNumber.on('change', (e) => {
+        const errEl = document.getElementById('stripe-error');
+        if (e.error) { errEl.textContent = e.error.message; errEl.classList.add('show'); }
+        else { errEl.classList.remove('show'); }
+    });
+}
+
+// ─── Estado global ─────────────────────────────────────────────
+let planoSelecionado = '';
+let stepAtual = 1;
+let stripePaymentMethodId = null; // será preenchido ao validar cartão
+
+// Info dos planos
+const PLANOS = {
+    basico_mensal:  { label: 'Básico Mensal',   valor: 'R$ 19,90/mês',  priceKey: 'STRIPE_PRICE_BASICO_MENSAL'  },
+    basico_anual:   { label: 'Básico Anual',    valor: 'R$ 199,00/ano', priceKey: 'STRIPE_PRICE_BASICO_ANUAL'   },
+    premium_mensal: { label: 'Premium Mensal',  valor: 'R$ 29,90/mês',  priceKey: 'STRIPE_PRICE_PRO_MENSAL'    },
+    premium_anual:  { label: 'Premium Anual',   valor: 'R$ 299,00/ano', priceKey: 'STRIPE_PRICE_PRO_ANUAL'     },
+};
+
+// ─── Máscara de telefone ────────────────────────────────────────
 function formatarTelefone(input) {
     let digits = input.value.replace(/\D/g, '').slice(0, 11);
     let masked = '';
@@ -686,13 +964,12 @@ function formatarTelefone(input) {
     input.value = masked;
 }
 
-// ─── Extrai o telefone numérico com DDI 55 ────────────────────
 function telefoneRaw() {
     const digits = document.getElementById('f-phone').value.replace(/\D/g, '');
     return '55' + digits;
 }
 
-// ─── Força da senha ───────────────────────────────────────────
+// ─── Força da senha ─────────────────────────────────────────────
 function checkPwdStrength(pwd) {
     const bars = [
         document.getElementById('bar-1'),
@@ -701,10 +978,10 @@ function checkPwdStrength(pwd) {
         document.getElementById('bar-4'),
     ];
     let score = 0;
-    if (pwd.length >= 8)               score++;
-    if (/[A-Z]/.test(pwd))            score++;
-    if (/[0-9]/.test(pwd))            score++;
-    if (/[^A-Za-z0-9]/.test(pwd))     score++;
+    if (pwd.length >= 8)           score++;
+    if (/[A-Z]/.test(pwd))        score++;
+    if (/[0-9]/.test(pwd))        score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
 
     const colors = ['#c0392b', '#e67e22', '#f1c40f', '#2d7a5f'];
     bars.forEach((b, i) => {
@@ -712,7 +989,7 @@ function checkPwdStrength(pwd) {
     });
 }
 
-// ─── Mostrar/ocultar senha ────────────────────────────────────
+// ─── Mostrar/ocultar senha ──────────────────────────────────────
 function togglePass(inputId, btn) {
     const input = document.getElementById(inputId);
     const isText = input.type === 'text';
@@ -722,14 +999,14 @@ function togglePass(inputId, btn) {
         : '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
 }
 
-// ─── Seleção de plano ─────────────────────────────────────────
+// ─── Seleção de plano ───────────────────────────────────────────
 function selectPlan(card, plano) {
     document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     planoSelecionado = plano;
 }
 
-// ─── Helpers de validação ─────────────────────────────────────
+// ─── Helpers de validação ───────────────────────────────────────
 function setError(fieldId, errId, show) {
     const input = document.getElementById(fieldId);
     const err   = document.getElementById(errId);
@@ -783,48 +1060,137 @@ function validarStep1() {
     return ok;
 }
 
-// ─── Navegação entre steps ────────────────────────────────────
+// ─── Atualiza resumo de pagamento ao entrar no step 3 ──────────
+function atualizarResumoPagamento() {
+    const info = PLANOS[planoSelecionado];
+    if (!info) return;
+    document.getElementById('ps-plan').textContent  = info.label;
+    document.getElementById('ps-valor').textContent = info.valor;
+}
+
+// ─── Valida cartão com Stripe (cria PaymentMethod) ─────────────
+async function validarCartao() {
+    const errEl  = document.getElementById('stripe-error');
+    const btnEl  = document.getElementById('btn-continuar-pagamento');
+    const nome   = document.getElementById('f-card-name').value.trim();
+
+    errEl.classList.remove('show');
+
+    if (!nome) {
+        setError('f-card-name', 'err-card-name', true);
+        return;
+    }
+    setError('f-card-name', 'err-card-name', false);
+
+    btnEl.classList.add('loading');
+    btnEl.textContent = 'Validando cartão...';
+
+    try {
+        const { paymentMethod, error } = await stripe.createPaymentMethod({
+            type: 'card',
+            card: cardNumber,
+            billing_details: {
+                name: nome,
+                email: document.getElementById('f-email').value.trim(),
+            }
+        });
+
+        if (error) {
+            errEl.textContent = error.message;
+            errEl.classList.add('show');
+            btnEl.classList.remove('loading');
+            btnEl.innerHTML = 'Continuar <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+            return;
+        }
+
+        stripePaymentMethodId = paymentMethod.id;
+
+        // Preenche resumo final
+        const last4 = paymentMethod.card.last4;
+        const brand = paymentMethod.card.brand.charAt(0).toUpperCase() + paymentMethod.card.brand.slice(1);
+        const info  = PLANOS[planoSelecionado];
+
+        document.getElementById('c-name').textContent     = document.getElementById('f-name').value.trim();
+        document.getElementById('c-email').textContent    = document.getElementById('f-email').value.trim();
+        document.getElementById('c-phone').textContent    = document.getElementById('f-phone').value.trim();
+        document.getElementById('c-plan').textContent     = info ? info.label : planoSelecionado;
+        document.getElementById('c-card').textContent     = `${brand} ••••${last4}`;
+
+        const dataCobranca = new Date();
+        dataCobranca.setDate(dataCobranca.getDate() + 7);
+        document.getElementById('c-cobranca').textContent = dataCobranca.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        goStepDireto(4);
+
+    } catch (err) {
+        errEl.textContent = 'Erro ao processar cartão. Tente novamente.';
+        errEl.classList.add('show');
+        btnEl.classList.remove('loading');
+        btnEl.innerHTML = 'Continuar <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+    }
+}
+
+// ─── Navegação entre steps ──────────────────────────────────────
 function goStep(destino) {
     if (stepAtual === 1 && destino > 1) {
         if (!validarStep1()) return;
     }
 
-    if (destino === 3) {
-        const planLabels = {
-            gratuito: 'Gratuito — R$ 0',
-            mensal:   'Premium Mensal — R$ 29,90/mês',
-            anual:    'Premium Anual — R$ 24,90/mês',
-        };
-        document.getElementById('c-name').textContent  = document.getElementById('f-name').value.trim();
-        document.getElementById('c-email').textContent = document.getElementById('f-email').value.trim();
-        document.getElementById('c-phone').textContent = document.getElementById('f-phone').value.trim();
-        document.getElementById('c-plan').textContent  = planLabels[planoSelecionado] || planoSelecionado;
-        document.getElementById('global-error').classList.remove('show');
+    if (destino === 2 && !planoSelecionado) {
+        // ok, usuário ainda vai escolher
     }
 
+    if (destino === 3) {
+        if (!planoSelecionado) {
+            alert('Selecione um plano para continuar.');
+            return;
+        }
+        atualizarResumoPagamento();
+        setTimeout(montarStripe, 50);
+    }
+
+    goStepDireto(destino);
+}
+
+function goStepDireto(destino) {
     document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('panel-' + destino).classList.add('active');
 
-    for (let i = 1; i <= 3; i++) {
+    const totalSteps = 4;
+    for (let i = 1; i <= totalSteps; i++) {
         const stepEl = document.getElementById('step-' + i);
+        if (!stepEl) continue;
         stepEl.classList.remove('active', 'completed');
-        if (i < destino)       stepEl.classList.add('completed');
+        if (i < destino)        stepEl.classList.add('completed');
         else if (i === destino) stepEl.classList.add('active');
+
+        // ícone do step: muda para check quando completed
+        const circle = stepEl.querySelector('.step-circle');
+        if (i < destino) {
+            circle.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        }
     }
-    for (let i = 1; i <= 2; i++) {
+    for (let i = 1; i <= totalSteps - 1; i++) {
         const lineEl = document.getElementById('line-' + i);
-        lineEl.classList.toggle('completed', i < destino);
+        if (lineEl) lineEl.classList.toggle('completed', i < destino);
+    }
+
+    // Restaura o botão do step 3 se voltar
+    const btn3 = document.getElementById('btn-continuar-pagamento');
+    if (btn3 && destino === 3) {
+        btn3.classList.remove('loading');
+        btn3.innerHTML = 'Continuar <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
     }
 
     stepAtual = destino;
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ─── Submissão final ──────────────────────────────────────────
+// ─── Submissão final ────────────────────────────────────────────
 async function submeter() {
-    const btn = document.getElementById('btn-criar');
-    const errBox = document.getElementById('global-error');
-    const backBtn = document.getElementById('btn-back-3');
+    const btn     = document.getElementById('btn-criar');
+    const errBox  = document.getElementById('global-error');
+    const backBtn = document.getElementById('btn-back-4');
 
     btn.classList.add('loading');
     btn.textContent = 'Criando conta...';
@@ -832,11 +1198,12 @@ async function submeter() {
     errBox.classList.remove('show');
 
     const payload = {
-        nome:     document.getElementById('f-name').value.trim(),
-        email:    document.getElementById('f-email').value.trim(),
-        senha:    document.getElementById('f-pass').value,
-        telefone: telefoneRaw(),
-        plano:    planoSelecionado,
+        nome:             document.getElementById('f-name').value.trim(),
+        email:            document.getElementById('f-email').value.trim(),
+        senha:            document.getElementById('f-pass').value,
+        telefone:         telefoneRaw(),
+        plano:            planoSelecionado,
+        paymentMethodId:  stripePaymentMethodId,
     };
 
     try {
@@ -852,10 +1219,25 @@ async function submeter() {
             throw new Error(data.erro || data.mensagem || data.message || 'Erro ao criar conta. Tente novamente.');
         }
 
+        // Se a Stripe exige confirmação 3D Secure
+        if (data.requiresAction && data.clientSecret) {
+            const { error: confirmError } = await stripe.confirmCardSetup(data.clientSecret, {
+                payment_method: stripePaymentMethodId,
+            });
+            if (confirmError) {
+                throw new Error(confirmError.message);
+            }
+            // Notifica backend que 3DS foi concluído
+            await fetch('/api/stripe/confirmar-setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (data.token || '') },
+                body: JSON.stringify({ usuarioId: data.id }),
+            });
+        }
+
         document.querySelector('.stepper').style.display = 'none';
         document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
 
-        // ── Número do bot: 31998321024 ──
         const nome = payload.nome.split(' ')[0];
         const waMsg = encodeURIComponent(`Oi! Acabei de criar minha conta no Seu Secretário. Meu nome é ${nome} 😊`);
         document.getElementById('success-wa-link').href = `https://wa.me/5531998321024?text=${waMsg}`;
@@ -867,7 +1249,7 @@ async function submeter() {
         errBox.classList.add('show');
 
         btn.classList.remove('loading');
-        btn.innerHTML = 'Criar conta <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.innerHTML = 'Criar conta e iniciar teste grátis <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         backBtn.disabled = false;
     }
 }

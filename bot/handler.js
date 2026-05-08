@@ -237,7 +237,6 @@ class BotGranaZen {
     this.onDisconnected = null;
     this.onNovaTransacao = null;
     this._estadosCategoriaFluxo = new Map();
-    this._estadosConfirmacaoTx = new Map(); // telefone → { idCurto, contaId, sinal, valor }
     this._timerLembretes = null;
   }
 
@@ -642,12 +641,6 @@ class BotGranaZen {
       return this._continuarFluxoCategoria(telefone, remoteJid, texto);
     }
 
-    // ── Confirmação de transação pendente ─────────────────────────────────
-    if (this._estadosConfirmacaoTx.has(telefone) && tipo === 'texto') {
-      const texto = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-      return this._responderConfirmacaoTx(telefone, remoteJid, texto);
-    }
-
     const sessao = await this._buscarSessao(telefone, remoteJid, pushName);
     if (!sessao) {
       return this.enviar(remoteJid,
@@ -913,7 +906,7 @@ class BotGranaZen {
         if (totalDespesas > 0) msg += `💸 Total despesas: *${fmt(totalDespesas)}*\n`;
         if (totalReceitas > 0) msg += `💰 Total receitas: *${fmt(totalReceitas)}*\n`;
         msg += `\n🗑️ Para excluir: _"excluir [ID]"_\n`;
-        msg += `📊 Painel: *https://www.seusecretario.com.br/painel*`;
+        msg += `📊 Digite *resumo* para ver seu saldo atualizado.`;
         await this.enviar(remoteJid, msg);
       }
     } else {
@@ -1174,8 +1167,7 @@ class BotGranaZen {
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🔖 ID: *${idCurto}*\n\n` +
       `✅ Quando receber, diga:\n_"recebido ${idCurto}"_\n\n` +
-      `📋 Ver todas: _"a receber"_\n\n` +
-      `🌐 Painel: *https://www.seusecretario.com.br/painel*`
+      `📋 Ver todas: _"a receber"_`
     );
   }
 
@@ -1245,7 +1237,7 @@ class BotGranaZen {
     await this.enviar(remoteJid,
       `✅ *Recebimento confirmado!*\n\n👤 Devedor: *${d.devedor}*\n💵 Valor: *${fmt(d.valor)}*\n\n` +
       `💰 Receita de *${fmt(d.valor)}* registrada!\n🏦 Conta: ${contaNome}\n\n` +
-      `Digite _"a receber"_ para ver as demais pendentes.\n📊 Painel: *https://www.seusecretario.com.br/painel*`
+      `Digite _"a receber"_ para ver as demais pendentes.`
     );
   }
 
@@ -1571,7 +1563,7 @@ class BotGranaZen {
     return null;
   }
 
-  async registrarTransacao(remoteJid, usuarioId, transacao, textoOriginal, telefone) {
+  async registrarTransacao(remoteJid, usuarioId, transacao, textoOriginal) {
     await this._garantirCategoriasPadrao(usuarioId);
     await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
 
@@ -1599,12 +1591,24 @@ class BotGranaZen {
 
     const dataHoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' });
 
-    // Insere com pago=false (pendente de confirmação)
+    // Insere direto com pago=true (sem etapa de confirmação)
     const { rows } = await db.query(
       `INSERT INTO transacoes (usuario_id, tipo, descricao, valor, categoria_id, conta_id, data_vencimento, data_pagamento, pago, origem, mensagem_raw, id_curto)
-       VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,CURRENT_DATE,false,'whatsapp',$7,$8) RETURNING id`,
+       VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,CURRENT_DATE,true,'whatsapp',$7,$8) RETURNING id`,
       [usuarioId, transacao.tipo, transacao.descricao, transacao.valor, categoriaId, contaId, textoOriginal, idCurto]
     );
+
+    // Atualiza saldo da conta
+    if (contaId) {
+      const sinal = transacao.tipo === 'receita' ? 1 : -1;
+      await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [sinal * transacao.valor, contaId]);
+    }
+
+    if (this.onNovaTransacao) this.onNovaTransacao({
+      id: rows[0].id, idCurto,
+      tipo: transacao.tipo, valor: transacao.valor,
+      descricao: transacao.descricao, categoria: categoriaNome, origem: 'whatsapp',
+    });
 
     const emojiTipo   = transacao.tipo === 'despesa' ? '🔴' : '🟢';
     const labelTipo   = transacao.tipo === 'despesa' ? 'Despesa' : 'Receita';
@@ -1612,71 +1616,13 @@ class BotGranaZen {
     const emojiCat    = EMOJI_CATEGORIA[categoriaNome] || '📦';
     const valorFmt    = transacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-    // Guarda estado aguardando confirmação
-    if (telefone) {
-      this._estadosConfirmacaoTx.set(telefone, {
-        transacaoId: rows[0].id,
-        idCurto,
-        contaId,
-        sinal: transacao.tipo === 'receita' ? 1 : -1,
-        valor: transacao.valor,
-        usuarioId,
-        descricao: transacao.descricao,
-        categoriaNome,
-        tipo: transacao.tipo,
-      });
-    }
-
     await this.enviar(remoteJid,
-      `${emojiBanner} *Transação detectada!*\n\n` +
+      `✅ *Transação registrada com sucesso!*\n\n` +
       `📋 Descrição: ${transacao.descricao}\n💵 Valor: ${valorFmt}\n🔄 Tipo: ${emojiTipo} ${labelTipo}\n` +
       `${emojiCat} Categoria: ${categoriaNome}\n🏦 Conta: ${contaNome}\n📅 Data: ${dataHoje}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `✅ Responda *confirmar* para salvar\n❌ Responda *apagar* para cancelar`
-    );
-  }
-
-  async _responderConfirmacaoTx(telefone, remoteJid, texto) {
-    const estado = this._estadosConfirmacaoTx.get(telefone);
-    if (!estado) return;
-    const resp = texto.toLowerCase().trim().replace(/[.,!?]+$/, '');
-    const confirmar = ['confirmar', 'sim', 's', 'yes', 'ok', 'confirmado', '✅', 'salvar', 'pode', 'confirma'].includes(resp);
-    const apagar    = ['apagar', 'cancelar', 'não', 'nao', 'n', 'no', 'deletar', 'excluir', 'cancela', '❌', 'remover'].includes(resp);
-
-    if (!confirmar && !apagar) {
-      return this.enviar(remoteJid,
-        `Por favor responda:\n✅ *confirmar* — para salvar o registro\n❌ *apagar* — para cancelar`
-      );
-    }
-
-    this._estadosConfirmacaoTx.delete(telefone);
-
-    if (apagar) {
-      await db.query(`DELETE FROM transacoes WHERE id = $1`, [estado.transacaoId]);
-      return this.enviar(remoteJid, `❌ Registro cancelado e removido.\n\nNenhuma transação foi salva.`);
-    }
-
-    // Confirmar: ativa pago=true e atualiza saldo
-    await db.query(`UPDATE transacoes SET pago = true WHERE id = $1`, [estado.transacaoId]);
-    if (estado.contaId) {
-      await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [estado.sinal * estado.valor, estado.contaId]);
-    }
-
-    if (this.onNovaTransacao) this.onNovaTransacao({
-      id: estado.transacaoId, idCurto: estado.idCurto,
-      tipo: estado.tipo, valor: estado.valor,
-      descricao: estado.descricao, categoria: estado.categoriaNome, origem: 'whatsapp',
-    });
-
-    const valorFmt = estado.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const emojiBanner = estado.tipo === 'despesa' ? '💸' : '💰';
-
-    await this.enviar(remoteJid,
-      `✅ *Transação confirmada e salva!*\n\n` +
-      `${emojiBanner} ${estado.descricao} — *${valorFmt}*\n` +
-      `🔖 ID: *${estado.idCurto}*\n\n` +
-      `🗑️ Para excluir diga:\n_"excluir ${estado.idCurto}"_ ou _"excluir última"_\n\n` +
-      `📊 Painel: *https://www.seusecretario.com.br/painel*`
+      `🔖 ID: *${idCurto}*\n\n` +
+      `🗑️ Errou? Diga: _"excluir ${idCurto}"_ ou _"excluir última"_`
     );
   }
 
@@ -1964,7 +1910,7 @@ class BotGranaZen {
       `_excluir última_ — remove a mais recente\n` +
       `_excluir [ID]_ — Ex: excluir A3B\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🌐 Painel: *https://www.seusecretario.com.br*`
+      `🌐 Painel: *https://www.seusecretario.com.br/dashboard*`
     );
   }
 }

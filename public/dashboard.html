@@ -58,6 +58,7 @@
         .grid-3 { grid-template-columns: repeat(3, 1fr); }
         .grid-2 { grid-template-columns: repeat(2, 1fr); }
         .grid-auto { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
         .stat-box { background: var(--white); border-radius: 14px; padding: 22px 24px; border: 1px solid var(--gray-200); display: flex; flex-direction: column; }
         .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--gray-400); margin-bottom: 10px; }
         .stat-value { font-size: 26px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
@@ -186,6 +187,7 @@
         /* RESPONSIVE */
         @media (max-width: 900px) {
             .grid-3 { grid-template-columns: repeat(2, 1fr); }
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
             .grid-2 { grid-template-columns: 1fr; }
             .settings-layout { flex-direction: column; }
             .settings-sidebar { width: 100%; }
@@ -237,6 +239,7 @@
                 <div class="nav-item" data-page="contas"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><span>Contas bancárias</span></div>
                 <div class="nav-item" data-page="cartoes"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><span>Cartões de crédito</span></div>
                 <div class="nav-item" data-page="metas"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><span>Metas</span></div>
+                <div class="nav-item" data-page="areceber"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span>A Receber</span></div>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Integrações</div>
@@ -277,7 +280,7 @@
         <div class="content">
             <!-- ── PAINEL ─────────────────────────────────────────────────── -->
             <div id="painel" class="page active">
-                <div class="grid grid-3">
+                <div class="grid grid-4">
                     <div class="stat-box">
                         <div class="stat-label">Receita Total</div>
                         <div class="stat-value" id="stat-receita" style="color:var(--green)">—</div>
@@ -292,6 +295,11 @@
                         <div class="stat-label">Saldo Disponível</div>
                         <div class="stat-value" id="stat-saldo">—</div>
                         <div class="stat-meta">Saldo líquido</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--gold);cursor:pointer" onclick="navigateTo('areceber')">
+                        <div class="stat-label">Valores a Receber</div>
+                        <div class="stat-value" id="stat-areceber" style="color:var(--gold)">—</div>
+                        <div class="stat-meta" id="stat-areceber-meta">Pendente</div>
                     </div>
                 </div>
                 <div class="card">
@@ -606,6 +614,86 @@
                     </div>
                 </div>
             </div>
+            <!-- ── A RECEBER ──────────────────────────────────────── -->
+            <div id="areceber" class="page">
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="openModal('modalNovaDivida')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Nova Dívida a Receber
+                    </button>
+                </div>
+                <div class="grid grid-3" style="margin-bottom:22px">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Pendente</div>
+                        <div class="stat-value" id="ar-total-pendente" style="color:var(--red)">—</div>
+                        <div class="stat-meta">A receber de devedores</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Vencendo em 7 dias</div>
+                        <div class="stat-value" id="ar-vencendo" style="color:var(--gold)">—</div>
+                        <div class="stat-meta">Cobranças urgentes</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Recebido este mês</div>
+                        <div class="stat-value" id="ar-recebido-mes" style="color:var(--green)">—</div>
+                        <div class="stat-meta">Dívidas quitadas</div>
+                    </div>
+                </div>
+                <div id="ar-alertas" style="margin-bottom:16px"></div>
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+                        <h3 class="card-title" style="margin:0">Devedores</h3>
+                        <div style="display:flex;gap:8px">
+                            <button class="btn btn-primary" id="btn-filtro-pendente" style="font-size:12px;padding:6px 14px" onclick="carregarDividas('pendente')">Pendentes</button>
+                            <button class="btn btn-secondary" id="btn-filtro-recebido" style="font-size:12px;padding:6px 14px" onclick="carregarDividas('recebido')">Recebidas</button>
+                            <button class="btn btn-secondary" id="btn-filtro-todas" style="font-size:12px;padding:6px 14px" onclick="carregarDividas('todas')">Todas</button>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto">
+                        <table class="table">
+                            <thead><tr><th>Devedor</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>ID</th><th>Ações</th></tr></thead>
+                            <tbody id="tabela-dividas"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--gray-400)">Carregando...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card" style="background:linear-gradient(135deg,#f0fdf4,#e8f5ef);border-color:#b7ddd0;margin-top:0">
+                    <h4 class="card-title" style="font-size:14px;color:var(--green);margin-bottom:12px">💬 Registrar pelo WhatsApp</h4>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;font-size:13px">
+                        <div><div style="font-weight:600;color:var(--navy);margin-bottom:4px">📥 Registrar</div><div style="color:var(--gray-500);font-style:italic">"Bruno me deve 40, paga dia 30"</div></div>
+                        <div><div style="font-weight:600;color:var(--navy);margin-bottom:4px">📋 Listar</div><div style="color:var(--gray-500);font-style:italic">"a receber"</div></div>
+                        <div><div style="font-weight:600;color:var(--navy);margin-bottom:4px">✅ Quitar</div><div style="color:var(--gray-500);font-style:italic">"recebido AB3"</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- MODAL: Nova Dívida a Receber -->
+<div class="modal-overlay" id="modalNovaDivida">
+    <div class="modal">
+        <div class="modal-title">Nova Dívida a Receber</div>
+        <div class="modal-desc">Registre um valor que outra pessoa te deve.</div>
+        <div class="form-group">
+            <label class="form-label">Devedor</label>
+            <input class="form-input" type="text" id="ndDevedor" placeholder="Nome de quem te deve">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Descrição (opcional)</label>
+            <input class="form-input" type="text" id="ndDesc" placeholder="Ex: empréstimo, jantar...">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Valor (R$)</label>
+                <input class="form-input" type="number" id="ndValor" placeholder="0,00" step="0.01" min="0.01">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Vencimento (opcional)</label>
+                <input class="form-input" type="date" id="ndVencimento">
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('modalNovaDivida')">Cancelar</button>
+            <button class="btn btn-primary" onclick="salvarDivida()">Salvar</button>
         </div>
     </div>
 </div>
@@ -690,7 +778,7 @@ function toggleSidebar() {
 const pageTitles = {
     painel: 'Painel', transacoes: 'Transações', relatorios: 'Relatórios',
     fluxocaixa: 'Fluxo de Caixa', contas: 'Contas Bancárias', cartoes: 'Cartões',
-    metas: 'Metas', whatsapp: 'WhatsApp Bot', configuracoes: 'Configurações'
+    metas: 'Metas', areceber: 'A Receber', whatsapp: 'WhatsApp Bot', configuracoes: 'Configurações'
 };
 let _usuario = null;
 // Carrega dados ao iniciar
@@ -737,14 +825,14 @@ function preencherPerfil(u) {
 // ─── PAINEL ──────────────────────────────────────────────────────────────────
 async function carregarPainel() {
     const m = Fmt.mesAtual(), y = Fmt.anoAtual();
-    const [resumo, _categorias, recentes, _contas] = await Promise.all([
+    const token = localStorage.getItem('gz_token');
+    const [resumo, categorias, recentes, contas, dividasRes] = await Promise.all([
         API.resumo(m, y),
         API.porCategoria(m, y),
         API.transacoes({ mes: m, ano: y, limit: 5 }),
-        API.contas()
+        API.contas(),
+        fetch('/api/dividas?status=pendente', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({}))
     ]);
-    const categorias = Array.isArray(_categorias) ? _categorias : (_categorias?.categorias || []);
-    const contas     = Array.isArray(_contas)     ? _contas     : (_contas?.contas     || []);
     if (resumo) {
         document.getElementById('stat-receita').textContent = Fmt.moeda(resumo.receita_total);
         document.getElementById('stat-despesa').textContent = Fmt.moeda(resumo.despesa_total);
@@ -752,6 +840,11 @@ async function carregarPainel() {
         document.getElementById('fluxo-receita').textContent = Fmt.moeda(resumo.receita_total);
         document.getElementById('fluxo-despesa').textContent = Fmt.moeda(resumo.despesa_total);
     }
+    // Card Valores a Receber
+    const kpi = dividasRes?.kpi || {};
+    document.getElementById('stat-areceber').textContent = Fmt.moeda(kpi.pendente || 0);
+    const qtd = dividasRes?.dividas?.length || 0;
+    document.getElementById('stat-areceber-meta').textContent = qtd > 0 ? `${qtd} devedor(es)` : 'Pendente';
     // Categorias
     const tbCat = document.getElementById('tabela-categorias');
     if (categorias && categorias.length) {
@@ -1077,6 +1170,119 @@ function handleAvatarChange(e) {
     };
     reader.readAsDataURL(file);
 }
+// ─── A RECEBER ────────────────────────────────────────────────────────────────
+let _filtroAtualDividas = 'pendente';
+
+async function carregarDividas(status = 'pendente') {
+    _filtroAtualDividas = status;
+    const mapa = { pendente: 'btn-filtro-pendente', recebido: 'btn-filtro-recebido', todas: 'btn-filtro-todas' };
+    Object.entries(mapa).forEach(([k, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'btn ' + (k === status ? 'btn-primary' : 'btn-secondary');
+    });
+    const token = localStorage.getItem('gz_token');
+    const tb = document.getElementById('tabela-dividas');
+    tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--gray-400)">Carregando...</td></tr>`;
+    try {
+        const res = await fetch(`/api/dividas?status=${status}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        const dividas = res.dividas || [];
+        const kpi = res.kpi || {};
+        document.getElementById('ar-total-pendente').textContent = Fmt.moeda(kpi.pendente || 0);
+        document.getElementById('ar-vencendo').textContent       = Fmt.moeda(kpi.vencendo7dias || 0);
+        document.getElementById('ar-recebido-mes').textContent   = Fmt.moeda(kpi.recebidoMes || 0);
+        const alertasEl = document.getElementById('ar-alertas');
+        let alertHtml = '';
+        if (kpi.atrasadas > 0) alertHtml += `<div style="background:var(--red-bg);border:1px solid #f5c6c2;border-radius:10px;padding:12px 16px;margin-bottom:8px;font-size:13px;color:var(--red)">⚠️ <strong>${kpi.atrasadas} dívida${kpi.atrasadas > 1 ? 's' : ''}</strong> com vencimento em atraso — hora de cobrar!</div>`;
+        if (kpi.vencendoHoje > 0) alertHtml += `<div style="background:#fff8e1;border:1px solid #ffd54f;border-radius:10px;padding:12px 16px;margin-bottom:8px;font-size:13px;color:#7a6130">🔔 <strong>${kpi.vencendoHoje} dívida${kpi.vencendoHoje > 1 ? 's' : ''}</strong> vencem hoje.</div>`;
+        alertasEl.innerHTML = alertHtml;
+        if (!dividas.length) {
+            tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">${status === 'pendente' ? 'Nenhuma dívida pendente! 🎉' : 'Nenhum registro encontrado.'}</td></tr>`;
+            return;
+        }
+        const hoje = new Date(); hoje.setHours(0,0,0,0);
+        tb.innerHTML = dividas.map(d => {
+            let vencLabel = '—', vencStyle = '';
+            if (d.data_vencimento) {
+                const venc = new Date(d.data_vencimento + 'T12:00:00');
+                const diffDias = Math.round((venc - hoje) / 86400000);
+                const dataFmt = venc.toLocaleDateString('pt-BR');
+                if (diffDias < 0)       { vencLabel = `⚠️ ${dataFmt} (${Math.abs(diffDias)}d atrás)`; vencStyle = 'color:var(--red);font-weight:600'; }
+                else if (diffDias === 0) { vencLabel = `🔔 Hoje`; vencStyle = 'color:var(--gold);font-weight:600'; }
+                else if (diffDias <= 3)  { vencLabel = `⏰ ${dataFmt}`; vencStyle = 'color:var(--gold)'; }
+                else                    { vencLabel = dataFmt; }
+            }
+            const badgeMap = { pendente: 'badge-red', recebido: 'badge-green', cancelado: 'badge-navy' };
+            const labelMap = { pendente: 'Pendente', recebido: 'Recebido', cancelado: 'Cancelado' };
+            const acoes = d.status === 'pendente'
+                ? `<button class="btn btn-outline-green" onclick="quitarDividaWeb('${d.id}')" style="padding:4px 10px;font-size:11px">✓ Recebido</button>
+                   <button class="btn btn-danger" onclick="cancelarDividaWeb('${d.id}')" style="padding:4px 10px;font-size:11px;margin-left:4px">✕</button>`
+                : '—';
+            return `<tr>
+                <td class="td-strong">👤 ${d.devedor}</td>
+                <td>${d.descricao || '—'}</td>
+                <td style="color:var(--red);font-weight:600">+${Fmt.moeda(d.valor)}</td>
+                <td style="${vencStyle}">${vencLabel}</td>
+                <td><span class="badge ${badgeMap[d.status] || 'badge-navy'}">${labelMap[d.status] || d.status}</span></td>
+                <td><span style="font-family:monospace;font-size:12px;background:var(--gray-100);padding:2px 7px;border-radius:4px">${d.id_curto || '—'}</span></td>
+                <td style="white-space:nowrap">${acoes}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('Erro ao carregar dívidas:', e);
+        document.getElementById('tabela-dividas').innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">Erro ao carregar. Tente novamente.</td></tr>`;
+    }
+}
+
+async function quitarDividaWeb(id) {
+    if (!confirm('Marcar como recebido? Uma receita será registrada automaticamente.')) return;
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch(`/api/dividas/${id}/quitar`, {
+            method: 'POST', headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        if (res.ok) { showToast('Recebimento registrado! ✅', 'success'); carregarDividas(_filtroAtualDividas); carregarPainel(); }
+        else showToast(res.erro || 'Erro ao quitar', 'error');
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+async function cancelarDividaWeb(id) {
+    if (!confirm('Cancelar esta dívida?')) return;
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch(`/api/dividas/${id}/cancelar`, {
+            method: 'POST', headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        if (res.ok) { showToast('Dívida cancelada.', ''); carregarDividas(_filtroAtualDividas); }
+        else showToast(res.erro || 'Erro ao cancelar', 'error');
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+async function salvarDivida() {
+    const devedor = document.getElementById('ndDevedor').value.trim();
+    const descricao = document.getElementById('ndDesc').value.trim();
+    const valor = parseFloat(document.getElementById('ndValor').value);
+    const venc = document.getElementById('ndVencimento').value;
+    if (!devedor) { showToast('Informe o nome do devedor', 'error'); return; }
+    if (!valor || valor <= 0) { showToast('Informe um valor válido', 'error'); return; }
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch('/api/dividas', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ devedor, descricao: descricao || null, valor, data_vencimento: venc || null })
+        }).then(r => r.json());
+        if (res.id) {
+            closeModal('modalNovaDivida');
+            showToast('Dívida registrada! 💸', 'success');
+            ['ndDevedor','ndDesc','ndValor','ndVencimento'].forEach(id => { document.getElementById(id).value = ''; });
+            carregarDividas('pendente');
+            carregarPainel();
+        } else showToast(res.erro || 'Erro ao salvar', 'error');
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function navigateTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1086,6 +1292,7 @@ function navigateTo(pageId) {
     document.getElementById('pageTitle').textContent = pageTitles[pageId] || pageId;
     if (pageId === 'transacoes') carregarTransacoes();
     if (pageId === 'relatorios') { initRelFiltros(); carregarRelatorios(); }
+    if (pageId === 'areceber') carregarDividas('pendente');
     if (pageId === 'whatsapp') { carregarTransacoesWA(); waVerificarStatus(); }
 }
 document.querySelectorAll('.nav-item').forEach(item => {

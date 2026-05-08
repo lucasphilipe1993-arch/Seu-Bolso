@@ -76,6 +76,29 @@ Categorias e quando usar:
 - Salário: salário, holerite, pagamento recebido, pró-labore
 - Outros: qualquer coisa não listada acima`;
 
+const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Bolso.
+Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
+
+Se a mensagem indica que OUTRA PESSOA deve dinheiro ao usuário (empréstimo, dívida futura a receber):
+{"tipo":"divida_receber","devedor":"nome","valor":numero,"descricao":"texto curto","data_vencimento":"YYYY-MM-DD ou null"}
+
+Se NÃO for sobre receber dinheiro de terceiros:
+null
+
+Exemplos que SÃO dívidas a receber (outra pessoa deve ao usuário):
+- "Bruno me deve 40 reais" → devedor: Bruno
+- "Emprestei 200 pra Ana, ela paga dia 15/10" → devedor: Ana, data_vencimento: ano-atual-10-15
+- "Carlos vai me devolver 50 semana que vem" → devedor: Carlos
+- "Marcos me deve 300, vai pagar no fim do mês" → devedor: Marcos
+
+Exemplos que NÃO são dívidas a receber:
+- "Paguei 50 no mercado" → null
+- "Devo 100 pra academia" → null
+- "Recebi salário" → null
+- "Conta de luz 120" → null
+
+Para data_vencimento: converta "dia 30", "dia 15/10", "fim do mês", "semana que vem" para YYYY-MM-DD usando o ano corrente. Se não houver data clara, use null.`;
+
 const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function gerarIdCurto() {
   let id = '';
@@ -254,6 +277,26 @@ class BotGranaZen {
         criado_em TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+  }
+
+  async _garantirTabelaDividas() {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS dividas_receber (
+        id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        usuario_id       UUID NOT NULL,
+        devedor          TEXT NOT NULL,
+        descricao        TEXT,
+        valor            NUMERIC(12,2) NOT NULL,
+        data_vencimento  DATE,
+        data_recebimento DATE,
+        status           TEXT NOT NULL DEFAULT 'pendente',
+        origem           TEXT DEFAULT 'whatsapp',
+        mensagem_raw     TEXT,
+        id_curto         TEXT,
+        criado_em        TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_dividas_usuario ON dividas_receber(usuario_id)`).catch(() => {});
   }
 
   async _garantirCategoriasPadrao(usuarioId) {
@@ -445,7 +488,6 @@ class BotGranaZen {
     return 'outro';
   }
 
-  // ─── ROTEADOR ÚNICO E CORRETO ─────────────────────────────────
   async _roteador(telefone, remoteJid, tipo, msg, pushName = null) {
     console.log(`🔍 _roteador chamado: telefone=${telefone}, tipo=${tipo}`);
 
@@ -589,9 +631,11 @@ class BotGranaZen {
     const textoLower = texto.toLowerCase().trim();
     const textoClean = textoLower.replace(/[.,!?;:]+$/, '').trim();
 
+    // ── Saudações ────────────────────────────────────────────────────────────
     if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello', 'bom dia', 'boa tarde', 'boa noite'].includes(textoClean))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
+    // ── Primeiro contato ─────────────────────────────────────────────────────
     const padroesPrimeiroContato = [
       /acabei de criar/i, /acabei de me cadastrar/i, /acabei de cadastrar/i,
       /acabo de criar/i, /acabo de me cadastrar/i, /me cadastrei/i,
@@ -601,6 +645,7 @@ class BotGranaZen {
     if (padroesPrimeiroContato.some(p => p.test(textoClean)))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
+    // ── Resumo ───────────────────────────────────────────────────────────────
     const triggerResumo = [
       'resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro',
       'relatorio', 'relatório', 'gerar relatorio', 'gerar relatório',
@@ -611,28 +656,35 @@ class BotGranaZen {
     if (triggerResumo.includes(textoClean) || (textoClean.includes('relat') && !textoClean.includes('pdf')))
       return this.enviarResumo(remoteJid, usuarioId, nome);
 
+    // ── Ajuda ────────────────────────────────────────────────────────────────
     if (['ajuda', 'help', '?', 'menu'].includes(textoClean))
       return this.enviar(remoteJid, this.msgAjuda());
 
+    // ── Categorias ───────────────────────────────────────────────────────────
     if (['categorias', 'ver categorias', 'minhas categorias', 'listar categorias'].includes(textoClean))
       return this.enviarCategorias(remoteJid, usuarioId);
 
+    // ── Nova categoria ───────────────────────────────────────────────────────
     if (textoClean.startsWith('nova categoria') || textoClean.startsWith('adicionar categoria') || textoClean === 'add categoria')
       return this.iniciarFluxoNovaCategoria(remoteJid, telefone);
 
+    // ── Excluir última transação ──────────────────────────────────────────────
     const regexUltima = /^(exclu[iíií]r?|desfazer|apagar|cancelar|deletar)(\s+a?)?\s+(u[lL]tima|u[lL]timo|[uú]lt[iíií]m[ao]|ult\.?)(\s+(transa[çc][ãa]o|lancamento|lançamento|gasto|registro))?[.,!?]?$/i;
     if (regexUltima.test(textoClean) || textoClean === 'desfazer' || textoClean === 'undo')
       return this.excluirUltimaTransacao(remoteJid, usuarioId);
 
+    // ── Excluir transação por ID ──────────────────────────────────────────────
     const matchExcluir = texto.match(
       /^(?:excluir\s+(?:transa[çc][aã]o\s+)?|cancelar\s+|desfazer\s+|deletar\s+|apagar\s+)([A-Z0-9]{2,6})[.,!?;:\s]*$/i
     );
     if (matchExcluir)
       return this.excluirTransacao(remoteJid, usuarioId, matchExcluir[1].toUpperCase());
 
+    // ── Histórico ────────────────────────────────────────────────────────────
     if (['últimas', 'ultimas', 'últimos', 'historico', 'histórico', 'últimas transações', 'historico de transacoes', 'histórico de transações'].includes(textoClean))
       return this.enviarUltimasTransacoes(remoteJid, usuarioId);
 
+    // ── PDF ──────────────────────────────────────────────────────────────────
     const triggerPdf = [
       'pdf', 'relatorio pdf', 'relatório pdf', 'gerar pdf',
       'exportar pdf', 'baixar relatorio', 'baixar relatório',
@@ -643,6 +695,28 @@ class BotGranaZen {
     if (triggerPdf.includes(textoClean) || textoClean.includes('pdf'))
       return this.gerarEEnviarRelatorioPDF(remoteJid, usuarioId, nome);
 
+    // ── Dívidas a receber — listar ────────────────────────────────────────────
+    const triggerDividas = [
+      'a receber', 'dividas', 'dívidas', 'quem me deve',
+      'devedores', 'cobranças', 'cobrancas', 'ver dividas',
+      'ver dívidas', 'lista de devedores',
+    ];
+    if (triggerDividas.includes(textoClean))
+      return this.enviarDividasReceber(remoteJid, usuarioId);
+
+    // ── Dívidas a receber — quitar por ID ────────────────────────────────────
+    const matchQuitar = texto.match(
+      /^(?:recebido|recebi|pago|paguei|quitar|quitado|liquidar|liquidado)\s+([A-Z0-9]{2,6})[.,!?\s]*$/i
+    );
+    if (matchQuitar)
+      return this.quitarDivida(remoteJid, usuarioId, matchQuitar[1].toUpperCase());
+
+    // ── Tenta detectar dívida a receber via IA ────────────────────────────────
+    const divida = await this.interpretarDivida(texto);
+    if (divida)
+      return this.registrarDividaReceber(remoteJid, usuarioId, divida, texto);
+
+    // ── Interpreta como transação financeira ──────────────────────────────────
     console.log(`🧠 Interpretando transação: "${texto}"`);
     const transacao = await this.interpretarTransacao(texto);
     console.log(`🧠 Resultado interpretação:`, JSON.stringify(transacao));
@@ -658,6 +732,222 @@ class BotGranaZen {
       );
     }
   }
+
+  // ── DÍVIDAS A RECEBER ───────────────────────────────────────────────────────
+
+  async interpretarDivida(texto) {
+    const gatilho = /\b(me deve|deve(?:r)?|emprest(?:ei|ou)|devolver|vai me pagar|vai pagar|pagar.*dia|pagar.*semana|pagar.*m[eê]s)\b/i;
+    if (!gatilho.test(texto)) return null;
+
+    // Evita falso positivo: "eu devo" sem "me deve"
+    const falsoPositivo = /\beu devo\b|\bdevo\b/i;
+    if (falsoPositivo.test(texto) && !/me deve/i.test(texto)) return null;
+
+    if (!process.env.OPENAI_API_KEY) return null;
+
+    try {
+      const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
+        model: 'gpt-4o-mini',
+        max_tokens: 150,
+        temperature: 0,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT_DIVIDA },
+          { role: 'user',   content: texto },
+        ],
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      });
+
+      const conteudo = resp.data.choices[0].message.content.trim();
+      if (!conteudo || conteudo === 'null') return null;
+
+      const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+      if (parsed?.tipo === 'divida_receber' && parsed.devedor && parsed.valor > 0) return parsed;
+      return null;
+    } catch (err) {
+      console.warn('Erro ao interpretar dívida:', err.message);
+      return null;
+    }
+  }
+
+  async registrarDividaReceber(remoteJid, usuarioId, divida, textoOriginal) {
+    await this._garantirTabelaDividas();
+
+    let idCurto;
+    let tentativas = 0;
+    do {
+      idCurto = gerarIdCurto();
+      const existe = await db.query(`SELECT id FROM dividas_receber WHERE id_curto = $1`, [idCurto]);
+      if (existe.rows.length === 0) break;
+      tentativas++;
+    } while (tentativas < 20);
+
+    const vencimento = divida.data_vencimento || null;
+    const vencimentoFmt = vencimento
+      ? new Date(vencimento + 'T12:00:00').toLocaleDateString('pt-BR')
+      : 'Não definido';
+
+    await db.query(
+      `INSERT INTO dividas_receber
+         (usuario_id, devedor, descricao, valor, data_vencimento, origem, mensagem_raw, id_curto)
+       VALUES ($1, $2, $3, $4, $5, 'whatsapp', $6, $7)`,
+      [usuarioId, divida.devedor, divida.descricao || `${divida.devedor} te deve`, divida.valor, vencimento, textoOriginal, idCurto]
+    );
+
+    if (this.onNovaTransacao) {
+      this.onNovaTransacao({
+        tipo: 'divida_receber', valor: divida.valor,
+        descricao: `${divida.devedor} te deve`, origem: 'whatsapp',
+      });
+    }
+
+    const valorFmt = divida.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    await this.enviar(remoteJid,
+      `💸 *Dívida registrada!*\n\n` +
+      `👤 Devedor: *${divida.devedor}*\n` +
+      `💵 Valor: *${valorFmt}*\n` +
+      `📅 Vencimento: ${vencimentoFmt}\n` +
+      `📋 Descrição: ${divida.descricao || '—'}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `🔖 ID: *${idCurto}*\n\n` +
+      `✅ Quando receber, diga:\n_"recebido ${idCurto}"_\n\n` +
+      `📋 Ver todas: _"a receber"_\n\n` +
+      `🌐 Painel: *${process.env.APP_URL}/painel*`
+    );
+  }
+
+  async enviarDividasReceber(remoteJid, usuarioId) {
+    await this._garantirTabelaDividas();
+
+    const { rows } = await db.query(
+      `SELECT id_curto, devedor, valor, data_vencimento, criado_em
+       FROM dividas_receber
+       WHERE usuario_id = $1 AND status = 'pendente'
+       ORDER BY data_vencimento ASC NULLS LAST, criado_em DESC`,
+      [usuarioId]
+    );
+
+    const { rows: totais } = await db.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN status = 'pendente' THEN valor END), 0) AS pendente,
+         COALESCE(SUM(CASE WHEN status = 'recebido'
+                            AND EXTRACT(MONTH FROM data_recebimento) = EXTRACT(MONTH FROM NOW())
+                            AND EXTRACT(YEAR  FROM data_recebimento) = EXTRACT(YEAR  FROM NOW())
+                           THEN valor END), 0) AS recebido_mes
+       FROM dividas_receber WHERE usuario_id = $1`,
+      [usuarioId]
+    );
+
+    const fmt = (v) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+
+    if (rows.length === 0) {
+      return this.enviar(remoteJid,
+        `✅ *Nenhuma dívida pendente!*\n\n` +
+        `💰 Já recebido este mês: *${fmt(totais[0].recebido_mes)}*\n\n` +
+        `Para registrar uma dívida:\n_"Bruno me deve 50 reais, paga dia 30"_`
+      );
+    }
+
+    let msg = `💸 *Dívidas a Receber*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `💰 Total pendente: *${fmt(totais[0].pendente)}*\n`;
+    msg += `✅ Recebido este mês: *${fmt(totais[0].recebido_mes)}*\n\n`;
+
+    for (const d of rows) {
+      let vencLabel = '📅 Sem data definida';
+      let alertEmoji = '';
+
+      if (d.data_vencimento) {
+        const venc = new Date(d.data_vencimento + 'T12:00:00');
+        const diffDias = Math.round((venc - hoje) / (1000 * 60 * 60 * 24));
+        const dataFmt = venc.toLocaleDateString('pt-BR');
+
+        if (diffDias < 0) {
+          vencLabel = `📅 Venceu ${dataFmt} (${Math.abs(diffDias)}d atrás)`;
+          alertEmoji = '🔴 ';
+        } else if (diffDias === 0) {
+          vencLabel = `📅 Vence HOJE`;
+          alertEmoji = '🟡 ';
+        } else if (diffDias <= 3) {
+          vencLabel = `📅 Vence em ${diffDias}d — ${dataFmt}`;
+          alertEmoji = '🟡 ';
+        } else {
+          vencLabel = `📅 ${dataFmt}`;
+        }
+      }
+
+      msg += `${alertEmoji}👤 *${d.devedor}* — ${fmt(d.valor)}\n`;
+      msg += `   ${vencLabel} | 🔖 *${d.id_curto}*\n\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `✅ Para marcar como recebido:\n_"recebido [ID]"_ — Ex: _recebido A3B_`;
+
+    await this.enviar(remoteJid, msg);
+  }
+
+  async quitarDivida(remoteJid, usuarioId, idCurto) {
+    const { rows } = await db.query(
+      `UPDATE dividas_receber
+       SET status = 'recebido', data_recebimento = CURRENT_DATE
+       WHERE usuario_id = $1 AND UPPER(id_curto) = $2 AND status = 'pendente'
+       RETURNING *`,
+      [usuarioId, idCurto]
+    );
+
+    if (rows.length === 0) {
+      return this.enviar(remoteJid,
+        `❌ Dívida *${idCurto}* não encontrada ou já quitada.\n\n` +
+        `Digite _"a receber"_ para ver as pendentes.`
+      );
+    }
+
+    const d = rows[0];
+
+    // Busca conta padrão
+    const contaRes = await db.query(
+      `SELECT id, nome FROM contas WHERE usuario_id = $1 AND padrao = true LIMIT 1`,
+      [usuarioId]
+    );
+    const contaId   = contaRes.rows[0]?.id   || null;
+    const contaNome = contaRes.rows[0]?.nome  || 'carteira';
+
+    // Registra como receita
+    await db.query(
+      `INSERT INTO transacoes
+         (usuario_id, tipo, descricao, valor, conta_id, data_vencimento, data_pagamento, pago, origem)
+       VALUES ($1, 'receita', $2, $3, $4, CURRENT_DATE, CURRENT_DATE, true, 'whatsapp')`,
+      [usuarioId, `Recebido de ${d.devedor}`, d.valor, contaId]
+    );
+
+    // Atualiza saldo da conta
+    if (contaId) {
+      await db.query(
+        `UPDATE contas SET saldo = saldo + $1 WHERE id = $2`,
+        [d.valor, contaId]
+      );
+    }
+
+    const fmt = (v) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    await this.enviar(remoteJid,
+      `✅ *Recebimento confirmado!*\n\n` +
+      `👤 Devedor: *${d.devedor}*\n` +
+      `💵 Valor: *${fmt(d.valor)}*\n\n` +
+      `💰 Receita de *${fmt(d.valor)}* registrada!\n` +
+      `🏦 Conta: ${contaNome}\n\n` +
+      `Digite _"a receber"_ para ver as demais pendentes.\n` +
+      `📊 Painel: *${process.env.APP_URL}/painel*`
+    );
+  }
+
+  // ── CATEGORIAS ──────────────────────────────────────────────────────────────
 
   async iniciarFluxoNovaCategoria(remoteJid, telefone) {
     this._estadosCategoriaFluxo.set(telefone, { etapa: 'aguardando_nome' });
@@ -733,6 +1023,8 @@ class BotGranaZen {
     msg += `\n➕ Para criar uma nova categoria, envie:\n_nova categoria_`;
     await this.enviar(remoteJid, msg);
   }
+
+  // ── TRANSAÇÕES ──────────────────────────────────────────────────────────────
 
   async excluirUltimaTransacao(remoteJid, usuarioId) {
     try {
@@ -1088,6 +1380,14 @@ class BotGranaZen {
       [usuarioId, mes, ano]
     );
 
+    // Dívidas pendentes
+    const { rows: dividasPend } = await db.query(
+      `SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
+       FROM dividas_receber
+       WHERE usuario_id = $1 AND status = 'pendente'`,
+      [usuarioId]
+    ).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
+
     const recebido = parseFloat(totais[0].recebido);
     const aReceber = parseFloat(totais[0].a_receber);
     const pago     = parseFloat(totais[0].pago);
@@ -1133,6 +1433,15 @@ class BotGranaZen {
         msg += `${emoji} ${catNome} → *${fmt(parseFloat(cat.total))}*\n`;
       }
       msg += `\n`;
+    }
+
+    // Bloco de dívidas a receber no resumo
+    if (dividasPend[0] && parseInt(dividasPend[0].qtd) > 0) {
+      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `💸 *Dívidas a Receber*\n\n`;
+      msg += `👥 ${dividasPend[0].qtd} devedor(es) pendente(s)\n`;
+      msg += `💰 Total: *${fmt(parseFloat(dividasPend[0].total))}*\n`;
+      msg += `\nDigite _"a receber"_ para ver a lista.\n\n`;
     }
 
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -1215,10 +1524,15 @@ class BotGranaZen {
       `_"Recebi 3000 de salário"_\n\n` +
       `🎤 *2. Ou mande um áudio falando o gasto* — eu entendo!\n\n` +
       `📸 *3. Ou tire uma foto* da nota fiscal ou comprovante.\n\n` +
+      `💸 *4. Registre dívidas de terceiros:*\n\n` +
+      `_"Bruno me deve 40 reais, paga dia 30"_\n` +
+      `_"Emprestei 200 pra Ana"_\n\n` +
+      `Diga _"recebido [ID]"_ quando receber — vira receita automática!\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📊 *Comandos úteis:*\n\n` +
       `• *resumo* — Ver seu saldo e relatório do mês\n` +
       `• *histórico* — Ver suas últimas transações\n` +
+      `• *a receber* — Ver dívidas pendentes de terceiros\n` +
       `• *categorias* — Ver suas categorias\n` +
       `• *pdf* — Baixar relatório completo em PDF\n` +
       `• *ajuda* — Ver todos os comandos\n\n` +
@@ -1243,6 +1557,11 @@ class BotGranaZen {
       `_Recebi 3000 de salário_\n\n` +
       `🎤 *Áudio:* Mande um áudio falando o gasto\n` +
       `📸 *Foto:* Tire foto de nota fiscal ou comprovante\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💸 *Dívidas a Receber:*\n` +
+      `_"Bruno me deve 40, paga dia 30"_ — registra\n` +
+      `_a receber_ — lista devedores pendentes\n` +
+      `_"recebido [ID]"_ — quita e vira receita\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📊 *resumo* — Ver saldo e relatório do mês\n` +
       `🕐 *histórico* — Ver últimas transações e IDs\n` +

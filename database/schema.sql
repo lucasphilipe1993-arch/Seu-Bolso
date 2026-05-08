@@ -1,10 +1,8 @@
 -- ============================================================
---  GranaZen — Schema PostgreSQL
---  Execute este arquivo uma única vez para criar o banco
---  Railway: psql $DATABASE_URL -f database/schema.sql
+--  Seu Secretário — Schema PostgreSQL
+--  Execute: psql $DATABASE_URL -f database/schema.sql
 -- ============================================================
 
--- Extensão para UUIDs
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ──────────────────────────────────────────────────────────
@@ -13,20 +11,24 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS usuarios (
   id                     UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   nome                   VARCHAR(100) NOT NULL,
+  sobrenome              VARCHAR(100),
   email                  VARCHAR(150) UNIQUE NOT NULL,
   senha_hash             VARCHAR(255) NOT NULL,
-  telefone               VARCHAR(30),          -- ex: 5511999998888 (formato Baileys)
+  telefone               VARCHAR(30),
   whatsapp_ativo         BOOLEAN DEFAULT FALSE,
-  plano                  VARCHAR(20) DEFAULT 'gratuito', -- gratuito | pro | premium | zen
-  stripe_customer_id     TEXT,                 -- ID do customer no Stripe (cus_...)
-  stripe_subscription_id TEXT,                 -- ID da assinatura ativa (sub_...)
+  plano                  VARCHAR(20) DEFAULT 'gratuito', -- gratuito | premium | zen
+
+  -- ── Stripe ──────────────────────────────────────────────
+  stripe_customer_id     VARCHAR(100) UNIQUE,
+  stripe_subscription_id VARCHAR(100),
+
   criado_em              TIMESTAMPTZ DEFAULT NOW(),
   atualizado_em          TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Adiciona colunas Stripe caso a tabela já exista (migração segura)
-ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS stripe_customer_id     TEXT;
-ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+-- Índices úteis
+CREATE INDEX IF NOT EXISTS idx_usuarios_stripe_customer ON usuarios(stripe_customer_id);
+CREATE INDEX IF NOT EXISTS idx_usuarios_email           ON usuarios(email);
 
 -- ──────────────────────────────────────────────────────────
 -- CATEGORIAS
@@ -41,7 +43,6 @@ CREATE TABLE IF NOT EXISTS categorias (
   criado_em   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Categorias padrão (usuario_id NULL = globais)
 INSERT INTO categorias (usuario_id, nome, tipo, cor) VALUES
   (NULL, 'Alimentação',    'despesa', '#ef4444'),
   (NULL, 'Transporte',     'despesa', '#f97316'),
@@ -63,7 +64,7 @@ ON CONFLICT DO NOTHING;
 CREATE TABLE IF NOT EXISTS contas (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   usuario_id  UUID REFERENCES usuarios(id) ON DELETE CASCADE,
-  nome        VARCHAR(80) NOT NULL,       -- ex: Nubank, Bradesco
+  nome        VARCHAR(80) NOT NULL,
   tipo        VARCHAR(20) DEFAULT 'corrente',
   saldo       NUMERIC(14,2) DEFAULT 0,
   padrao      BOOLEAN DEFAULT FALSE,
@@ -86,13 +87,12 @@ CREATE TABLE IF NOT EXISTS transacoes (
   data_pagamento  DATE,
   pago            BOOLEAN DEFAULT FALSE,
   fixo            BOOLEAN DEFAULT FALSE,
-  origem          VARCHAR(20) DEFAULT 'web', -- web | whatsapp
-  mensagem_raw    TEXT,                       -- mensagem original do WhatsApp
+  origem          VARCHAR(20) DEFAULT 'web',
+  mensagem_raw    TEXT,
   criado_em       TIMESTAMPTZ DEFAULT NOW(),
   atualizado_em   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_transacoes_usuario   ON transacoes(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_transacoes_data      ON transacoes(data_vencimento);
 CREATE INDEX IF NOT EXISTS idx_transacoes_categoria ON transacoes(categoria_id);
@@ -110,18 +110,18 @@ CREATE TABLE IF NOT EXISTS lembretes (
 );
 
 -- ──────────────────────────────────────────────────────────
--- SESSÕES WHATSAPP (estado da conversa)
+-- SESSÕES BOT
 -- ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sessoes_bot (
   telefone      VARCHAR(30) PRIMARY KEY,
   usuario_id    UUID REFERENCES usuarios(id) ON DELETE CASCADE,
-  estado        VARCHAR(50) DEFAULT 'idle',  -- idle | aguardando_valor | aguardando_categoria
+  estado        VARCHAR(50) DEFAULT 'idle',
   contexto      JSONB DEFAULT '{}',
   atualizado_em TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ──────────────────────────────────────────────────────────
--- FUNÇÃO: atualiza campo atualizado_em automaticamente
+-- FUNÇÃO + TRIGGERS: atualiza atualizado_em automaticamente
 -- ──────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION atualizar_timestamp()
 RETURNS TRIGGER AS $$
@@ -131,7 +131,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers (DROP IF EXISTS para ser idempotente)
 DROP TRIGGER IF EXISTS tg_usuarios_atualizado ON usuarios;
 CREATE TRIGGER tg_usuarios_atualizado
   BEFORE UPDATE ON usuarios
@@ -141,3 +140,31 @@ DROP TRIGGER IF EXISTS tg_transacoes_atualizado ON transacoes;
 CREATE TRIGGER tg_transacoes_atualizado
   BEFORE UPDATE ON transacoes
   FOR EACH ROW EXECUTE FUNCTION atualizar_timestamp();
+
+-- ──────────────────────────────────────────────────────────
+-- MIGRATION: adiciona colunas Stripe em banco já existente
+-- (seguro rodar mesmo se as colunas já existirem)
+-- ──────────────────────────────────────────────────────────
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='stripe_customer_id'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN stripe_customer_id VARCHAR(100) UNIQUE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='stripe_subscription_id'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN stripe_subscription_id VARCHAR(100);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='sobrenome'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN sobrenome VARCHAR(100);
+  END IF;
+END$$;

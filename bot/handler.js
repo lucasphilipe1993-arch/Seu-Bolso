@@ -773,7 +773,7 @@ class BotGranaZen {
       const { rows } = await db.query(
         `SELECT id, descricao, valor, tipo, conta_id, id_curto FROM transacoes
          WHERE usuario_id = $1
-         ORDER BY created_at DESC LIMIT 1`,
+         ORDER BY criado_em DESC LIMIT 1`,
         [usuarioId]
       );
 
@@ -863,7 +863,7 @@ class BotGranaZen {
        FROM transacoes t
        LEFT JOIN categorias c ON c.id = t.categoria_id
        WHERE t.usuario_id = $1
-       ORDER BY t.created_at DESC LIMIT 5`,
+       ORDER BY t.criado_em DESC LIMIT 5`,
       [usuarioId]
     );
 

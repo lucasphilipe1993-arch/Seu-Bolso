@@ -1,4 +1,4 @@
-// bot/handler.js — Bot WhatsApp Seu Secretário
+// bot/handler.js — Bot WhatsApp Seu Bolso
 const {
   default: makeWASocket,
   DisconnectReason,
@@ -49,7 +49,7 @@ const EMOJI_CATEGORIA = {
 };
 
 // ── SYSTEM PROMPT — suporta múltiplas transações ────────────────────────────
-const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Secretário.
+const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Bolso.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 
 A mensagem pode conter UMA ou MAIS transações financeiras.
@@ -88,7 +88,7 @@ Saída: [{"tipo":"despesa","valor":50,"descricao":"comida","categoria":"Alimenta
 Entrada: "paguei 120 de luz e recebi 3000 de salário"
 Saída: [{"tipo":"despesa","valor":120,"descricao":"conta de luz","categoria":"Casa"},{"tipo":"receita","valor":3000,"descricao":"salário","categoria":"Salário"}]`;
 
-const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Secretário.
+const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Bolso.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 
 Se a mensagem indica que OUTRA PESSOA deve dinheiro ao usuário (empréstimo, dívida futura a receber):
@@ -112,7 +112,7 @@ Exemplos que NÃO são dívidas a receber:
 Para data_vencimento: converta "dia 30", "dia 15/10", "fim do mês", "semana que vem" para YYYY-MM-DD usando o ano corrente. Se não houver data clara, use null.`;
 
 // ── SYSTEM PROMPT — Agenda ──────────────────────────────────────────────────
-const SYSTEM_PROMPT_AGENDA = `Você é o assistente de agenda do Seu Secretário.
+const SYSTEM_PROMPT_AGENDA = `Você é o assistente de agenda do Seu Bolso.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 Hoje é: {DATA_HOJE}. Hora atual (BRT): {HORA_ATUAL}.
 
@@ -438,7 +438,7 @@ class BotGranaZen {
 
       this.socket = makeWASocket({
         version, auth: state,
-        browser: ['SeuSecretario', 'Chrome', '120.0.0'],
+        browser: ['GranaZen', 'Chrome', '120.0.0'],
         logger: this._logger, syncFullHistory: false,
         connectTimeoutMs: 90000, defaultQueryTimeoutMs: 90000,
         keepAliveIntervalMs: 20000, retryRequestDelayMs: 3000,
@@ -492,7 +492,7 @@ class BotGranaZen {
           this.conectado = true; this.qrAtual = null;
           this._tentativas = 0; this._reconectando = false;
           console.log('✅ WhatsApp Bot conectado!');
-          this._iniciarChecagemLembretes();
+          this._iniciarChecagemLembretes(); // ← inicia loop de lembretes
           if (this.onConnected) this.onConnected();
         }
         if (connection === 'close') {
@@ -555,6 +555,7 @@ class BotGranaZen {
     if (this._timerLembretes) return;
     console.log('⏰ Loop de lembretes iniciado (intervalo: 1min)');
     this._timerLembretes = setInterval(() => this._verificarLembretes(), 60 * 1000);
+    // Verifica imediatamente ao conectar
     this._verificarLembretes();
   }
 
@@ -571,6 +572,7 @@ class BotGranaZen {
     try {
       await this._garantirTabelaAgenda();
 
+      // Busca compromissos cujo horário de lembrete já passou e ainda não foram enviados
       const { rows } = await db.query(`
         SELECT a.*, s.telefone
         FROM agenda a
@@ -641,7 +643,7 @@ class BotGranaZen {
     const sessao = await this._buscarSessao(telefone, remoteJid, pushName);
     if (!sessao) {
       return this.enviar(remoteJid,
-        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Secretário.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
+        `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Bolso.\n\nAcesse o painel em *${process.env.APP_URL}* e cadastre-se para começar!`
       );
     }
 
@@ -921,9 +923,11 @@ class BotGranaZen {
   // ────────────────────────────────────────────────────────────────────────
 
   async interpretarCompromisso(texto) {
+    // Gatilhos rápidos para evitar chamar a IA desnecessariamente
     const gatilho = /\b(compromisso|reunião|reuniao|consulta|dentista|médico|medico|agenda|lembr[ae]|amanhã|amanha|semana que vem|próxim[ao]|proxim[ao]|às \d|as \d|[\d]+h\d*|dia \d|lembra de|não esquecer|nao esquecer)\b/i;
     if (!gatilho.test(texto)) return null;
 
+    // Exclui frases que já foram capturadas como transações ou dívidas
     const antiGatilho = /\b(gastei|paguei|comprei|recebi|deve|me deve|salário|salario)\b/i;
     if (antiGatilho.test(texto)) return null;
 
@@ -972,7 +976,9 @@ class BotGranaZen {
       tentativas++;
     } while (tentativas < 20);
 
-    const dataHoraStr = compromisso.data_hora;
+    // Converte data_hora string para timestamp com fuso correto
+    const dataHoraStr = compromisso.data_hora; // "YYYY-MM-DD HH:MM"
+    // Interpreta como horário de Brasília
     const dataHora = new Date(dataHoraStr.replace(' ', 'T') + ':00-03:00');
 
     await db.query(
@@ -1389,7 +1395,7 @@ class BotGranaZen {
       const sinalSaldo = saldo >= 0 ? '+' : '';
       await this.socket.sendMessage(remoteJid, {
         document: pdfBuffer,
-        fileName: `Relatorio_Seu_Secretario_${mesesNome[mes-1]}_${ano}.pdf`,
+        fileName: `Relatorio_Seu_Bolso_${mesesNome[mes-1]}_${ano}.pdf`,
         mimetype: 'application/pdf',
         caption:
           `📊 *Relatório — ${mesesNome[mes-1]}/${ano}*\n\n` +
@@ -1450,6 +1456,7 @@ class BotGranaZen {
       const conteudo = resp.data.choices[0].message.content.trim();
       if (conteudo === 'null' || !conteudo) return null;
       const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
+      // Normaliza para array
       return Array.isArray(parsed) ? parsed[0] : parsed;
     } catch (err) {
       console.error('Erro ao analisar imagem:', err.response?.data || err.message);
@@ -1459,6 +1466,7 @@ class BotGranaZen {
 
   // ── interpretarTransacao — retorna sempre null | array ─────────────────
   async interpretarTransacao(texto) {
+    // Regex para múltiplas ocorrências: valor + descrição
     const padraoMultiplo =
       /(?:gastei|paguei|comprei|saiu|debitou?|recebi|ganhei|entrou|creditou?)?\s*(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)([^0-9,eE\n]+?)(?=\s*(?:e\s+)?(?:\d|gastei|paguei|comprei|recebi|ganhei|$))/gi;
 
@@ -1474,6 +1482,7 @@ class BotGranaZen {
       if (resultados.length >= 2) return resultados;
     }
 
+    // Regex simples para 1 transação
     const padroesGasto = [
       /(?:gastei|paguei|comprei|saiu|debitou?)\s+(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?|r\$)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)?(.*)/i,
       /(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+)(.+)/i,
@@ -1654,6 +1663,7 @@ class BotGranaZen {
       [usuarioId]
     ).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
 
+    // Próximos compromissos para incluir no resumo
     const { rows: proximosComps } = await db.query(
       `SELECT titulo, data_hora FROM agenda
        WHERE usuario_id = $1 AND cancelado = false AND data_hora >= NOW()
@@ -1778,7 +1788,7 @@ class BotGranaZen {
   // ────────────────────────────────────────────────────────────────────────
   msgBemVindo(nome) {
     return (
-      `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Secretário*! 👋\n\n` +
+      `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Bolso*! 👋\n\n` +
       `🤖 Sou seu assistente financeiro pessoal. Estou aqui para te ajudar a controlar seus gastos e receitas direto pelo WhatsApp — sem precisar abrir nenhum app!\n\n` +
       `Já deixei sua conta configurada e pronta para usar. Em instantes vou te mostrar como funciona. 😊`
     );
@@ -1786,7 +1796,7 @@ class BotGranaZen {
 
   msgTutorial() {
     return (
-      `📚 *Como usar o Seu Secretário:*\n\n` +
+      `📚 *Como usar o Seu Bolso:*\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💬 *1. Registre gastos e receitas:*\n\n` +
       `_"Gastei 35 no almoço"_\n` +

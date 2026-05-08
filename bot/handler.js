@@ -525,8 +525,16 @@ class BotGranaZen {
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
     // Resumo / Saldo
-    if (['resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro'].includes(textoLower))
-      return this.enviarResumo(remoteJid, usuarioId, nome);
+// Resumo / Saldo / Relatório
+const triggerResumo = [
+  'resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro',
+  'relatorio', 'relatório', 'gerar relatorio', 'gerar relatório',
+  'relatorio de gastos', 'relatório de gastos', 'ver relatorio',
+  'ver relatório', 'meus gastos', 'gastos do mes', 'gastos do mês',
+  'quanto gastei', 'quanto recebi', 'balanço', 'balanco',
+];
+if (triggerResumo.includes(textoLower) || textoLower.includes('relat'))
+  return this.enviarResumo(remoteJid, usuarioId, nome);
 
     // Ajuda
     if (['ajuda', 'help', '?', 'menu'].includes(textoLower))

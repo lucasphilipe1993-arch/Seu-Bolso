@@ -248,6 +248,7 @@
                 <div class="nav-item" data-page="cartoes"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><span>Cartões de crédito</span></div>
                 <div class="nav-item" data-page="metas"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><span>Metas</span></div>
                 <div class="nav-item" data-page="areceber"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span>A Receber</span></div>
+                <div class="nav-item" data-page="agenda"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span>Agenda</span></div>
             </div>
             <div class="nav-section">
                 <div class="nav-section-title">Integrações</div>
@@ -442,6 +443,64 @@
                     <button class="btn btn-primary" onclick="showToast('Em breve!','')">+ Nova Meta</button>
                 </div>
             </div>
+            <!-- ── AGENDA ────────────────────────────────────────────────── -->
+            <div id="agenda" class="page">
+                <!-- KPIs -->
+                <div class="grid grid-3" style="margin-bottom:22px">
+                    <div class="stat-box" style="border-left:4px solid var(--navy)">
+                        <div class="stat-label">Próximos</div>
+                        <div class="stat-value" id="ag-kpi-proximos" style="color:var(--navy)">—</div>
+                        <div class="stat-meta">Compromissos futuros</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--gold)">
+                        <div class="stat-label">Hoje</div>
+                        <div class="stat-value" id="ag-kpi-hoje" style="color:var(--gold)">—</div>
+                        <div class="stat-meta">Eventos para hoje</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--green);cursor:pointer" title="Integração futura com Google Calendar">
+                        <div class="stat-label">Google Calendar</div>
+                        <div style="font-size:13px;font-weight:600;color:var(--green);margin-top:4px">Em breve</div>
+                        <div class="stat-meta">Sincronização automática</div>
+                    </div>
+                </div>
+
+                <!-- Ações -->
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="openModal('modalNovoCompromisso')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Novo Compromisso
+                    </button>
+                    <div style="display:flex;gap:8px;margin-left:auto">
+                        <button class="btn btn-secondary ag-tab-btn" data-tab="proximos" onclick="agMudarAba('proximos')">Próximos</button>
+                        <button class="btn btn-secondary ag-tab-btn" data-tab="passado" onclick="agMudarAba('passado')">Histórico</button>
+                        <button class="btn btn-secondary ag-tab-btn" data-tab="cancelado" onclick="agMudarAba('cancelado')">Cancelados</button>
+                    </div>
+                </div>
+
+                <!-- Lista -->
+                <div class="card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+                        <h3 class="card-title" style="margin:0" id="ag-lista-titulo">Próximos Compromissos</h3>
+                        <span style="font-size:12px;color:var(--gray-400)" id="ag-total-label"></span>
+                    </div>
+                    <div id="ag-lista-conteudo">
+                        <div style="text-align:center;padding:40px;color:var(--gray-400)">
+                            <div style="font-size:32px;margin-bottom:10px">📅</div>
+                            Carregando...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aviso Google Calendar -->
+                <div style="background:linear-gradient(135deg,#e8f5ef,#dde8f2);border-radius:14px;padding:24px;display:flex;align-items:center;gap:20px;border:1px solid #b7ddd0">
+                    <div style="font-size:36px">📆</div>
+                    <div>
+                        <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">Integração com Google Calendar — Em breve</div>
+                        <div style="font-size:13px;color:var(--gray-500)">Todos os compromissos agendados pelo WhatsApp serão sincronizados automaticamente com seu Google Calendar. Fique atento às novidades!</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ── WHATSAPP BOT ───────────────────────────────────────────── -->
             <div id="whatsapp" class="page">
                 <div class="grid grid-2" style="margin-bottom:22px">
@@ -723,6 +782,52 @@
         </div>
     </div>
 </div>
+<!-- MODAL: Novo/Editar Compromisso -->
+<div class="modal-overlay" id="modalNovoCompromisso">
+    <div class="modal">
+        <div class="modal-title" id="agModalTitulo">Novo Compromisso</div>
+        <div class="modal-desc">Registre manualmente um compromisso ou evento.</div>
+        <input type="hidden" id="agEditId">
+        <div class="form-group">
+            <label class="form-label">Título</label>
+            <input class="form-input" type="text" id="agTitulo" placeholder="Ex: Consulta médica, Reunião com cliente...">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Data</label>
+                <input class="form-input" type="date" id="agData">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Hora</label>
+                <input class="form-input" type="time" id="agHora" value="09:00">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Local (opcional)</label>
+                <input class="form-input" type="text" id="agLocal" placeholder="Ex: Consultório, Escritório...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Lembrar antes (min)</label>
+                <select class="form-select" id="agLembrar">
+                    <option value="10">10 minutos</option>
+                    <option value="30" selected>30 minutos</option>
+                    <option value="60">1 hora</option>
+                    <option value="120">2 horas</option>
+                    <option value="1440">1 dia antes</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Notas (opcional)</label>
+            <textarea class="form-textarea" id="agNotas" placeholder="Observações adicionais..."></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal('modalNovoCompromisso')">Cancelar</button>
+            <button class="btn btn-primary" onclick="agSalvar()">Salvar</button>
+        </div>
+    </div>
+</div>
 <!-- TOAST -->
 <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg">Salvo!</span></div>
 <!-- MODAL: Nova Transação -->
@@ -804,7 +909,8 @@ function toggleSidebar() {
 const pageTitles = {
     painel: 'Painel', transacoes: 'Transações', relatorios: 'Relatórios',
     fluxocaixa: 'Fluxo de Caixa', contas: 'Contas Bancárias', cartoes: 'Cartões',
-    metas: 'Metas', areceber: 'A Receber', whatsapp: 'WhatsApp Bot', configuracoes: 'Configurações'
+    metas: 'Metas', areceber: 'A Receber', agenda: 'Agenda',
+    whatsapp: 'WhatsApp Bot', configuracoes: 'Configurações'
 };
 let _usuario = null;
 // Carrega dados ao iniciar
@@ -1319,8 +1425,8 @@ function navigateTo(pageId) {
     if (pageId === 'transacoes') carregarTransacoes();
     if (pageId === 'relatorios') { initRelFiltros(); carregarRelatorios(); }
     if (pageId === 'areceber') carregarDividas('pendente');
+    if (pageId === 'agenda') carregarAgenda();
     if (pageId === 'whatsapp') { carregarTransacoesWA(); waVerificarStatus(); }
-}
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
         navigateTo(item.dataset.page);
@@ -1421,6 +1527,186 @@ window.addEventListener('wa:transacao', async e => {
     await carregarPainel();
     await carregarTransacoesWA();
 });
+
+// ─── AGENDA ───────────────────────────────────────────────────────────────────
+let _agAbaAtual = 'proximos';
+
+const AG_ABA_TITULO = {
+    proximos:  'Próximos Compromissos',
+    passado:   'Histórico de Compromissos',
+    cancelado: 'Compromissos Cancelados',
+};
+
+function agMudarAba(aba) {
+    _agAbaAtual = aba;
+    document.querySelectorAll('.ag-tab-btn').forEach(b => {
+        b.classList.toggle('btn-primary', b.dataset.tab === aba);
+        b.classList.toggle('btn-secondary', b.dataset.tab !== aba);
+    });
+    document.getElementById('ag-lista-titulo').textContent = AG_ABA_TITULO[aba] || aba;
+    carregarAgenda();
+}
+
+async function carregarAgenda() {
+    const token = localStorage.getItem('gz_token');
+    const statusParam = _agAbaAtual === 'proximos' ? '' : `&status=${_agAbaAtual}`;
+    const div = document.getElementById('ag-lista-conteudo');
+    div.innerHTML = '<div style="text-align:center;padding:40px;color:var(--gray-400)"><div style="font-size:32px;margin-bottom:10px">📅</div>Carregando...</div>';
+
+    try {
+        const res = await fetch(`/api/agenda?limit=50${statusParam}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+
+        const lista = res.compromissos || [];
+
+        // KPIs (só na aba proximos)
+        if (_agAbaAtual === 'proximos') {
+            document.getElementById('ag-kpi-proximos').textContent = lista.length;
+            const hoje = new Date().toDateString();
+            const qtdHoje = lista.filter(c => new Date(c.data_hora).toDateString() === hoje).length;
+            document.getElementById('ag-kpi-hoje').textContent = qtdHoje;
+        }
+
+        document.getElementById('ag-total-label').textContent =
+            `${res.total || lista.length} compromisso(s)`;
+
+        if (lista.length === 0) {
+            div.innerHTML = `<div style="text-align:center;padding:48px;color:var(--gray-400)">
+                <div style="font-size:36px;margin-bottom:12px">📭</div>
+                <div style="font-size:15px;font-weight:600;margin-bottom:6px">Nenhum compromisso aqui</div>
+                <div style="font-size:13px">Agende pelo WhatsApp ou clique em "Novo Compromisso".</div>
+            </div>`;
+            return;
+        }
+
+        div.innerHTML = lista.map(c => agCardHTML(c)).join('');
+    } catch (err) {
+        console.error('Erro ao carregar agenda:', err);
+        div.innerHTML = '<div style="text-align:center;padding:32px;color:var(--red)">Erro ao carregar. Tente novamente.</div>';
+    }
+}
+
+function agCardHTML(c) {
+    const dh = new Date(c.data_hora);
+    const agora = new Date();
+    const isHoje = dh.toDateString() === agora.toDateString();
+    const isPassado = dh < agora && !isHoje;
+    const dataFmt = dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    const horaFmt = dh.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+
+    const badgeColor = c.cancelado ? 'badge-red' : isHoje ? 'badge-gold' : isPassado ? 'badge-navy' : 'badge-green';
+    const badgeText  = c.cancelado ? 'Cancelado' : isHoje ? 'Hoje' : isPassado ? 'Realizado' : 'Agendado';
+    const origemIcon = c.origem === 'whatsapp' ? '💬' : '🌐';
+
+    const acoes = c.cancelado ? '' : `
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px" onclick="agEditar('${c.id}')">Editar</button>
+        <button class="btn btn-danger"    style="padding:6px 12px;font-size:12px" onclick="agCancelar('${c.id}')">Cancelar</button>
+    `;
+
+    return `<div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;border-bottom:1px solid var(--gray-100)">
+        <div style="width:52px;height:52px;border-radius:12px;background:${isHoje ? 'var(--gold-pale)' : 'var(--gray-100)'};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="font-size:18px;font-weight:800;color:${isHoje ? 'var(--gold)' : 'var(--navy);'}">${dh.getDate()}</div>
+            <div style="font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase">${dh.toLocaleString('pt-BR',{month:'short'})}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+                <span style="font-size:15px;font-weight:700;color:var(--gray-900)">${c.titulo}</span>
+                <span class="badge ${badgeColor}">${badgeText}</span>
+                <span title="Origem: ${c.origem}" style="font-size:13px">${origemIcon}</span>
+            </div>
+            <div style="font-size:13px;color:var(--gray-400);display:flex;gap:14px;flex-wrap:wrap">
+                <span>🕐 ${horaFmt} — ${dataFmt}</span>
+                ${c.local ? `<span>📍 ${c.local}</span>` : ''}
+                <span>⏰ Lembrete ${c.lembrar_antes}min antes</span>
+            </div>
+            ${c.notas ? `<div style="font-size:12px;color:var(--gray-500);margin-top:6px;font-style:italic">📝 ${c.notas}</div>` : ''}
+            ${c.id_curto ? `<div style="font-size:11px;color:var(--gray-300);margin-top:4px">ID: ${c.id_curto}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">${acoes}</div>
+    </div>`;
+}
+
+function agAbrirModal(reset = true) {
+    if (reset) {
+        document.getElementById('agEditId').value = '';
+        document.getElementById('agModalTitulo').textContent = 'Novo Compromisso';
+        document.getElementById('agTitulo').value = '';
+        document.getElementById('agData').value = new Date().toISOString().split('T')[0];
+        document.getElementById('agHora').value = '09:00';
+        document.getElementById('agLocal').value = '';
+        document.getElementById('agLembrar').value = '30';
+        document.getElementById('agNotas').value = '';
+    }
+    openModal('modalNovoCompromisso');
+}
+
+async function agEditar(id) {
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch(`/api/agenda?limit=200`, {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        const c = (res.compromissos || []).find(x => x.id === id);
+        if (!c) { showToast('Compromisso não encontrado', 'error'); return; }
+
+        const dh = new Date(c.data_hora);
+        document.getElementById('agEditId').value = id;
+        document.getElementById('agModalTitulo').textContent = 'Editar Compromisso';
+        document.getElementById('agTitulo').value = c.titulo;
+        document.getElementById('agData').value = dh.toISOString().split('T')[0];
+        document.getElementById('agHora').value = dh.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+        document.getElementById('agLocal').value = c.local || '';
+        document.getElementById('agLembrar').value = c.lembrar_antes || 30;
+        document.getElementById('agNotas').value = c.notas || '';
+        openModal('modalNovoCompromisso');
+    } catch { showToast('Erro ao carregar compromisso', 'error'); }
+}
+
+async function agSalvar() {
+    const token = localStorage.getItem('gz_token');
+    const id = document.getElementById('agEditId').value;
+    const titulo = document.getElementById('agTitulo').value.trim();
+    const data   = document.getElementById('agData').value;
+    const hora   = document.getElementById('agHora').value;
+    if (!titulo || !data || !hora) {
+        showToast('Preencha título, data e hora', 'error'); return;
+    }
+    const data_hora    = `${data}T${hora}:00`;
+    const lembrar_antes = parseInt(document.getElementById('agLembrar').value) || 30;
+    const local = document.getElementById('agLocal').value.trim() || null;
+    const notas = document.getElementById('agNotas').value.trim() || null;
+
+    try {
+        const url    = id ? `/api/agenda/${id}` : '/api/agenda';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ titulo, data_hora, lembrar_antes, local, notas })
+        }).then(r => r.json());
+
+        if (res.id || res.titulo) {
+            showToast(id ? 'Compromisso atualizado! ✅' : 'Compromisso criado! 📅', 'success');
+            closeModal('modalNovoCompromisso');
+            carregarAgenda();
+        } else {
+            showToast(res.erro || 'Erro ao salvar', 'error');
+        }
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+async function agCancelar(id) {
+    if (!confirm('Cancelar este compromisso?')) return;
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch(`/api/agenda/${id}`, {
+            method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        if (res.mensagem) { showToast('Compromisso cancelado', 'success'); carregarAgenda(); }
+        else showToast(res.erro || 'Erro ao cancelar', 'error');
+    } catch { showToast('Erro de conexão', 'error'); }
+}
 </script>
 </body>
 </html>

@@ -506,7 +506,7 @@ async function init() {
     }
 
     try {
-        const res = await fetch('/api/me', {
+        const res = await fetch('/api/auth/me', {
             headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -567,8 +567,8 @@ async function carregarPainel() {
 
     try {
         const [resumoRes, categoriasRes, transacoesRes, dividasRes] = await Promise.all([
-            fetch(`/api/resumo?mes=${m}&ano=${y}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-            fetch(`/api/categorias-resumo?mes=${m}&ano=${y}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+            fetch(`/api/transactions/resumo?mes=${m}&ano=${y}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+            fetch(`/api/transactions/por-categoria?mes=${m}&ano=${y}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
             fetch(`/api/transactions?limit=5&mes=${m}&ano=${y}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
             fetch('/api/dividas?status=pendente', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
         ]);
@@ -600,7 +600,7 @@ async function carregarPainel() {
             tbCat.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--gray-400)">Sem despesas neste mês.</td></tr>';
         }
 
-        const transacoes = transacoesRes || [];
+        const transacoes = transacoesRes?.transacoes || transacoesRes || [];
         const tbTx = document.getElementById('tabela-recentes');
         if (transacoes.length) {
             tbTx.innerHTML = transacoes.map(t => `<tr>
@@ -627,7 +627,7 @@ async function carregarTransacoes() {
         }).then(r => r.json());
 
         const tb = document.getElementById('tabela-transacoes');
-        const transacoes = res || [];
+        const transacoes = res?.transacoes || res || [];
         if (!transacoes.length) {
             tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--gray-400)">Nenhuma transação encontrada.</td></tr>';
             return;

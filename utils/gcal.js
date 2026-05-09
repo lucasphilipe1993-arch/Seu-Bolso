@@ -45,7 +45,10 @@ function gerarUrlOAuth(state = '') {
   return oAuth2Client.generateAuthUrl({
     access_type: 'offline',   // garante refresh_token
     prompt:      'consent',   // força a emissão de refresh_token mesmo se já autorizou
-    scope:       ['https://www.googleapis.com/auth/calendar'],
+    scope: [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/userinfo.email',
+    ],
     state,                    // pode passar usuarioId codificado para o callback
   });
 }
@@ -54,12 +57,18 @@ function gerarUrlOAuth(state = '') {
 async function trocarCodigo(code, usuarioId) {
   const oAuth2Client = _criarOAuthClient();
   const { tokens } = await oAuth2Client.getToken(code);
-  // tokens: { access_token, refresh_token, expiry_date, token_type, scope }
+  // tokens: { access_token, refresh_token, expiry_date, id_token, ... }
 
-  // Busca o email da conta Google autorizada
-  oAuth2Client.setCredentials(tokens);
-  const oauth2 = google.oauth2({ version: 'v2', auth: oAuth2Client });
-  const { data: userInfo } = await oauth2.userinfo.get();
+  // Extrai email do id_token (JWT) — sem chamada extra à API
+  let email = null;
+  if (tokens.id_token) {
+    try {
+      const payload = JSON.parse(
+        Buffer.from(tokens.id_token.split('.')[1], 'base64').toString('utf8')
+      );
+      email = payload.email || null;
+    } catch { /* ignora */ }
+  }
 
   await db.query(
     `UPDATE usuarios
@@ -72,12 +81,12 @@ async function trocarCodigo(code, usuarioId) {
       tokens.access_token,
       tokens.refresh_token || null,
       tokens.expiry_date   || null,
-      userInfo.email       || null,
+      email,
       usuarioId,
     ]
   );
 
-  return { email: userInfo.email, tokens };
+  return { email, tokens };
 }
 
 // ── Remove tokens OAuth do usuário (desconectar) ─────────────────────────────

@@ -18,6 +18,7 @@ const dividasRoute      = require('./routes/dividas');
 const stripeRoute       = require('./routes/stripe'); // ← STRIPE
 const cuponsRoute       = require('./routes/cupons'); // ← CUPONS
 const agendaRouter      = require('./routes/agenda'); // ← AGENDA
+const configRoute       = require('./routes/config'); // ← CONFIG GLOBAL
 
 const app    = express();
 const server = http.createServer(app);
@@ -118,6 +119,8 @@ app.use('/api/dividas',      dividasRoute);
 app.use('/api/stripe',       stripeRoute); // ← STRIPE
 app.use('/api/cupons',       cuponsRoute); // ← CUPONS
 app.use('/api/agenda',       agendaRouter); // ← AGENDA
+app.use('/api/config',      configRoute);  // ← CONFIG GLOBAL (Google Calendar admin)
+app.use('/api/gcal',        configRoute);  // ← alias para /api/gcal/test
 
 // ─── Atalho /api/me → /api/auth/me ───────────────────────────
 const autenticar = require('./middleware/auth');

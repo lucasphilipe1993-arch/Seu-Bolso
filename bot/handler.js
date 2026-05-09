@@ -1871,8 +1871,8 @@ class BotSeuSecretario {
   msgBemVindo(nome) {
     return (
       `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Secretário*! 👋\n\n` +
-      `🤖 Sou seu assistente financeiro pessoal. Estou aqui para te ajudar a controlar seus gastos e receitas direto pelo WhatsApp — sem precisar abrir nenhum app!\n\n` +
-      `Já deixei sua conta configurada e pronta para usar. Em instantes vou te mostrar como funciona. 😊`
+      `🤖 Sou seu assistente pessoal. Estou aqui para te ajudar a organizar sua vida financeira, sua agenda e muito mais — tudo direto pelo WhatsApp, sem precisar abrir nenhum app!\n\n` +
+      `Já deixei sua conta configurada e pronta para usar. Escreva *ajuda* que te ensino como usar 😊`
     );
   }
 

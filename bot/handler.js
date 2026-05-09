@@ -825,6 +825,7 @@ class BotGranaZen {
     const triggerAgenda = [
       'agenda', 'compromissos', 'meus compromissos', 'ver agenda',
       'ver compromissos', 'próximos compromissos', 'proximos compromissos',
+      'lista de compromissos', 'lista compromissos', 'listar compromissos',
     ];
     if (triggerAgenda.includes(textoClean))
       return this.enviarAgenda(remoteJid, usuarioId);
@@ -852,6 +853,41 @@ class BotGranaZen {
     const divida = await this.interpretarDivida(texto);
     if (divida)
       return this.registrarDividaReceber(remoteJid, usuarioId, divida, texto);
+
+    // ── Comando explícito "agendar" ─────────────────────────────────────────
+    // Exemplos suportados:
+    //   "agendar Lucas para amanhã 12hs"
+    //   "agendar reunião amanhã às 10h"
+    //   "agendar consulta médica dia 20 às 14h no hospital"
+    //   "agendar lista de compromissos" → mostra agenda
+    const matchAgendar = texto.match(/^agendar\s+(.+)$/i);
+    if (matchAgendar) {
+      const conteudo = matchAgendar[1].trim();
+      const isListar = /^(lista\s+(de\s+)?compromissos?|compromissos?|agenda|tudo|todos?)$/i.test(conteudo);
+      if (isListar) {
+        return this.enviarAgenda(remoteJid, usuarioId);
+      }
+      // Monta frase normalizada para o interpretador de compromisso da IA
+      const textoNormalizado = `tenho compromisso com ${conteudo}`;
+      console.log(`📅 Comando "agendar" detectado → interpretando: "${textoNormalizado}"`);
+      const compromissoAgendar = await this.interpretarCompromisso(textoNormalizado);
+      if (compromissoAgendar) {
+        return this.registrarCompromisso(remoteJid, usuarioId, compromissoAgendar, texto);
+      }
+      // Fallback: tenta com o texto original sem prefixo
+      const compromissoFallback = await this.interpretarCompromisso(conteudo);
+      if (compromissoFallback) {
+        return this.registrarCompromisso(remoteJid, usuarioId, compromissoFallback, texto);
+      }
+      return this.enviar(remoteJid,
+        `📅 Não consegui entender o compromisso. Tente assim:\n\n` +
+        `• _agendar reunião amanhã às 10h_\n` +
+        `• _agendar consulta médica dia 20 às 14h_\n` +
+        `• _agendar Lucas para amanhã 12hs_\n` +
+        `• _agendar lista de compromissos_ → ver agenda`
+      );
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     const compromisso = await this.interpretarCompromisso(texto);
     if (compromisso)
@@ -1854,9 +1890,11 @@ class BotGranaZen {
       `💸 *4. Registre dívidas de terceiros:*\n\n` +
       `_"Bruno me deve 40 reais, paga dia 30"_\n\n` +
       `📅 *5. Agende compromissos:*\n\n` +
-      `_"Tenho reunião amanhã às 10h"_\n` +
-      `_"Consulta médica dia 20 às 14h no hospital"_\n` +
-      `_"Lembra de pagar o aluguel dia 5"_\n\n` +
+      `_"agendar Lucas para amanhã 12hs"_\n` +
+      `_"agendar reunião amanhã às 10h"_\n` +
+      `_"agendar consulta médica dia 20 às 14h no hospital"_\n` +
+      `_"Tenho reunião amanhã às 10h"_ — forma livre\n` +
+      `_"agendar lista de compromissos"_ — ver agenda\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📊 *Comandos úteis:*\n\n` +
       `• *resumo* — Ver saldo e relatório do mês\n` +
@@ -1884,9 +1922,11 @@ class BotGranaZen {
       `📸 *Foto:* Tire foto de nota fiscal\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📅 *Agenda:*\n` +
-      `_"Tenho reunião amanhã às 10h"_ — agenda\n` +
-      `_"Consulta médica dia 20 às 14h"_ — agenda\n` +
-      `_agenda_ — lista compromissos\n` +
+      `_"agendar Lucas para amanhã 12hs"_ — agenda\n` +
+      `_"agendar reunião sexta às 14h"_ — agenda\n` +
+      `_"agendar consulta médica dia 20 às 14h"_ — agenda\n` +
+      `_"Tenho reunião amanhã às 10h"_ — forma livre\n` +
+      `_agenda_ ou _"agendar lista de compromissos"_ — lista\n` +
       `_"cancelar compromisso [ID]"_ — cancela\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💸 *Dívidas a Receber:*\n` +

@@ -199,4 +199,12 @@ BEGIN
     CREATE INDEX idx_usuarios_stripe_subscription ON usuarios(stripe_subscription_id);
   END IF;
 
+  -- google_calendar_id por usuário (integração Google Calendar individual)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='google_calendar_id'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN google_calendar_id TEXT;
+  END IF;
+
 END$$;

@@ -1,8 +1,9 @@
 // routes/agenda.js — CRUD de compromissos da agenda
-const express = require('express');
-const router  = express.Router();
-const db      = require('../database/db');
+const express    = require('express');
+const router     = express.Router();
+const db         = require('../database/db');
 const autenticar = require('../middleware/auth');
+const { google } = require('googleapis'); // ← MOVIDO PARA O TOPO
 
 router.use(autenticar);
 
@@ -240,7 +241,7 @@ router.get('/gcal/testar', async (req, res) => {
     let configRows;
     try {
       const configRes = await db.query(
-        `SELECT valor FROM configuracoes WHERE chave IN ('google_cal_email','google_cal_private_key') LIMIT 2`
+        `SELECT chave, valor FROM configuracoes WHERE chave IN ('google_cal_email','google_cal_private_key') LIMIT 2`
       );
       configRows = configRes.rows;
     } catch {
@@ -252,9 +253,8 @@ router.get('/gcal/testar', async (req, res) => {
 
     // Tenta fazer uma listagem simples de eventos como teste
     try {
-      const { google } = require('googleapis');
-      const serviceEmail    = configRows.find(r => r.chave === 'google_cal_email')?.valor;
-      const privateKey      = configRows.find(r => r.chave === 'google_cal_private_key')?.valor;
+      const serviceEmail = configRows.find(r => r.chave === 'google_cal_email')?.valor;
+      const privateKey   = configRows.find(r => r.chave === 'google_cal_private_key')?.valor;
 
       const auth = new google.auth.JWT(serviceEmail, null, privateKey, ['https://www.googleapis.com/auth/calendar']);
       const calendar = google.calendar({ version: 'v3', auth });

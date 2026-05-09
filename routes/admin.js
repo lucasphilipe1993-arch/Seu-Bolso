@@ -232,6 +232,81 @@ router.delete('/users/:id', autenticarAdmin, async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/users/:id/sessao ─────────────────────────
+// Retorna info de sessão e LID de um usuário
+router.get('/users/:id/sessao', autenticarAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await db.query(
+      `SELECT s.telefone, s.lid, s.estado,
+              l.lid AS lid_map_lid, l.telefone AS lid_map_telefone
+       FROM sessoes_bot s
+       LEFT JOIN lid_map l ON l.telefone = s.telefone
+       WHERE s.usuario_id = $1`,
+      [id]
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─── POST /api/admin/users/:id/vincular-lid ───────────────────
+// Vincula telefone e LID manualmente para um usuário com problema
+router.post('/users/:id/vincular-lid', autenticarAdmin, async (req, res) => {
+  const { id } = req.params;
+  let { telefone, lid } = req.body;
+
+  if (!telefone) return res.status(400).json({ erro: 'Telefone obrigatório' });
+
+  // Normaliza telefone
+  telefone = telefone.replace(/\D/g, '');
+  if (telefone.startsWith('55') && telefone.length > 11) telefone = telefone.slice(2);
+  if (telefone.length === 10) {
+    const ddd = telefone.slice(0, 2);
+    const num = telefone.slice(2);
+    if (['6','7','8','9'].includes(num[0])) telefone = ddd + '9' + num;
+  }
+
+  try {
+    await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
+
+    await db.query(
+      `UPDATE usuarios SET telefone = $1, whatsapp_ativo = true WHERE id = $2`,
+      [telefone, id]
+    );
+
+    await db.query(
+      `INSERT INTO sessoes_bot (telefone, usuario_id, lid)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (telefone) DO UPDATE SET usuario_id = $2, lid = $3`,
+      [telefone, id, lid || null]
+    );
+
+    if (lid) {
+      const lidFormatado = lid.includes('@lid') ? lid : lid + '@lid';
+      await db.query(
+        `INSERT INTO lid_map (lid, telefone)
+         VALUES ($1, $2)
+         ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
+        [lidFormatado, telefone]
+      );
+      await db.query(
+        `UPDATE sessoes_bot SET lid = $1 WHERE usuario_id = $2`,
+        [lidFormatado, id]
+      );
+      if (_bot && _bot.lidCache) {
+        _bot.lidCache.set(lidFormatado, telefone);
+      }
+    }
+
+    res.json({ ok: true, mensagem: 'WhatsApp vinculado com sucesso' });
+  } catch (err) {
+    console.error('admin/vincular-lid POST:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // ─── GET /api/admin/resumo ────────────────────────────────────
 // Resumo financeiro global de TODOS os usuários (para o painel de faturamento)
 router.get('/resumo', autenticarAdmin, async (req, res) => {
@@ -329,3 +404,5 @@ router.get('/categorias', autenticarAdmin, async (req, res) => {
 });
 
 module.exports = { router, setBotInstance };
+
+// PLACEHOLDER - will be replaced

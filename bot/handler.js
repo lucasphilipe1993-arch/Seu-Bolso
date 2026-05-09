@@ -678,7 +678,7 @@ class BotSeuSecretario {
       if (!resultado) return this.enviar(remoteJid, '❌ Não consegui extrair informações desta imagem. Tente enviar o valor em texto.');
       await this.registrarTransacao(remoteJid, usuarioId, resultado, '[imagem]', telefone);
     } else {
-      await this.enviar(remoteJid, `Só consigo processar *texto*, *áudio* e *imagens*.\n\nDigite *ajuda* para ver como usar.`);
+      console.log(`⏭️  Tipo de mensagem ignorado: ${tipo} de ${telefone}`);
     }
   }
 

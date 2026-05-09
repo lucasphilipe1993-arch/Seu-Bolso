@@ -5,8 +5,6 @@ const db         = require('../database/db');
 const autenticar = require('../middleware/auth');
 const gcal       = require('../utils/gcal');
 
-router.use(autenticar);
-
 // ── Garante que a tabela existe (idempotente) ────────────────────────────────
 async function garantirTabela() {
   await db.query(`
@@ -32,12 +30,77 @@ async function garantirTabela() {
 }
 garantirTabela();
 
+// ── Helper: extrai usuarioId do token JWT (header ou query param) ────────────
+function extrairUsuarioId(req) {
+  const jwt = require('jsonwebtoken');
+
+  // 1. Tenta pelo header Authorization: Bearer <token>
+  const header = req.headers.authorization;
+  if (header && header.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
+      return payload.id || payload.usuarioId || payload.sub;
+    } catch { /* inválido */ }
+  }
+
+  // 2. Fallback: ?token= na query string (necessário para redirects do browser)
+  if (req.query.token) {
+    try {
+      const payload = jwt.verify(req.query.token, process.env.JWT_SECRET);
+      return payload.id || payload.usuarioId || payload.sub;
+    } catch { /* inválido */ }
+  }
+
+  return null;
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
-//  GOOGLE CALENDAR — ROTAS OAuth (devem vir ANTES de /:id)
+//  GOOGLE CALENDAR — ROTAS PÚBLICAS (sem autenticar, verificam JWT manualmente)
+//  Precisam vir ANTES do router.use(autenticar) porque fazem redirect de browser
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ── GET /api/agenda/gcal/autorizar ───────────────────────────────────────────
+router.get('/gcal/autorizar', (req, res) => {
+  try {
+    const usuarioId = extrairUsuarioId(req);
+    if (!usuarioId) return res.status(401).json({ erro: 'Não autenticado' });
+
+    const url = gcal.gerarUrlOAuth(usuarioId);
+    res.redirect(url);
+  } catch (err) {
+    console.error('Erro ao gerar URL OAuth:', err);
+    res.status(500).json({ erro: 'Erro ao gerar link de autorização. Verifique as variáveis GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REDIRECT_URI.' });
+  }
+});
+
+// ── GET /api/agenda/gcal/callback ────────────────────────────────────────────
+// O Google redireciona para cá após o usuário autorizar (ou negar).
+// O usuarioId vem no parâmetro "state" que foi passado em gerarUrlOAuth().
+router.get('/gcal/callback', async (req, res) => {
+  const { code, state: usuarioId, error } = req.query;
+
+  if (error) return res.redirect('/dashboard.html?gcal=negado');
+
+  if (!code || !usuarioId) {
+    return res.status(400).json({ erro: 'Parâmetros inválidos no callback' });
+  }
+
+  try {
+    const { email } = await gcal.trocarCodigo(code, usuarioId);
+    console.log(`✅ Google Calendar conectado para usuário ${usuarioId} (${email})`);
+    res.redirect('/dashboard.html?gcal=conectado');
+  } catch (err) {
+    console.error('Erro ao trocar código OAuth:', err);
+    res.redirect('/dashboard.html?gcal=erro');
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  A partir daqui todas as rotas exigem autenticação
+// ══════════════════════════════════════════════════════════════════════════════
+router.use(autenticar);
+
 // ── GET /api/agenda/gcal/status ──────────────────────────────────────────────
-// Retorna se o usuário já conectou o Google Calendar e qual email está vinculado
 router.get('/gcal/status', async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -53,63 +116,7 @@ router.get('/gcal/status', async (req, res) => {
   }
 });
 
-// ── GET /api/agenda/gcal/autorizar ───────────────────────────────────────────
-// Redireciona o usuário para a tela de autorização do Google.
-// Como este endpoint faz redirect (não é JSON), o frontend envia o token
-// via query param ?token=... em vez do header Authorization.
-router.get('/gcal/autorizar', async (req, res) => {
-  try {
-    let usuarioId = req.usuarioId; // vem do middleware (se token no header)
 
-    // Fallback: token via query param (necessário para redirects do browser)
-    if (!usuarioId && req.query.token) {
-      const jwt = require('jsonwebtoken');
-      try {
-        const decoded = jwt.verify(req.query.token, process.env.JWT_SECRET);
-        usuarioId = decoded.id || decoded.usuarioId || decoded.sub;
-      } catch {
-        return res.status(401).json({ erro: 'Token inválido' });
-      }
-    }
-
-    if (!usuarioId) return res.status(401).json({ erro: 'Não autenticado' });
-
-    const url = gcal.gerarUrlOAuth(usuarioId);
-    res.redirect(url);
-  } catch (err) {
-    console.error('Erro ao gerar URL OAuth:', err);
-    res.status(500).json({ erro: 'Erro ao gerar link de autorização. Verifique as variáveis GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REDIRECT_URI.' });
-  }
-});
-
-// ── GET /api/agenda/gcal/callback ────────────────────────────────────────────
-// Google redireciona para cá após o usuário autorizar (ou negar)
-// ATENÇÃO: esta rota recebe o "code" do Google. O GOOGLE_REDIRECT_URI
-// no Google Cloud Console deve apontar para esta URL exata.
-router.get('/gcal/callback', async (req, res) => {
-  const { code, state: usuarioIdDoState, error } = req.query;
-
-  // Usuário negou a permissão
-  if (error) {
-    return res.redirect('/dashboard.html?gcal=negado');
-  }
-
-  // Usa o usuarioId do middleware (sessão autenticada) ou do state
-  const usuarioId = req.usuarioId || usuarioIdDoState;
-
-  if (!code || !usuarioId) {
-    return res.status(400).json({ erro: 'Parâmetros inválidos no callback' });
-  }
-
-  try {
-    const { email } = await gcal.trocarCodigo(code, usuarioId);
-    console.log(`✅ Google Calendar conectado para usuário ${usuarioId} (${email})`);
-    res.redirect('/dashboard.html?gcal=conectado');
-  } catch (err) {
-    console.error('Erro ao trocar código OAuth:', err);
-    res.redirect('/dashboard.html?gcal=erro');
-  }
-});
 
 // ── DELETE /api/agenda/gcal/desconectar ──────────────────────────────────────
 // Remove os tokens OAuth do usuário

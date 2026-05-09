@@ -57,13 +57,27 @@ router.post('/vincular', autenticar, async (req, res) => {
       'UPDATE usuarios SET telefone = $1, whatsapp_ativo = true WHERE id = $2',
       [telefone, req.usuarioId]
     );
+
+    // Remove LID antigo do lid_map e da sessão para evitar conflito no recadastro
+    await db.query(
+      `DELETE FROM lid_map WHERE telefone IN (
+         SELECT telefone FROM usuarios WHERE id = $1 AND telefone IS NOT NULL
+       )`,
+      [req.usuarioId]
+    ).catch(() => {});
+    await db.query(
+      `UPDATE sessoes_bot SET lid = NULL WHERE usuario_id = $1`,
+      [req.usuarioId]
+    ).catch(() => {});
+
     // Cria (ou atualiza) a sessão do bot para este número
     await db.query(
       `INSERT INTO sessoes_bot (telefone, usuario_id)
        VALUES ($1, $2)
-       ON CONFLICT (telefone) DO UPDATE SET usuario_id = $2`,
+       ON CONFLICT (telefone) DO UPDATE SET usuario_id = $2, lid = NULL`,
       [telefone, req.usuarioId]
     );
+
     res.json({ mensagem: 'WhatsApp vinculado com sucesso' });
   } catch (err) {
     console.error('Erro ao vincular WhatsApp:', err);

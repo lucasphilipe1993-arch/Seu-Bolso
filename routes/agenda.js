@@ -254,7 +254,9 @@ router.get('/gcal/testar', async (req, res) => {
     // Tenta fazer uma listagem simples de eventos como teste
     try {
       const serviceEmail = configRows.find(r => r.chave === 'google_cal_email')?.valor;
-      const privateKey   = configRows.find(r => r.chave === 'google_cal_private_key')?.valor;
+      const privateKeyRaw = configRows.find(r => r.chave === 'google_cal_private_key')?.valor;
+      // Converte \n literal em quebras de linha reais (problema comum ao salvar no banco)
+      const privateKey = privateKeyRaw?.replace(/\\n/g, '\n');
 
       const auth = new google.auth.JWT(serviceEmail, null, privateKey, ['https://www.googleapis.com/auth/calendar']);
       const calendar = google.calendar({ version: 'v3', auth });

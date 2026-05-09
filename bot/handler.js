@@ -263,7 +263,8 @@ class BotGranaZen {
   }
 
   _gerarVariacoesTelefone(telefone) {
-    if (!telefone || telefone.endsWith('@lid')) return [telefone];
+    // Se for LID, não gerar variações numéricas — os fallbacks @lid em _buscarSessao tratam isso
+    if (!telefone || telefone.endsWith('@lid')) return [];
     const variacoes = new Set();
     variacoes.add(telefone);
     let digits = telefone.replace(/\D/g, '');

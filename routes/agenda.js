@@ -139,6 +139,8 @@ router.put('/:id', async (req, res) => {
 // ── DELETE /api/agenda/:id ───────────────────────────────────────────────────
 // Marca como cancelado (soft delete)
 router.delete('/:id', async (req, res) => {
+  // Protege para não conflitar com a rota /gcal/configurar
+  if (req.params.id === 'gcal') return res.status(400).json({ erro: 'Rota inválida' });
   try {
     const { rows } = await db.query(
       `UPDATE agenda SET cancelado = TRUE
@@ -151,6 +153,119 @@ router.delete('/:id', async (req, res) => {
     res.json({ mensagem: 'Compromisso cancelado' });
   } catch (err) {
     console.error('Erro ao cancelar compromisso:', err);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  GOOGLE CALENDAR POR USUÁRIO
+//  Cada usuário cadastra o próprio ID de calendário. A conta de serviço (service
+//  account) é configurada globalmente pelo admin em /api/config.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Garante que a coluna google_calendar_id existe na tabela usuarios
+async function garantirColunaGcal() {
+  await db.query(`
+    ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS google_calendar_id TEXT
+  `).catch(() => {});
+}
+garantirColunaGcal();
+
+// ── GET /api/agenda/gcal/status ──────────────────────────────────────────────
+// Retorna o calendar_id salvo do usuário logado
+router.get('/gcal/status', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT google_calendar_id FROM usuarios WHERE id = $1',
+      [req.usuarioId]
+    );
+    const calId = rows[0]?.google_calendar_id || null;
+    res.json({ calendar_id: calId, conectado: !!calId });
+  } catch (err) {
+    console.error('Erro ao buscar gcal status:', err);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// ── POST /api/agenda/gcal/configurar ────────────────────────────────────────
+// Salva o calendar_id do usuário
+router.post('/gcal/configurar', async (req, res) => {
+  const { calendar_id } = req.body;
+  if (!calendar_id || !calendar_id.trim())
+    return res.status(400).json({ erro: 'calendar_id é obrigatório' });
+
+  try {
+    await db.query(
+      'UPDATE usuarios SET google_calendar_id = $1 WHERE id = $2',
+      [calendar_id.trim(), req.usuarioId]
+    );
+    res.json({ ok: true, mensagem: 'Google Calendar salvo com sucesso', calendar_id: calendar_id.trim() });
+  } catch (err) {
+    console.error('Erro ao salvar gcal:', err);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// ── DELETE /api/agenda/gcal/configurar ──────────────────────────────────────
+// Remove o calendar_id do usuário (desconecta)
+router.delete('/gcal/configurar', async (req, res) => {
+  try {
+    await db.query(
+      'UPDATE usuarios SET google_calendar_id = NULL WHERE id = $1',
+      [req.usuarioId]
+    );
+    res.json({ ok: true, mensagem: 'Google Calendar desconectado' });
+  } catch (err) {
+    console.error('Erro ao desconectar gcal:', err);
+    res.status(500).json({ erro: 'Erro interno' });
+  }
+});
+
+// ── GET /api/agenda/gcal/testar ──────────────────────────────────────────────
+// Testa se a integração está funcionando (usa as credenciais globais do admin
+// + o calendar_id do usuário)
+router.get('/gcal/testar', async (req, res) => {
+  try {
+    // Busca calendar_id do usuário
+    const { rows } = await db.query(
+      'SELECT google_calendar_id FROM usuarios WHERE id = $1',
+      [req.usuarioId]
+    );
+    const calId = rows[0]?.google_calendar_id;
+    if (!calId)
+      return res.status(400).json({ erro: 'Google Calendar não configurado. Informe o ID do seu calendário primeiro.' });
+
+    // Busca credenciais globais do admin (tabela configuracoes)
+    let configRows;
+    try {
+      const configRes = await db.query(
+        `SELECT valor FROM configuracoes WHERE chave IN ('google_cal_email','google_cal_private_key') LIMIT 2`
+      );
+      configRows = configRes.rows;
+    } catch {
+      return res.status(503).json({ erro: 'Conta de serviço não configurada pelo admin. Peça ao administrador para configurar o Google Calendar no painel.' });
+    }
+
+    if (!configRows || configRows.length < 2)
+      return res.status(503).json({ erro: 'Conta de serviço do Google não configurada. Peça ao administrador para preencher as credenciais no painel.' });
+
+    // Tenta fazer uma listagem simples de eventos como teste
+    try {
+      const { google } = require('googleapis');
+      const serviceEmail    = configRows.find(r => r.chave === 'google_cal_email')?.valor;
+      const privateKey      = configRows.find(r => r.chave === 'google_cal_private_key')?.valor;
+
+      const auth = new google.auth.JWT(serviceEmail, null, privateKey, ['https://www.googleapis.com/auth/calendar']);
+      const calendar = google.calendar({ version: 'v3', auth });
+      await calendar.events.list({ calendarId: calId, maxResults: 1 });
+      res.json({ ok: true, mensagem: 'Conexão com o Google Calendar bem-sucedida!' });
+    } catch (gErr) {
+      console.error('Erro gcal teste:', gErr.message);
+      res.status(400).json({ erro: 'Falha na conexão: ' + (gErr.message || 'verifique se compartilhou o calendário com a conta de serviço') });
+    }
+  } catch (err) {
+    console.error('Erro ao testar gcal:', err);
     res.status(500).json({ erro: 'Erro interno' });
   }
 });

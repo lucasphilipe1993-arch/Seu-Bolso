@@ -3,11 +3,113 @@ const express    = require('express');
 const router     = express.Router();
 const db         = require('../database/db');
 const autenticar = require('../middleware/auth');
-const { google } = require('googleapis'); // ← MOVIDO PARA O TOPO
+const { google } = require('googleapis');
 
 router.use(autenticar);
 
-// Garante que a tabela existe (idempotente)
+// ══════════════════════════════════════════════════════════════════════════════
+//  HELPER — Sincronização com Google Calendar
+//  Usado tanto pelas rotas da web quanto pelo bot (exportado no final)
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function getGoogleAuth() {
+  try {
+    const { rows } = await db.query(
+      `SELECT chave, valor FROM configuracoes
+       WHERE chave IN ('google_cal_email','google_cal_private_key')`
+    );
+    if (!rows || rows.length < 2) return null;
+    const serviceEmail  = rows.find(r => r.chave === 'google_cal_email')?.valor;
+    const privateKeyRaw = rows.find(r => r.chave === 'google_cal_private_key')?.valor;
+    const privateKey    = privateKeyRaw?.replace(/\\n/g, '\n');
+    if (!serviceEmail || !privateKey) return null;
+    return new google.auth.JWT(
+      serviceEmail, null, privateKey,
+      ['https://www.googleapis.com/auth/calendar']
+    );
+  } catch { return null; }
+}
+
+async function getCalendarId(usuarioId) {
+  try {
+    const { rows } = await db.query(
+      'SELECT google_calendar_id FROM usuarios WHERE id = $1',
+      [usuarioId]
+    );
+    return rows[0]?.google_calendar_id || null;
+  } catch { return null; }
+}
+
+async function criarEventoGcal(usuarioId, { titulo, data_hora, local, notas, lembrar_antes }) {
+  try {
+    const [auth, calId] = await Promise.all([getGoogleAuth(), getCalendarId(usuarioId)]);
+    if (!auth || !calId) return null;
+    const calendar = google.calendar({ version: 'v3', auth });
+    const inicio   = new Date(data_hora);
+    const fim      = new Date(inicio.getTime() + 60 * 60 * 1000);
+    const res = await calendar.events.insert({
+      calendarId: calId,
+      resource: {
+        summary:     titulo,
+        location:    local  || undefined,
+        description: notas  || undefined,
+        start: { dateTime: inicio.toISOString(), timeZone: 'America/Sao_Paulo' },
+        end:   { dateTime: fim.toISOString(),    timeZone: 'America/Sao_Paulo' },
+        reminders: {
+          useDefault: false,
+          overrides:  [{ method: 'popup', minutes: lembrar_antes || 30 }],
+        },
+      },
+    });
+    return res.data.id || null;
+  } catch (err) {
+    console.error('gcal criarEvento erro:', err.message);
+    return null;
+  }
+}
+
+async function atualizarEventoGcal(usuarioId, gcalEventId, { titulo, data_hora, local, notas, lembrar_antes }) {
+  try {
+    if (!gcalEventId) return;
+    const [auth, calId] = await Promise.all([getGoogleAuth(), getCalendarId(usuarioId)]);
+    if (!auth || !calId) return;
+    const calendar = google.calendar({ version: 'v3', auth });
+    const inicio   = new Date(data_hora);
+    const fim      = new Date(inicio.getTime() + 60 * 60 * 1000);
+    await calendar.events.patch({
+      calendarId: calId,
+      eventId:    gcalEventId,
+      resource: {
+        summary:     titulo,
+        location:    local  || undefined,
+        description: notas  || undefined,
+        start: { dateTime: inicio.toISOString(), timeZone: 'America/Sao_Paulo' },
+        end:   { dateTime: fim.toISOString(),    timeZone: 'America/Sao_Paulo' },
+        reminders: {
+          useDefault: false,
+          overrides:  [{ method: 'popup', minutes: lembrar_antes || 30 }],
+        },
+      },
+    });
+  } catch (err) { console.error('gcal atualizarEvento erro:', err.message); }
+}
+
+async function cancelarEventoGcal(usuarioId, gcalEventId) {
+  try {
+    if (!gcalEventId) return;
+    const [auth, calId] = await Promise.all([getGoogleAuth(), getCalendarId(usuarioId)]);
+    if (!auth || !calId) return;
+    const calendar = google.calendar({ version: 'v3', auth });
+    await calendar.events.delete({ calendarId: calId, eventId: gcalEventId });
+  } catch (err) {
+    if (err?.code !== 410) console.error('gcal cancelarEvento erro:', err.message);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SETUP DE TABELAS
+// ══════════════════════════════════════════════════════════════════════════════
+
 async function garantirTabela() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS agenda (
@@ -22,47 +124,45 @@ async function garantirTabela() {
       cancelado        BOOLEAN NOT NULL DEFAULT FALSE,
       id_curto         TEXT,
       origem           TEXT DEFAULT 'web',
+      gcal_event_id    TEXT,
       criado_em        TIMESTAMPTZ DEFAULT NOW()
     )
   `).catch(() => {});
   await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_usuario ON agenda(usuario_id)`).catch(() => {});
   await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_data    ON agenda(data_hora)`).catch(() => {});
+  await db.query(`ALTER TABLE agenda ADD COLUMN IF NOT EXISTS gcal_event_id TEXT`).catch(() => {});
 }
 garantirTabela();
 
-// ── GET /api/agenda ──────────────────────────────────────────────────────────
-// Parâmetros opcionais: status=pendente|cancelado|passado, limit, offset
+async function garantirColunaGcal() {
+  await db.query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS google_calendar_id TEXT`).catch(() => {});
+}
+garantirColunaGcal();
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ROTAS — AGENDA
+// ══════════════════════════════════════════════════════════════════════════════
+
 router.get('/', async (req, res) => {
   const { status, limit = 50, offset = 0 } = req.query;
   const agora = new Date();
-
   let condicao = 'cancelado = FALSE AND data_hora >= $2';
   let params   = [req.usuarioId, agora];
-
-  if (status === 'cancelado') {
-    condicao = 'cancelado = TRUE';
-    params   = [req.usuarioId];
-  } else if (status === 'passado') {
-    condicao = 'cancelado = FALSE AND data_hora < $2';
-    params   = [req.usuarioId, agora];
-  }
-
+  if (status === 'cancelado') { condicao = 'cancelado = TRUE'; params = [req.usuarioId]; }
+  else if (status === 'passado') { condicao = 'cancelado = FALSE AND data_hora < $2'; params = [req.usuarioId, agora]; }
   try {
     const { rows } = await db.query(
       `SELECT id, titulo, data_hora, lembrar_antes, local, notas,
-              lembrete_enviado, cancelado, id_curto, origem, criado_em
+              lembrete_enviado, cancelado, id_curto, origem, gcal_event_id, criado_em
        FROM agenda
        WHERE usuario_id = $1 AND ${condicao}
        ORDER BY data_hora ASC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, parseInt(limit), parseInt(offset)]
     );
-
     const total = await db.query(
-      `SELECT COUNT(*) FROM agenda WHERE usuario_id = $1 AND ${condicao}`,
-      params
+      `SELECT COUNT(*) FROM agenda WHERE usuario_id = $1 AND ${condicao}`, params
     );
-
     res.json({ compromissos: rows, total: parseInt(total.rows[0].count) });
   } catch (err) {
     console.error('Erro ao listar agenda:', err);
@@ -70,8 +170,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ── GET /api/agenda/proximos ─────────────────────────────────────────────────
-// Retorna os próximos N compromissos (para o painel)
 router.get('/proximos', async (req, res) => {
   const limit = parseInt(req.query.limit) || 3;
   try {
@@ -79,8 +177,7 @@ router.get('/proximos', async (req, res) => {
       `SELECT id, titulo, data_hora, local, notas, id_curto
        FROM agenda
        WHERE usuario_id = $1 AND cancelado = FALSE AND data_hora >= NOW()
-       ORDER BY data_hora ASC
-       LIMIT $2`,
+       ORDER BY data_hora ASC LIMIT $2`,
       [req.usuarioId, limit]
     );
     res.json(rows);
@@ -90,67 +187,75 @@ router.get('/proximos', async (req, res) => {
   }
 });
 
-// ── POST /api/agenda ─────────────────────────────────────────────────────────
+// ── POST /api/agenda — cria compromisso e sincroniza no Google Calendar ──────
 router.post('/', async (req, res) => {
   const { titulo, data_hora, lembrar_antes = 30, local, notas } = req.body;
   if (!titulo || !data_hora)
     return res.status(400).json({ erro: 'titulo e data_hora são obrigatórios' });
-
   try {
     const { rows } = await db.query(
       `INSERT INTO agenda (usuario_id, titulo, data_hora, lembrar_antes, local, notas, origem)
-       VALUES ($1, $2, $3, $4, $5, $6, 'web')
-       RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, 'web') RETURNING *`,
       [req.usuarioId, titulo, data_hora, lembrar_antes, local || null, notas || null]
     );
-    res.status(201).json(rows[0]);
+    const compromisso = rows[0];
+    // Sincroniza com Google Calendar sem bloquear a resposta
+    criarEventoGcal(req.usuarioId, compromisso).then(gcalEventId => {
+      if (gcalEventId) {
+        db.query('UPDATE agenda SET gcal_event_id = $1 WHERE id = $2', [gcalEventId, compromisso.id]).catch(() => {});
+      }
+    });
+    res.status(201).json(compromisso);
   } catch (err) {
     console.error('Erro ao criar compromisso:', err);
     res.status(500).json({ erro: 'Erro interno' });
   }
 });
 
-// ── PUT /api/agenda/:id ──────────────────────────────────────────────────────
+// ── PUT /api/agenda/:id — atualiza compromisso e sincroniza ─────────────────
 router.put('/:id', async (req, res) => {
   const { titulo, data_hora, lembrar_antes, local, notas } = req.body;
   try {
     const antes = await db.query(
-      'SELECT id FROM agenda WHERE id = $1 AND usuario_id = $2',
+      'SELECT id, gcal_event_id FROM agenda WHERE id = $1 AND usuario_id = $2',
       [req.params.id, req.usuarioId]
     );
     if (antes.rows.length === 0)
       return res.status(404).json({ erro: 'Compromisso não encontrado' });
-
     const { rows } = await db.query(
       `UPDATE agenda
-       SET titulo=$1, data_hora=$2, lembrar_antes=$3, local=$4, notas=$5,
-           lembrete_enviado = FALSE
-       WHERE id=$6 AND usuario_id=$7
-       RETURNING *`,
-      [titulo, data_hora, lembrar_antes ?? 30, local || null, notas || null,
-       req.params.id, req.usuarioId]
+       SET titulo=$1, data_hora=$2, lembrar_antes=$3, local=$4, notas=$5, lembrete_enviado=FALSE
+       WHERE id=$6 AND usuario_id=$7 RETURNING *`,
+      [titulo, data_hora, lembrar_antes ?? 30, local || null, notas || null, req.params.id, req.usuarioId]
     );
-    res.json(rows[0]);
+    const compromisso  = rows[0];
+    const gcalEventId  = antes.rows[0].gcal_event_id;
+    if (gcalEventId) {
+      atualizarEventoGcal(req.usuarioId, gcalEventId, compromisso).catch(() => {});
+    } else {
+      criarEventoGcal(req.usuarioId, compromisso).then(newId => {
+        if (newId) db.query('UPDATE agenda SET gcal_event_id=$1 WHERE id=$2', [newId, compromisso.id]).catch(() => {});
+      });
+    }
+    res.json(compromisso);
   } catch (err) {
     console.error('Erro ao atualizar compromisso:', err);
     res.status(500).json({ erro: 'Erro interno' });
   }
 });
 
-// ── DELETE /api/agenda/:id ───────────────────────────────────────────────────
-// Marca como cancelado (soft delete)
+// ── DELETE /api/agenda/:id — cancela compromisso e remove do Google Calendar ─
 router.delete('/:id', async (req, res) => {
-  // Protege para não conflitar com a rota /gcal/configurar
   if (req.params.id === 'gcal') return res.status(400).json({ erro: 'Rota inválida' });
   try {
     const { rows } = await db.query(
-      `UPDATE agenda SET cancelado = TRUE
-       WHERE id = $1 AND usuario_id = $2
-       RETURNING id`,
+      `UPDATE agenda SET cancelado=TRUE WHERE id=$1 AND usuario_id=$2 RETURNING id, gcal_event_id`,
       [req.params.id, req.usuarioId]
     );
     if (rows.length === 0)
       return res.status(404).json({ erro: 'Compromisso não encontrado' });
+    if (rows[0].gcal_event_id)
+      cancelarEventoGcal(req.usuarioId, rows[0].gcal_event_id).catch(() => {});
     res.json({ mensagem: 'Compromisso cancelado' });
   } catch (err) {
     console.error('Erro ao cancelar compromisso:', err);
@@ -159,29 +264,12 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  GOOGLE CALENDAR POR USUÁRIO
-//  Cada usuário cadastra o próprio ID de calendário. A conta de serviço (service
-//  account) é configurada globalmente pelo admin em /api/config.
+//  ROTAS — GOOGLE CALENDAR (configuração por usuário)
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Garante que a coluna google_calendar_id existe na tabela usuarios
-async function garantirColunaGcal() {
-  await db.query(`
-    ALTER TABLE usuarios
-    ADD COLUMN IF NOT EXISTS google_calendar_id TEXT
-  `).catch(() => {});
-}
-garantirColunaGcal();
-
-// ── GET /api/agenda/gcal/status ──────────────────────────────────────────────
-// Retorna o calendar_id salvo do usuário logado
 router.get('/gcal/status', async (req, res) => {
   try {
-    const { rows } = await db.query(
-      'SELECT google_calendar_id FROM usuarios WHERE id = $1',
-      [req.usuarioId]
-    );
-    const calId = rows[0]?.google_calendar_id || null;
+    const calId = await getCalendarId(req.usuarioId);
     res.json({ calendar_id: calId, conectado: !!calId });
   } catch (err) {
     console.error('Erro ao buscar gcal status:', err);
@@ -189,18 +277,12 @@ router.get('/gcal/status', async (req, res) => {
   }
 });
 
-// ── POST /api/agenda/gcal/configurar ────────────────────────────────────────
-// Salva o calendar_id do usuário
 router.post('/gcal/configurar', async (req, res) => {
   const { calendar_id } = req.body;
   if (!calendar_id || !calendar_id.trim())
     return res.status(400).json({ erro: 'calendar_id é obrigatório' });
-
   try {
-    await db.query(
-      'UPDATE usuarios SET google_calendar_id = $1 WHERE id = $2',
-      [calendar_id.trim(), req.usuarioId]
-    );
+    await db.query('UPDATE usuarios SET google_calendar_id=$1 WHERE id=$2', [calendar_id.trim(), req.usuarioId]);
     res.json({ ok: true, mensagem: 'Google Calendar salvo com sucesso', calendar_id: calendar_id.trim() });
   } catch (err) {
     console.error('Erro ao salvar gcal:', err);
@@ -208,14 +290,9 @@ router.post('/gcal/configurar', async (req, res) => {
   }
 });
 
-// ── DELETE /api/agenda/gcal/configurar ──────────────────────────────────────
-// Remove o calendar_id do usuário (desconecta)
 router.delete('/gcal/configurar', async (req, res) => {
   try {
-    await db.query(
-      'UPDATE usuarios SET google_calendar_id = NULL WHERE id = $1',
-      [req.usuarioId]
-    );
+    await db.query('UPDATE usuarios SET google_calendar_id=NULL WHERE id=$1', [req.usuarioId]);
     res.json({ ok: true, mensagem: 'Google Calendar desconectado' });
   } catch (err) {
     console.error('Erro ao desconectar gcal:', err);
@@ -223,42 +300,15 @@ router.delete('/gcal/configurar', async (req, res) => {
   }
 });
 
-// ── GET /api/agenda/gcal/testar ──────────────────────────────────────────────
-// Testa se a integração está funcionando (usa as credenciais globais do admin
-// + o calendar_id do usuário)
 router.get('/gcal/testar', async (req, res) => {
   try {
-    // Busca calendar_id do usuário
-    const { rows } = await db.query(
-      'SELECT google_calendar_id FROM usuarios WHERE id = $1',
-      [req.usuarioId]
-    );
-    const calId = rows[0]?.google_calendar_id;
+    const calId = await getCalendarId(req.usuarioId);
     if (!calId)
       return res.status(400).json({ erro: 'Google Calendar não configurado. Informe o ID do seu calendário primeiro.' });
-
-    // Busca credenciais globais do admin (tabela configuracoes)
-    let configRows;
+    const auth = await getGoogleAuth();
+    if (!auth)
+      return res.status(503).json({ erro: 'Conta de serviço não configurada pelo admin.' });
     try {
-      const configRes = await db.query(
-        `SELECT chave, valor FROM configuracoes WHERE chave IN ('google_cal_email','google_cal_private_key') LIMIT 2`
-      );
-      configRows = configRes.rows;
-    } catch {
-      return res.status(503).json({ erro: 'Conta de serviço não configurada pelo admin. Peça ao administrador para configurar o Google Calendar no painel.' });
-    }
-
-    if (!configRows || configRows.length < 2)
-      return res.status(503).json({ erro: 'Conta de serviço do Google não configurada. Peça ao administrador para preencher as credenciais no painel.' });
-
-    // Tenta fazer uma listagem simples de eventos como teste
-    try {
-      const serviceEmail = configRows.find(r => r.chave === 'google_cal_email')?.valor;
-      const privateKeyRaw = configRows.find(r => r.chave === 'google_cal_private_key')?.valor;
-      // Converte \n literal em quebras de linha reais (problema comum ao salvar no banco)
-      const privateKey = privateKeyRaw?.replace(/\\n/g, '\n');
-
-      const auth = new google.auth.JWT(serviceEmail, null, privateKey, ['https://www.googleapis.com/auth/calendar']);
       const calendar = google.calendar({ version: 'v3', auth });
       await calendar.events.list({ calendarId: calId, maxResults: 1 });
       res.json({ ok: true, mensagem: 'Conexão com o Google Calendar bem-sucedida!' });
@@ -273,3 +323,6 @@ router.get('/gcal/testar', async (req, res) => {
 });
 
 module.exports = router;
+// Exporta helpers para uso no bot/handler.js
+module.exports.criarEventoGcal    = criarEventoGcal;
+module.exports.cancelarEventoGcal = cancelarEventoGcal;

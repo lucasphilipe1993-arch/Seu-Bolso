@@ -1164,6 +1164,11 @@
             <label class="form-label">Telefone</label>
             <input class="form-input" type="text" id="admUsrTelefone" placeholder="(11) 99999-9999">
         </div>
+        <div class="form-group" id="admUsrLidGroup" style="display:none">
+            <label class="form-label">LID do WhatsApp <span style="font-weight:400;color:var(--gray-400);font-size:11px">(opcional — cole o número do log do servidor)</span></label>
+            <input class="form-input" type="text" id="admUsrLid" placeholder="Ex: 224528072499242 ou 224528072499242@lid">
+            <div id="admUsrSessaoInfo" style="font-size:11px;color:var(--gray-400);margin-top:5px"></div>
+        </div>
         <div class="form-row">
             <div class="form-group">
                 <label class="form-label">Plano</label>
@@ -1180,6 +1185,7 @@
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal('modalAdminUsuario')">Cancelar</button>
+            <button class="btn btn-outline-green" id="admUsrBtnLid" style="display:none" onclick="adminSalvarLid()">💾 Salvar LID</button>
             <button class="btn btn-primary" onclick="adminSalvarUsuario()">Salvar</button>
         </div>
     </div>
@@ -2372,7 +2378,6 @@ function adminFiltrarUsuarios() {
             <td>
                 <div style="display:flex;gap:6px">
                     <button class="btn btn-secondary" style="padding:5px 11px;font-size:12px" onclick="adminAbrirModalUsuario('${uid}')">✏️ Editar</button>
-                    <button class="btn btn-outline-green" style="padding:5px 11px;font-size:12px" onclick="adminAbrirModalLid('${uid}')">📱 LID</button>
                     <button class="btn btn-danger" style="padding:5px 11px;font-size:12px" onclick="adminExcluirUsuario('${uid}','${nomeEscapado}')">🗑</button>
                 </div>
             </td>
@@ -2392,6 +2397,11 @@ function adminAbrirModalUsuario(id) {
     document.getElementById('admUsrModalTitle').textContent = id ? 'Editar Usuário' : 'Novo Usuário';
     document.getElementById('admUsrEmail').disabled = !!id;
     document.getElementById('admUsrSenhaHint').textContent = id ? '(em branco = manter)' : '';
+    // Mostrar campo LID só ao editar
+    document.getElementById('admUsrLidGroup').style.display = id ? 'block' : 'none';
+    document.getElementById('admUsrBtnLid').style.display = id ? 'inline-flex' : 'none';
+    document.getElementById('admUsrLid').value = '';
+    document.getElementById('admUsrSessaoInfo').textContent = '';
     if (id) {
         const u = _admUsuarios.find(x => String(x.id) === String(id));
         if (u) {
@@ -2401,6 +2411,16 @@ function adminAbrirModalUsuario(id) {
             document.getElementById('admUsrTelefone').value = u.telefone || '';
             document.getElementById('admUsrPlano').value = u.plano || 'gratuito';
         }
+        // Busca sessão/LID atual
+        const token = localStorage.getItem('gz_token');
+        fetch(`/api/admin/users/${id}/sessao`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.json()).then(sessao => {
+                if (sessao) {
+                    document.getElementById('admUsrLid').value = sessao.lid || '';
+                    document.getElementById('admUsrSessaoInfo').innerHTML =
+                        `Sessão: tel <code>${sessao.telefone || '—'}</code> | LID salvo: <code>${sessao.lid || 'nenhum'}</code>`;
+                }
+            }).catch(() => {});
     }
     openModal('modalAdminUsuario');
 }
@@ -2449,29 +2469,27 @@ async function adminExcluirUsuario(id, nome) {
         else showToast(res.erro || 'Erro ao excluir', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
 }
+async function adminSalvarLid() {
+    const token = localStorage.getItem('gz_token');
+    const id = document.getElementById('admUsrEditId').value;
+    const telefone = document.getElementById('admUsrTelefone').value.trim();
+    const lid = document.getElementById('admUsrLid').value.trim();
+    if (!telefone) { showToast('Preencha o telefone primeiro', 'error'); return; }
+    try {
+        const res = await fetch(`/api/admin/users/${id}/vincular-lid`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telefone, lid })
+        }).then(r => r.json());
+        if (res.ok) {
+            showToast('WhatsApp vinculado! ✅', 'success');
+            document.getElementById('admUsrSessaoInfo').innerHTML =
+                `Sessão: tel <code>${telefone}</code> | LID salvo: <code>${lid || 'nenhum'}</code>`;
+        } else {
+            showToast(res.erro || 'Erro ao vincular', 'error');
+        }
+    } catch { showToast('Erro de conexão', 'error'); }
+}
 </script>
-<!-- MODAL: Admin — Vincular LID/WhatsApp manual -->
-<div class="modal-overlay" id="modalAdminLid">
-    <div class="modal" style="max-width:440px">
-        <div class="modal-title">📱 Vincular WhatsApp</div>
-        <div class="modal-desc">Use quando o cliente não for reconhecido pelo bot. Preencha o telefone e, se souber, o LID do WhatsApp.</div>
-        <input type="hidden" id="admLidUserId">
-        <div class="form-group" style="margin-bottom:14px">
-            <label class="form-label">Telefone (só números, sem DDI 55)</label>
-            <input class="form-input" type="text" id="admLidTelefone" placeholder="Ex: 31985553031">
-        </div>
-        <div class="form-group" style="margin-bottom:6px">
-            <label class="form-label">LID do WhatsApp <span style="font-weight:400;color:var(--gray-400)">(opcional)</span></label>
-            <input class="form-input" type="text" id="admLidValor" placeholder="Ex: 224528072499242 ou 224528072499242@lid">
-            <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Encontre o LID nos logs do servidor quando o cliente enviar uma mensagem.</div>
-        </div>
-        <div id="admLidSessaoInfo" style="margin-top:14px;padding:10px;background:var(--gray-100);border-radius:8px;font-size:12px;color:var(--gray-500);display:none"></div>
-        <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeModal('modalAdminLid')">Cancelar</button>
-            <button class="btn btn-primary" onclick="adminSalvarLid()">💾 Salvar</button>
-        </div>
-    </div>
-</div>
-
 </body>
 </html>

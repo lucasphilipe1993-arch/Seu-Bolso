@@ -527,33 +527,16 @@
 
                     <!-- Estado: não conectado -->
                     <div id="ag-gcal-nao-conectado">
-                        <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;color:#5d4037;line-height:1.9">
-                            <strong style="color:var(--navy);font-size:14px">⚠️ Como funciona a integração:</strong><br>
-                            Esta integração <strong>não usa seu login do Google</strong>. Funciona assim:<br>
-                            <span style="display:inline-block;margin-top:4px">1. O administrador configura uma <strong>conta de serviço</strong> do Google no painel <em>Google Agenda</em> (já deve estar feito).</span><br>
-                            <span style="display:inline-block">2. Você informa abaixo o <strong>ID da sua agenda</strong> do Google Calendar.</span><br>
-                            <span style="display:inline-block">3. No Google Calendar, você precisa <strong>compartilhar</strong> sua agenda com o e-mail da conta de serviço (o admin te informa esse e-mail).</span><br>
-                            <span style="display:inline-block;margin-top:6px;color:#795548">Após isso, todo compromisso agendado pelo WhatsApp aparecerá automaticamente no seu Google Calendar.</span>
-                        </div>
-                        <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--gray-500);line-height:1.9">
-                            <strong style="color:var(--navy)">Como encontrar o ID da sua agenda:</strong><br>
-                            1. Acesse <a href="https://calendar.google.com" target="_blank" style="color:var(--navy);font-weight:600;text-decoration:underline">calendar.google.com</a><br>
-                            2. Clique em <strong>⚙️ Configurações</strong> (ícone de engrenagem, canto superior direito)<br>
-                            3. No menu lateral esquerdo, clique no nome da sua agenda<br>
-                            4. Role a página até <strong>"Integrar agenda"</strong><br>
-                            5. Copie o <strong>ID da agenda</strong> — geralmente é seu e-mail ou tem o formato <code style="background:var(--gray-100);padding:1px 5px;border-radius:4px">xxxxx@group.calendar.google.com</code>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">ID do seu Google Calendar</label>
-                            <input class="form-input" type="text" id="ag-gcal-user-calendar-id"
-                                placeholder="seuemail@gmail.com ou xxxxx@group.calendar.google.com"
-                                style="max-width:520px">
-                            <div style="font-size:11px;color:var(--gray-400);margin-top:5px">⚠️ Lembre de compartilhar sua agenda com o e-mail da conta de serviço (peça ao administrador)</div>
+                        <div style="background:#e8f4fd;border:1px solid #90caf9;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;color:#1a3a5c;line-height:1.9">
+                            <strong style="color:var(--navy);font-size:14px">🔐 Como funciona a integração:</strong><br>
+                            Clique no botão abaixo para autorizar o acesso via sua própria conta Google.<br>
+                            <span style="display:inline-block;margin-top:4px">Você será redirecionado para a tela de login do Google e precisará conceder permissão de acesso ao seu Google Calendar.</span><br>
+                            <span style="display:inline-block;margin-top:6px;color:#1a5276">Após autorizar, os compromissos agendados pelo WhatsApp serão criados automaticamente no seu calendário.</span>
                         </div>
                         <div style="display:flex;gap:10px;flex-wrap:wrap">
-                            <button class="btn btn-primary" onclick="agGcalSalvar()">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                Salvar e Conectar
+                            <button class="btn btn-primary" onclick="agGcalAutorizar()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                Conectar com Google Calendar
                             </button>
                         </div>
                         <div id="ag-gcal-feedback" style="margin-top:12px;font-size:13px"></div>
@@ -2011,9 +1994,9 @@ async function agCancelar(id) {
     } catch { showToast('Erro de conexão', 'error'); }
 }
 
-// ─── GOOGLE CALENDAR POR USUÁRIO ─────────────────────────────────────────────
+// ─── GOOGLE CALENDAR POR USUÁRIO (OAuth) ─────────────────────────────────────
 async function agGcalCarregarStatus() {
-    const token = localStorage.getItem('gz_token');
+    const token  = localStorage.getItem('gz_token');
     const kpiEl  = document.getElementById('ag-gcal-kpi-status');
     const metaEl = document.getElementById('ag-gcal-kpi-meta');
     try {
@@ -2021,57 +2004,53 @@ async function agGcalCarregarStatus() {
             headers: { Authorization: `Bearer ${token}` }
         }).then(r => r.json()).catch(() => null);
 
-        if (res && res.calendar_id) {
-            // Conectado
+        if (res && res.conectado) {
             document.getElementById('ag-gcal-nao-conectado').style.display = 'none';
             document.getElementById('ag-gcal-conectado').style.display = '';
-            document.getElementById('ag-gcal-id-salvo').textContent = 'Calendário: ' + res.calendar_id;
+            document.getElementById('ag-gcal-id-salvo').textContent = 'Conta: ' + (res.email || '');
             if (kpiEl) { kpiEl.textContent = 'Conectado ✅'; kpiEl.style.color = 'var(--green)'; }
-            if (metaEl) metaEl.textContent = res.calendar_id;
+            if (metaEl) metaEl.textContent = res.email || 'Conectado';
         } else {
-            // Não conectado
             document.getElementById('ag-gcal-nao-conectado').style.display = '';
             document.getElementById('ag-gcal-conectado').style.display = 'none';
             if (kpiEl) { kpiEl.textContent = 'Não conectado'; kpiEl.style.color = 'var(--gray-400)'; }
             if (metaEl) metaEl.textContent = 'Clique para configurar';
+        }
+
+        // Se voltou do callback com parâmetro na URL, exibe feedback
+        const params = new URLSearchParams(window.location.search);
+        const gcalParam = params.get('gcal');
+        if (gcalParam === 'conectado') {
+            showToast('Google Calendar conectado com sucesso! ✅', 'success');
+            window.history.replaceState({}, '', window.location.pathname);
+        } else if (gcalParam === 'negado') {
+            showToast('Autorização negada. Tente novamente.', 'error');
+            window.history.replaceState({}, '', window.location.pathname);
+        } else if (gcalParam === 'erro') {
+            showToast('Erro ao conectar com o Google. Tente novamente.', 'error');
+            window.history.replaceState({}, '', window.location.pathname);
         }
     } catch {
         if (kpiEl) { kpiEl.textContent = 'Não configurado'; kpiEl.style.color = 'var(--gray-400)'; }
     }
 }
 
-async function agGcalSalvar() {
-    const token = localStorage.getItem('gz_token');
-    const calId = document.getElementById('ag-gcal-user-calendar-id').value.trim();
+// Redireciona o usuário para autorizar o Google Calendar
+function agGcalAutorizar() {
     const feedbackEl = document.getElementById('ag-gcal-feedback');
-    if (!calId) { showToast('Informe o ID do seu Google Calendar', 'error'); return; }
-    feedbackEl.textContent = '⏳ Salvando...';
     feedbackEl.style.color = 'var(--gray-400)';
-    try {
-        const res = await fetch('/api/agenda/gcal/configurar', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ calendar_id: calId })
-        }).then(r => r.json());
-        if (res.ok || res.mensagem) {
-            showToast('Google Calendar salvo! ✅', 'success');
-            feedbackEl.textContent = '';
-            agGcalCarregarStatus();
-        } else {
-            feedbackEl.style.color = 'var(--red)';
-            feedbackEl.textContent = '❌ ' + (res.erro || 'Erro ao salvar');
-        }
-    } catch {
-        feedbackEl.style.color = 'var(--red)';
-        feedbackEl.textContent = '❌ Erro de conexão';
-    }
+    feedbackEl.textContent = '⏳ Redirecionando para o Google...';
+    // O backend já tem o token via cookie de sessão ou o middleware vai verificar
+    // Passa o token como query param para rotas que usam redirect (não Authorization header)
+    const token = localStorage.getItem('gz_token');
+    window.location.href = '/api/agenda/gcal/autorizar?token=' + encodeURIComponent(token);
 }
 
 async function agGcalDesconectar() {
     if (!confirm('Desconectar o Google Calendar? Os compromissos não serão mais sincronizados.')) return;
     const token = localStorage.getItem('gz_token');
     try {
-        const res = await fetch('/api/agenda/gcal/configurar', {
+        const res = await fetch('/api/agenda/gcal/desconectar', {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${token}` }
         }).then(r => r.json());
@@ -2096,9 +2075,13 @@ async function agGcalTestar() {
         if (res?.ok) {
             feedbackEl.style.color = 'var(--green)';
             feedbackEl.textContent = '✅ Conexão com o Google Calendar funcionando perfeitamente!';
+        } else if (res?.reconectar) {
+            feedbackEl.style.color = 'var(--red)';
+            feedbackEl.textContent = '❌ Sessão expirada. Reconecte sua conta.';
+            setTimeout(() => agGcalCarregarStatus(), 1500);
         } else {
             feedbackEl.style.color = 'var(--red)';
-            feedbackEl.textContent = '❌ ' + (res?.erro || 'Falha na conexão. Verifique se o admin configurou a conta de serviço.');
+            feedbackEl.textContent = '❌ ' + (res?.erro || 'Falha na conexão.');
         }
     } catch {
         feedbackEl.style.color = 'var(--red)';

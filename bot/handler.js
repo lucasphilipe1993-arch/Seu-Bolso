@@ -14,6 +14,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const db = require('../database/db');
 const { gerarRelatorio, limparPdfsAntigos } = require('./relatorio');
+const gcal = require('../utils/gcal'); // ← sincronização Google Calendar
 
 const TMP_DIR = path.join(process.cwd(), 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -263,7 +264,6 @@ class BotGranaZen {
   }
 
   _gerarVariacoesTelefone(telefone) {
-    // Se for LID, não gerar variações numéricas — os fallbacks @lid em _buscarSessao tratam isso
     if (!telefone || telefone.endsWith('@lid')) return [];
     const variacoes = new Set();
     variacoes.add(telefone);
@@ -351,20 +351,22 @@ class BotGranaZen {
   async _garantirTabelaAgenda() {
     await db.query(`
       CREATE TABLE IF NOT EXISTS agenda (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        usuario_id      UUID NOT NULL,
-        titulo          TEXT NOT NULL,
-        data_hora       TIMESTAMPTZ NOT NULL,
-        lembrar_antes   INT NOT NULL DEFAULT 30,
-        local           TEXT,
-        notas           TEXT,
+        id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        usuario_id       UUID NOT NULL,
+        titulo           TEXT NOT NULL,
+        data_hora        TIMESTAMPTZ NOT NULL,
+        lembrar_antes    INT NOT NULL DEFAULT 30,
+        local            TEXT,
+        notas            TEXT,
         lembrete_enviado BOOLEAN NOT NULL DEFAULT FALSE,
-        cancelado       BOOLEAN NOT NULL DEFAULT FALSE,
-        id_curto        TEXT,
-        origem          TEXT DEFAULT 'whatsapp',
-        criado_em       TIMESTAMPTZ DEFAULT NOW()
+        cancelado        BOOLEAN NOT NULL DEFAULT FALSE,
+        id_curto         TEXT,
+        origem           TEXT DEFAULT 'whatsapp',
+        google_event_id  TEXT,
+        criado_em        TIMESTAMPTZ DEFAULT NOW()
       )
     `).catch(() => {});
+    await db.query(`ALTER TABLE agenda ADD COLUMN IF NOT EXISTS google_event_id TEXT`).catch(() => {});
     await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_usuario ON agenda(usuario_id)`).catch(() => {});
     await db.query(`CREATE INDEX IF NOT EXISTS idx_agenda_data ON agenda(data_hora)`).catch(() => {});
   }
@@ -494,7 +496,7 @@ class BotGranaZen {
           this.conectado = true; this.qrAtual = null;
           this._tentativas = 0; this._reconectando = false;
           console.log('✅ WhatsApp Bot conectado!');
-          this._iniciarChecagemLembretes(); // ← inicia loop de lembretes
+          this._iniciarChecagemLembretes();
           if (this.onConnected) this.onConnected();
         }
         if (connection === 'close') {
@@ -557,7 +559,6 @@ class BotGranaZen {
     if (this._timerLembretes) return;
     console.log('⏰ Loop de lembretes iniciado (intervalo: 1min)');
     this._timerLembretes = setInterval(() => this._verificarLembretes(), 60 * 1000);
-    // Verifica imediatamente ao conectar
     this._verificarLembretes();
   }
 
@@ -574,7 +575,6 @@ class BotGranaZen {
     try {
       await this._garantirTabelaAgenda();
 
-      // Busca compromissos cujo horário de lembrete já passou e ainda não foram enviados
       const { rows } = await db.query(`
         SELECT a.*, s.telefone
         FROM agenda a
@@ -768,11 +768,9 @@ class BotGranaZen {
     const textoLower = texto.toLowerCase().trim();
     const textoClean = textoLower.replace(/[.,!?;:]+$/, '').trim();
 
-    // ── Saudações ──────────────────────────────────────────────────────────
     if (['oi', 'olá', 'ola', 'oi!', 'olá!', 'start', 'hello', 'bom dia', 'boa tarde', 'boa noite'].includes(textoClean))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
-    // ── Primeiro contato ───────────────────────────────────────────────────
     const padroesPrimeiroContato = [
       /acabei de criar/i, /acabei de me cadastrar/i, /acabei de cadastrar/i,
       /acabo de criar/i, /acabo de me cadastrar/i, /me cadastrei/i,
@@ -782,7 +780,6 @@ class BotGranaZen {
     if (padroesPrimeiroContato.some(p => p.test(textoClean)))
       return this.enviar(remoteJid, this.msgBemVindo(nome));
 
-    // ── Resumo ─────────────────────────────────────────────────────────────
     const triggerResumo = [
       'resumo', 'saldo', 'extrato', 'ver resumo', 'resumo financeiro',
       'relatorio', 'relatório', 'gerar relatorio', 'gerar relatório',
@@ -793,35 +790,28 @@ class BotGranaZen {
     if (triggerResumo.includes(textoClean) || (textoClean.includes('relat') && !textoClean.includes('pdf')))
       return this.enviarResumo(remoteJid, usuarioId, nome);
 
-    // ── Ajuda ──────────────────────────────────────────────────────────────
     if (['ajuda', 'help', '?', 'menu'].includes(textoClean))
       return this.enviar(remoteJid, this.msgAjuda());
 
-    // ── Categorias ─────────────────────────────────────────────────────────
     if (['categorias', 'ver categorias', 'minhas categorias', 'listar categorias'].includes(textoClean))
       return this.enviarCategorias(remoteJid, usuarioId);
 
-    // ── Nova categoria ─────────────────────────────────────────────────────
     if (textoClean.startsWith('nova categoria') || textoClean.startsWith('adicionar categoria') || textoClean === 'add categoria')
       return this.iniciarFluxoNovaCategoria(remoteJid, telefone);
 
-    // ── Excluir última transação ───────────────────────────────────────────
     const regexUltima = /^(exclu[iíií]r?|desfazer|apagar|cancelar|deletar)(\s+a?)?\s+(u[lL]tima|u[lL]timo|[uú]lt[iíií]m[ao]|ult\.?)(\s+(transa[çc][ãa]o|lancamento|lançamento|gasto|registro))?[.,!?]?$/i;
     if (regexUltima.test(textoClean) || textoClean === 'desfazer' || textoClean === 'undo')
       return this.excluirUltimaTransacao(remoteJid, usuarioId);
 
-    // ── Excluir transação por ID ───────────────────────────────────────────
     const matchExcluir = texto.match(
       /^(?:excluir\s+(?:transa[çc][aã]o\s+)?|cancelar\s+|desfazer\s+|deletar\s+|apagar\s+)([A-Z0-9]{2,6})[.,!?;:\s]*$/i
     );
     if (matchExcluir)
       return this.excluirTransacao(remoteJid, usuarioId, matchExcluir[1].toUpperCase());
 
-    // ── Histórico ──────────────────────────────────────────────────────────
     if (['últimas', 'ultimas', 'últimos', 'historico', 'histórico', 'últimas transações', 'historico de transacoes', 'histórico de transações'].includes(textoClean))
       return this.enviarUltimasTransacoes(remoteJid, usuarioId);
 
-    // ── PDF ────────────────────────────────────────────────────────────────
     const triggerPdf = [
       'pdf', 'relatorio pdf', 'relatório pdf', 'gerar pdf',
       'exportar pdf', 'baixar relatorio', 'baixar relatório',
@@ -832,7 +822,6 @@ class BotGranaZen {
     if (triggerPdf.includes(textoClean) || textoClean.includes('pdf'))
       return this.gerarEEnviarRelatorioPDF(remoteJid, usuarioId, nome);
 
-    // ── Agenda — listar ────────────────────────────────────────────────────
     const triggerAgenda = [
       'agenda', 'compromissos', 'meus compromissos', 'ver agenda',
       'ver compromissos', 'próximos compromissos', 'proximos compromissos',
@@ -840,14 +829,12 @@ class BotGranaZen {
     if (triggerAgenda.includes(textoClean))
       return this.enviarAgenda(remoteJid, usuarioId);
 
-    // ── Agenda — cancelar compromisso por ID ──────────────────────────────
     const matchCancelarComp = texto.match(
       /^(?:cancelar\s+compromisso|deletar\s+compromisso|excluir\s+compromisso|remover\s+compromisso)\s+([A-Z0-9]{2,6})[.,!?\s]*$/i
     );
     if (matchCancelarComp)
       return this.cancelarCompromisso(remoteJid, usuarioId, matchCancelarComp[1].toUpperCase());
 
-    // ── Dívidas a receber — listar ─────────────────────────────────────────
     const triggerDividas = [
       'a receber', 'dividas', 'dívidas', 'quem me deve',
       'devedores', 'cobranças', 'cobrancas', 'ver dividas',
@@ -856,24 +843,20 @@ class BotGranaZen {
     if (triggerDividas.includes(textoClean))
       return this.enviarDividasReceber(remoteJid, usuarioId);
 
-    // ── Dívidas a receber — quitar por ID ─────────────────────────────────
     const matchQuitar = texto.match(
       /^(?:recebido|recebi|pago|paguei|quitar|quitado|liquidar|liquidado)\s+([A-Z0-9]{2,6})[.,!?\s]*$/i
     );
     if (matchQuitar)
       return this.quitarDivida(remoteJid, usuarioId, matchQuitar[1].toUpperCase());
 
-    // ── Tenta detectar dívida a receber via IA ─────────────────────────────
     const divida = await this.interpretarDivida(texto);
     if (divida)
       return this.registrarDividaReceber(remoteJid, usuarioId, divida, texto);
 
-    // ── Tenta detectar compromisso de agenda via IA ────────────────────────
     const compromisso = await this.interpretarCompromisso(texto);
     if (compromisso)
       return this.registrarCompromisso(remoteJid, usuarioId, compromisso, texto);
 
-    // ── Interpreta como transação financeira ───────────────────────────────
     console.log(`🧠 Interpretando transação: "${texto}"`);
     const transacoes = await this.interpretarTransacao(texto);
     console.log(`🧠 Resultado:`, JSON.stringify(transacoes));
@@ -925,11 +908,9 @@ class BotGranaZen {
   // ────────────────────────────────────────────────────────────────────────
 
   async interpretarCompromisso(texto) {
-    // Gatilhos rápidos para evitar chamar a IA desnecessariamente
     const gatilho = /\b(compromisso|reunião|reuniao|consulta|dentista|médico|medico|agenda|lembr[ae]|amanhã|amanha|semana que vem|próxim[ao]|proxim[ao]|às \d|as \d|[\d]+h\d*|dia \d|lembra de|não esquecer|nao esquecer)\b/i;
     if (!gatilho.test(texto)) return null;
 
-    // Exclui frases que já foram capturadas como transações ou dívidas
     const antiGatilho = /\b(gastei|paguei|comprei|recebi|deve|me deve|salário|salario)\b/i;
     if (antiGatilho.test(texto)) return null;
 
@@ -978,23 +959,38 @@ class BotGranaZen {
       tentativas++;
     } while (tentativas < 20);
 
-    // Converte data_hora string para timestamp com fuso correto
-    const dataHoraStr = compromisso.data_hora; // "YYYY-MM-DD HH:MM"
-    // Interpreta como horário de Brasília
+    const dataHoraStr = compromisso.data_hora;
     const dataHora = new Date(dataHoraStr.replace(' ', 'T') + ':00-03:00');
 
-    await db.query(
+    const { rows } = await db.query(
       `INSERT INTO agenda (usuario_id, titulo, data_hora, lembrar_antes, local, notas, id_curto, origem)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'whatsapp')`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'whatsapp')
+       RETURNING id`,
       [usuarioId, compromisso.titulo, dataHora.toISOString(), compromisso.lembrar_antes || 30,
        compromisso.local || null, compromisso.notas || null, idCurto]
     );
+    const agendaId = rows[0].id;
+
+    // ── Sincroniza com Google Calendar ─────────────────────────────────────
+    const googleEventId = await gcal.criarEvento(usuarioId, {
+      titulo:       compromisso.titulo,
+      dataHora:     dataHora.toISOString(),
+      lembrarAntes: compromisso.lembrar_antes || 30,
+      local:        compromisso.local || null,
+      notas:        compromisso.notas || null,
+    });
+    if (googleEventId) {
+      await db.query(
+        `UPDATE agenda SET google_event_id = $1 WHERE id = $2`,
+        [googleEventId, agendaId]
+      );
+    }
 
     const dataFmt = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
     const horaFmt = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
-    const lembrarLabel = compromisso.lembrar_antes >= 60
-      ? `${compromisso.lembrar_antes / 60}h antes`
-      : `${compromisso.lembrar_antes} minutos antes`;
+    const lembrarLabel = (compromisso.lembrar_antes || 30) >= 60
+      ? `${(compromisso.lembrar_antes || 30) / 60}h antes`
+      : `${compromisso.lembrar_antes || 30} minutos antes`;
 
     let msg = `📅 *Compromisso agendado!*\n\n`;
     msg += `📌 *${compromisso.titulo}*\n`;
@@ -1002,8 +998,9 @@ class BotGranaZen {
     msg += `🕐 Hora: *${horaFmt}*\n`;
     if (compromisso.local) msg += `📍 Local: ${compromisso.local}\n`;
     if (compromisso.notas) msg += `📝 Notas: ${compromisso.notas}\n`;
-    msg += `🔔 Lembrete: ${lembrarLabel}\n\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🔔 Lembrete: ${lembrarLabel}\n`;
+    if (googleEventId) msg += `🗓️ Sincronizado com Google Calendar ✅\n`;
+    msg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `🔖 ID: *${idCurto}*\n\n`;
     msg += `❌ Para cancelar:\n_"cancelar compromisso ${idCurto}"_\n\n`;
     msg += `📋 Ver todos: _"agenda"_`;
@@ -1072,7 +1069,7 @@ class BotGranaZen {
     const { rows } = await db.query(
       `UPDATE agenda SET cancelado = true
        WHERE usuario_id = $1 AND UPPER(id_curto) = $2 AND cancelado = false
-       RETURNING titulo, data_hora`,
+       RETURNING titulo, data_hora, google_event_id`,
       [usuarioId, idCurto]
     );
 
@@ -1083,9 +1080,15 @@ class BotGranaZen {
     }
 
     const comp = rows[0];
+
+    // ── Remove do Google Calendar ──────────────────────────────────────────
+    if (comp.google_event_id) {
+      await gcal.cancelarEvento(usuarioId, comp.google_event_id);
+    }
+
     const dataHora = new Date(comp.data_hora);
-    const dataFmt = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-    const horaFmt = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+    const dataFmt  = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const horaFmt  = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
 
     await this.enviar(remoteJid,
       `🗑️ *Compromisso cancelado!*\n\n` +
@@ -1465,7 +1468,6 @@ class BotGranaZen {
       const conteudo = resp.data.choices[0].message.content.trim();
       if (conteudo === 'null' || !conteudo) return null;
       const parsed = JSON.parse(conteudo.replace(/```json|```/g, '').trim());
-      // Normaliza para array
       return Array.isArray(parsed) ? parsed[0] : parsed;
     } catch (err) {
       console.error('Erro ao analisar imagem:', err.response?.data || err.message);
@@ -1501,7 +1503,6 @@ class BotGranaZen {
 
   // ── interpretarTransacao — retorna sempre null | array ─────────────────
   async interpretarTransacao(texto) {
-    // Tenta primeiro via IA (mais preciso: categorias corretas + múltiplas transações)
     if (process.env.OPENAI_API_KEY) {
       try {
         const resp = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -1518,8 +1519,6 @@ class BotGranaZen {
       }
     }
 
-    // Fallback regex (sem API key ou erro na IA)
-    // Tenta capturar múltiplas transações: "gastei X de A, Y de B e Z de C"
     const padraoMultiplo =
       /(?:(?:gastei|paguei|comprei|saiu|debitou?|recebi|ganhei|entrou|creditou?)\s+)?(?:R\$\s*)?(\d+(?:[,.]\d+)?)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)([^0-9\n,]+?)(?=\s*[,e]\s*(?:(?:mais\s+)?(?:\d|R\$|gastei|paguei|recebi))|$)/gi;
 
@@ -1538,7 +1537,6 @@ class BotGranaZen {
       if (resultados.length >= 2) return resultados;
     }
 
-    // Regex simples para 1 transação
     const padroesGasto = [
       /(?:gastei|paguei|comprei|saiu|debitou?)\s+(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?|r\$)?\s*(?:de\s+|no?\s+|na\s+|em\s+|com\s+)?(.*)/i,
       /(?:R\$\s*)?(\d+[,.]?\d*)\s*(?:reais?)?\s*(?:de\s+|no?\s+|na\s+|em\s+)(.+)/i,
@@ -1592,14 +1590,12 @@ class BotGranaZen {
 
     const dataHoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' });
 
-    // Insere direto com pago=true (sem etapa de confirmação)
     const { rows } = await db.query(
       `INSERT INTO transacoes (usuario_id, tipo, descricao, valor, categoria_id, conta_id, data_vencimento, data_pagamento, pago, origem, mensagem_raw, id_curto)
        VALUES ($1,$2,$3,$4,$5,$6,CURRENT_DATE,CURRENT_DATE,true,'whatsapp',$7,$8) RETURNING id`,
       [usuarioId, transacao.tipo, transacao.descricao, transacao.valor, categoriaId, contaId, textoOriginal, idCurto]
     );
 
-    // Atualiza saldo da conta
     if (contaId) {
       const sinal = transacao.tipo === 'receita' ? 1 : -1;
       await db.query('UPDATE contas SET saldo = saldo + $1 WHERE id = $2', [sinal * transacao.valor, contaId]);
@@ -1613,7 +1609,6 @@ class BotGranaZen {
 
     const emojiTipo   = transacao.tipo === 'despesa' ? '🔴' : '🟢';
     const labelTipo   = transacao.tipo === 'despesa' ? 'Despesa' : 'Receita';
-    const emojiBanner = transacao.tipo === 'despesa' ? '💸' : '💰';
     const emojiCat    = EMOJI_CATEGORIA[categoriaNome] || '📦';
     const valorFmt    = transacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -1627,7 +1622,6 @@ class BotGranaZen {
     );
   }
 
-  // ── registrarTransacaoSilencioso — sem enviar mensagem, retorna idCurto ─
   async registrarTransacaoSilencioso(remoteJid, usuarioId, transacao, textoOriginal) {
     await this._garantirCategoriasPadrao(usuarioId);
     await db.query(`ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS id_curto TEXT`).catch(() => {});
@@ -1716,7 +1710,6 @@ class BotGranaZen {
       [usuarioId]
     ).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
 
-    // Próximos compromissos para incluir no resumo
     const { rows: proximosComps } = await db.query(
       `SELECT titulo, data_hora FROM agenda
        WHERE usuario_id = $1 AND cancelado = false AND data_hora >= NOW()

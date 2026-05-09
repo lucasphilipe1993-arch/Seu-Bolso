@@ -527,18 +527,28 @@
 
                     <!-- Estado: não conectado -->
                     <div id="ag-gcal-nao-conectado">
-                        <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;color:var(--gray-500);line-height:1.9">
-                            <strong style="color:var(--navy)">Como encontrar o ID do seu calendário:</strong><br>
-                            1. Acesse <a href="https://calendar.google.com" target="_blank" style="color:var(--navy);font-weight:600">calendar.google.com</a><br>
-                            2. Clique em <strong>⚙️ Configurações</strong> → selecione sua agenda na lista da esquerda<br>
-                            3. Role até <strong>"Integrar agenda"</strong> e copie o <strong>ID da agenda</strong><br>
-                            <span style="color:var(--gray-400);font-size:12px">Exemplo: <code>seuemail@gmail.com</code> ou <code>abc123xyz@group.calendar.google.com</code></span>
+                        <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;color:#5d4037;line-height:1.9">
+                            <strong style="color:var(--navy);font-size:14px">⚠️ Como funciona a integração:</strong><br>
+                            Esta integração <strong>não usa seu login do Google</strong>. Funciona assim:<br>
+                            <span style="display:inline-block;margin-top:4px">1. O administrador configura uma <strong>conta de serviço</strong> do Google no painel <em>Google Agenda</em> (já deve estar feito).</span><br>
+                            <span style="display:inline-block">2. Você informa abaixo o <strong>ID da sua agenda</strong> do Google Calendar.</span><br>
+                            <span style="display:inline-block">3. No Google Calendar, você precisa <strong>compartilhar</strong> sua agenda com o e-mail da conta de serviço (o admin te informa esse e-mail).</span><br>
+                            <span style="display:inline-block;margin-top:6px;color:#795548">Após isso, todo compromisso agendado pelo WhatsApp aparecerá automaticamente no seu Google Calendar.</span>
+                        </div>
+                        <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:14px 16px;margin-bottom:20px;font-size:13px;color:var(--gray-500);line-height:1.9">
+                            <strong style="color:var(--navy)">Como encontrar o ID da sua agenda:</strong><br>
+                            1. Acesse <a href="https://calendar.google.com" target="_blank" style="color:var(--navy);font-weight:600;text-decoration:underline">calendar.google.com</a><br>
+                            2. Clique em <strong>⚙️ Configurações</strong> (ícone de engrenagem, canto superior direito)<br>
+                            3. No menu lateral esquerdo, clique no nome da sua agenda<br>
+                            4. Role a página até <strong>"Integrar agenda"</strong><br>
+                            5. Copie o <strong>ID da agenda</strong> — geralmente é seu e-mail ou tem o formato <code style="background:var(--gray-100);padding:1px 5px;border-radius:4px">xxxxx@group.calendar.google.com</code>
                         </div>
                         <div class="form-group">
                             <label class="form-label">ID do seu Google Calendar</label>
                             <input class="form-input" type="text" id="ag-gcal-user-calendar-id"
                                 placeholder="seuemail@gmail.com ou xxxxx@group.calendar.google.com"
                                 style="max-width:520px">
+                            <div style="font-size:11px;color:var(--gray-400);margin-top:5px">⚠️ Lembre de compartilhar sua agenda com o e-mail da conta de serviço (peça ao administrador)</div>
                         </div>
                         <div style="display:flex;gap:10px;flex-wrap:wrap">
                             <button class="btn btn-primary" onclick="agGcalSalvar()">
@@ -1159,6 +1169,7 @@
                 <label class="form-label">Plano</label>
                 <select class="form-select" id="admUsrPlano">
                     <option value="gratuito">Gratuito</option>
+                    <option value="basico">Básico</option>
                     <option value="premium">Premium</option>
                 </select>
             </div>
@@ -2328,12 +2339,20 @@ function adminFiltrarUsuarios() {
         const inicial = nome[0]?.toUpperCase() || '?';
         const planoBadge = u.plano === 'premium'
             ? '<span class="badge badge-gold">Premium ✨</span>'
+            : u.plano === 'basico'
+            ? '<span class="badge" style="background:#dde8f2;color:var(--navy)">Básico</span>'
             : '<span class="badge badge-navy">Gratuito</span>';
         const criado = u.criado_em || u.created_at || '';
         const criadoFmt = criado ? new Date(criado).toLocaleDateString('pt-BR') : '—';
         const uid = u.id || '';
         const uidCurto = uid ? uid.split('-')[0] : '—';
         const nomeEscapado = nome.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const tel = u.telefone || '';
+        const telFormatado = tel
+            ? `<a href="https://wa.me/55${tel.replace(/\D/g,'')}" target="_blank" title="Abrir WhatsApp" style="color:var(--green);text-decoration:none;font-weight:500;display:flex;align-items:center;gap:4px">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--green)" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.558 4.126 1.529 5.868L.057 23.925l6.235-1.635A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.002-1.368l-.36-.214-3.7.97.988-3.608-.235-.371A9.818 9.818 0 1112 21.818z"/></svg>
+                ${tel}</a>`
+            : '<span style="color:var(--gray-300)">—</span>';
         return `<tr>
             <td>
                 <div style="display:flex;align-items:center;gap:10px">
@@ -2343,7 +2362,7 @@ function adminFiltrarUsuarios() {
             </td>
             <td style="color:var(--gray-500)">${u.email || '—'}</td>
             <td>${planoBadge}</td>
-            <td style="color:var(--gray-500)">${u.telefone || '—'}</td>
+            <td>${telFormatado}</td>
             <td style="font-size:12px;color:var(--gray-400)">${criadoFmt}</td>
             <td>
                 <div style="display:flex;align-items:center;gap:6px">

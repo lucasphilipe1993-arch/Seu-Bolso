@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 const path = require('path');
 const db = require('./database/db');
-const BotGranaZen = require('./bot/handler');
+const BotSeuSecretario = require('./bot/handler');
 
 // Rotas
 const authRoutes        = require('./routes/auth');
@@ -27,7 +27,7 @@ const io     = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const bot  = new BotGranaZen();
+const bot  = new BotSeuSecretario();
 
 // Injeta a instância do bot nas rotas
 whatsappRoute.setBotInstance(bot);
@@ -155,7 +155,7 @@ app.get('*', (req, res) => {
   const { existsSync } = require('fs');
   const index = path.join(DASHBOARD_PATH, 'index.html');
   if (existsSync(index)) return res.sendFile(index);
-  res.json({ message: 'Seu Bolso API', conectado: bot.conectado });
+  res.json({ message: 'Seu Secretário API', conectado: bot.conectado });
 });
 
 // ─── Encerramento limpo ───────────────────────────────────────

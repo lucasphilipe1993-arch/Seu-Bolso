@@ -479,10 +479,10 @@
                         <div class="stat-value" id="ag-kpi-hoje" style="color:var(--gold)">—</div>
                         <div class="stat-meta">Eventos para hoje</div>
                     </div>
-                    <div class="stat-box" style="border-left:4px solid var(--green);cursor:pointer" title="Integração futura com Google Calendar">
+                    <div class="stat-box" style="border-left:4px solid var(--green);cursor:pointer" onclick="document.getElementById('ag-gcal-section').scrollIntoView({behavior:'smooth'})">
                         <div class="stat-label">Google Calendar</div>
-                        <div style="font-size:13px;font-weight:600;color:var(--green);margin-top:4px">Em breve</div>
-                        <div class="stat-meta">Sincronização automática</div>
+                        <div id="ag-gcal-kpi-status" style="font-size:13px;font-weight:600;color:var(--gray-400);margin-top:4px">Verificando...</div>
+                        <div class="stat-meta" id="ag-gcal-kpi-meta">Clique para configurar</div>
                     </div>
                 </div>
 
@@ -513,12 +513,58 @@
                     </div>
                 </div>
 
-                <!-- Aviso Google Calendar -->
-                <div style="background:linear-gradient(135deg,#e8f5ef,#dde8f2);border-radius:14px;padding:24px;display:flex;align-items:center;gap:20px;border:1px solid #b7ddd0">
-                    <div style="font-size:36px">📆</div>
-                    <div>
-                        <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">Integração com Google Calendar — Em breve</div>
-                        <div style="font-size:13px;color:var(--gray-500)">Todos os compromissos agendados pelo WhatsApp serão sincronizados automaticamente com seu Google Calendar. Fique atento às novidades!</div>
+                <!-- Google Calendar por usuário -->
+                <div id="ag-gcal-section" class="card" style="margin-top:0">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+                        <h3 class="card-title" style="margin:0;display:flex;align-items:center;gap:10px">
+                            <span style="font-size:22px">📆</span> Meu Google Calendar
+                        </h3>
+                        <div id="ag-gcal-status-badge"></div>
+                    </div>
+                    <p style="font-size:13px;color:var(--gray-400);margin-bottom:20px;line-height:1.7">
+                        Conecte seu Google Calendar para que os compromissos agendados pelo WhatsApp sejam sincronizados automaticamente na sua agenda pessoal do Google.
+                    </p>
+
+                    <!-- Estado: não conectado -->
+                    <div id="ag-gcal-nao-conectado">
+                        <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;color:var(--gray-500);line-height:1.9">
+                            <strong style="color:var(--navy)">Como encontrar o ID do seu calendário:</strong><br>
+                            1. Acesse <a href="https://calendar.google.com" target="_blank" style="color:var(--navy);font-weight:600">calendar.google.com</a><br>
+                            2. Clique em <strong>⚙️ Configurações</strong> → selecione sua agenda na lista da esquerda<br>
+                            3. Role até <strong>"Integrar agenda"</strong> e copie o <strong>ID da agenda</strong><br>
+                            <span style="color:var(--gray-400);font-size:12px">Exemplo: <code>seuemail@gmail.com</code> ou <code>abc123xyz@group.calendar.google.com</code></span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ID do seu Google Calendar</label>
+                            <input class="form-input" type="text" id="ag-gcal-user-calendar-id"
+                                placeholder="seuemail@gmail.com ou xxxxx@group.calendar.google.com"
+                                style="max-width:520px">
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button class="btn btn-primary" onclick="agGcalSalvar()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                Salvar e Conectar
+                            </button>
+                        </div>
+                        <div id="ag-gcal-feedback" style="margin-top:12px;font-size:13px"></div>
+                    </div>
+
+                    <!-- Estado: conectado -->
+                    <div id="ag-gcal-conectado" style="display:none">
+                        <div style="background:var(--green-bg);border:1px solid #b7ddd0;border-radius:10px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+                            <div style="width:42px;height:42px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div>
+                                <div style="font-size:14px;font-weight:700;color:var(--green);margin-bottom:2px">Google Calendar conectado! ✅</div>
+                                <div id="ag-gcal-id-salvo" style="font-size:12px;color:var(--gray-500)"></div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button class="btn btn-secondary" onclick="agGcalDesconectar()" style="font-size:12px">🔌 Desconectar</button>
+                            <button class="btn btn-outline-green" onclick="agGcalTestar()" style="font-size:12px">🔄 Testar sincronização</button>
+                        </div>
+                        <div id="ag-gcal-feedback-conectado" style="margin-top:12px;font-size:13px"></div>
                     </div>
                 </div>
             </div>
@@ -680,11 +726,12 @@
                                 <th>Plano</th>
                                 <th>Telefone</th>
                                 <th>Cadastrado em</th>
+                                <th>ID do Usuário</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody id="adm-usr-tbody">
-                            <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
+                            <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1660,7 +1707,7 @@ function navigateTo(pageId) {
     if (pageId === 'transacoes') carregarTransacoes();
     if (pageId === 'relatorios') { initRelFiltros(); carregarRelatorios(); }
     if (pageId === 'areceber') carregarDividas('pendente');
-    if (pageId === 'agenda') carregarAgenda();
+    if (pageId === 'agenda') { carregarAgenda(); agGcalCarregarStatus(); }
     if (pageId === 'whatsapp') { carregarTransacoesWA(); waVerificarStatus(); }
     if (pageId === 'admin-faturamento') adminCarregarFaturamento();
     if (pageId === 'admin-calendario') adminCarregarCalendario();
@@ -1947,6 +1994,101 @@ async function agCancelar(id) {
     } catch { showToast('Erro de conexão', 'error'); }
 }
 
+// ─── GOOGLE CALENDAR POR USUÁRIO ─────────────────────────────────────────────
+async function agGcalCarregarStatus() {
+    const token = localStorage.getItem('gz_token');
+    const kpiEl  = document.getElementById('ag-gcal-kpi-status');
+    const metaEl = document.getElementById('ag-gcal-kpi-meta');
+    try {
+        const res = await fetch('/api/agenda/gcal/status', {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json()).catch(() => null);
+
+        if (res && res.calendar_id) {
+            // Conectado
+            document.getElementById('ag-gcal-nao-conectado').style.display = 'none';
+            document.getElementById('ag-gcal-conectado').style.display = '';
+            document.getElementById('ag-gcal-id-salvo').textContent = 'Calendário: ' + res.calendar_id;
+            if (kpiEl) { kpiEl.textContent = 'Conectado ✅'; kpiEl.style.color = 'var(--green)'; }
+            if (metaEl) metaEl.textContent = res.calendar_id;
+        } else {
+            // Não conectado
+            document.getElementById('ag-gcal-nao-conectado').style.display = '';
+            document.getElementById('ag-gcal-conectado').style.display = 'none';
+            if (kpiEl) { kpiEl.textContent = 'Não conectado'; kpiEl.style.color = 'var(--gray-400)'; }
+            if (metaEl) metaEl.textContent = 'Clique para configurar';
+        }
+    } catch {
+        if (kpiEl) { kpiEl.textContent = 'Não configurado'; kpiEl.style.color = 'var(--gray-400)'; }
+    }
+}
+
+async function agGcalSalvar() {
+    const token = localStorage.getItem('gz_token');
+    const calId = document.getElementById('ag-gcal-user-calendar-id').value.trim();
+    const feedbackEl = document.getElementById('ag-gcal-feedback');
+    if (!calId) { showToast('Informe o ID do seu Google Calendar', 'error'); return; }
+    feedbackEl.textContent = '⏳ Salvando...';
+    feedbackEl.style.color = 'var(--gray-400)';
+    try {
+        const res = await fetch('/api/agenda/gcal/configurar', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ calendar_id: calId })
+        }).then(r => r.json());
+        if (res.ok || res.mensagem) {
+            showToast('Google Calendar salvo! ✅', 'success');
+            feedbackEl.textContent = '';
+            agGcalCarregarStatus();
+        } else {
+            feedbackEl.style.color = 'var(--red)';
+            feedbackEl.textContent = '❌ ' + (res.erro || 'Erro ao salvar');
+        }
+    } catch {
+        feedbackEl.style.color = 'var(--red)';
+        feedbackEl.textContent = '❌ Erro de conexão';
+    }
+}
+
+async function agGcalDesconectar() {
+    if (!confirm('Desconectar o Google Calendar? Os compromissos não serão mais sincronizados.')) return;
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch('/api/agenda/gcal/configurar', {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        if (res.ok || res.mensagem) {
+            showToast('Google Calendar desconectado.', 'success');
+            agGcalCarregarStatus();
+        } else {
+            showToast(res.erro || 'Erro ao desconectar', 'error');
+        }
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+async function agGcalTestar() {
+    const token = localStorage.getItem('gz_token');
+    const feedbackEl = document.getElementById('ag-gcal-feedback-conectado');
+    feedbackEl.style.color = 'var(--gray-400)';
+    feedbackEl.textContent = '⏳ Testando sincronização...';
+    try {
+        const res = await fetch('/api/agenda/gcal/testar', {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json()).catch(() => null);
+        if (res?.ok) {
+            feedbackEl.style.color = 'var(--green)';
+            feedbackEl.textContent = '✅ Conexão com o Google Calendar funcionando perfeitamente!';
+        } else {
+            feedbackEl.style.color = 'var(--red)';
+            feedbackEl.textContent = '❌ ' + (res?.erro || 'Falha na conexão. Verifique se o admin configurou a conta de serviço.');
+        }
+    } catch {
+        feedbackEl.style.color = 'var(--red)';
+        feedbackEl.textContent = '❌ Erro ao testar. Rota não disponível.';
+    }
+}
+
 // ─── ADMIN: FATURAMENTO ───────────────────────────────────────────────────────
 let _admFatDados = [];
 let _admFatChartEvolucao = null;
@@ -2150,7 +2292,7 @@ let _admUsrEditando = null;
 async function adminCarregarUsuarios() {
     const token = localStorage.getItem('gz_token');
     const tbody = document.getElementById('adm-usr-tbody');
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
     try {
         const res = await fetch('/api/admin/users', {
             headers: { Authorization: `Bearer ${token}` }
@@ -2165,7 +2307,7 @@ async function adminCarregarUsuarios() {
         document.getElementById('adm-usr-gratis').textContent = gratis;
         adminFiltrarUsuarios();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--red)">Erro ao carregar usuários.<br><small style="color:var(--gray-400)">Verifique se a rota /api/admin/users existe e aceita JWT Bearer.</small></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--red)">Erro ao carregar usuários.<br><small style="color:var(--gray-400)">Verifique se a rota /api/admin/users existe e aceita JWT Bearer.</small></td></tr>`;
     }
 }
 
@@ -2178,7 +2320,7 @@ function adminFiltrarUsuarios() {
     ) : _admUsuarios;
     const tbody = document.getElementById('adm-usr-tbody');
     if (!lista.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum usuário encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum usuário encontrado.</td></tr>`;
         return;
     }
     tbody.innerHTML = lista.map(u => {
@@ -2189,6 +2331,9 @@ function adminFiltrarUsuarios() {
             : '<span class="badge badge-navy">Gratuito</span>';
         const criado = u.criado_em || u.created_at || '';
         const criadoFmt = criado ? new Date(criado).toLocaleDateString('pt-BR') : '—';
+        const uid = u.id || '';
+        const uidCurto = uid ? uid.split('-')[0] : '—';
+        const nomeEscapado = nome.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         return `<tr>
             <td>
                 <div style="display:flex;align-items:center;gap:10px">
@@ -2201,9 +2346,14 @@ function adminFiltrarUsuarios() {
             <td style="color:var(--gray-500)">${u.telefone || '—'}</td>
             <td style="font-size:12px;color:var(--gray-400)">${criadoFmt}</td>
             <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                    <code style="font-size:11px;background:var(--gray-100);padding:2px 7px;border-radius:5px;color:var(--navy);letter-spacing:.03em;cursor:pointer;user-select:all" title="Clique para copiar o ID completo: ${uid}" onclick="navigator.clipboard.writeText('${uid}').then(()=>showToast('ID copiado! ✅','success'))">${uidCurto}…</code>
+                </div>
+            </td>
+            <td>
                 <div style="display:flex;gap:6px">
-                    <button class="btn btn-secondary" style="padding:5px 11px;font-size:12px" onclick="adminAbrirModalUsuario(${u.id})">✏️ Editar</button>
-                    <button class="btn btn-danger" style="padding:5px 11px;font-size:12px" onclick="adminExcluirUsuario(${u.id},'${(nome).replace(/'/g,"\\'")}')">🗑</button>
+                    <button class="btn btn-secondary" style="padding:5px 11px;font-size:12px" onclick="adminAbrirModalUsuario('${uid}')">✏️ Editar</button>
+                    <button class="btn btn-danger" style="padding:5px 11px;font-size:12px" onclick="adminExcluirUsuario('${uid}','${nomeEscapado}')">🗑</button>
                 </div>
             </td>
         </tr>`;
@@ -2223,7 +2373,7 @@ function adminAbrirModalUsuario(id) {
     document.getElementById('admUsrEmail').disabled = !!id;
     document.getElementById('admUsrSenhaHint').textContent = id ? '(em branco = manter)' : '';
     if (id) {
-        const u = _admUsuarios.find(x => x.id === id);
+        const u = _admUsuarios.find(x => String(x.id) === String(id));
         if (u) {
             document.getElementById('admUsrNome').value = u.nome || '';
             document.getElementById('admUsrSobrenome').value = u.sobrenome || '';

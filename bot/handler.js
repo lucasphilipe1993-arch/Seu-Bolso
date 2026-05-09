@@ -1,4 +1,4 @@
-// bot/handler.js — Bot WhatsApp Seu Bolso
+// bot/handler.js — Bot WhatsApp Seu Secretário
 const {
   default: makeWASocket,
   DisconnectReason,
@@ -50,7 +50,7 @@ const EMOJI_CATEGORIA = {
 };
 
 // ── SYSTEM PROMPT — suporta múltiplas transações ────────────────────────────
-const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Bolso.
+const SYSTEM_PROMPT = `Você é o assistente financeiro do Seu Secretário.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 
 A mensagem pode conter UMA ou MAIS transações financeiras.
@@ -89,7 +89,7 @@ Saída: [{"tipo":"despesa","valor":50,"descricao":"comida","categoria":"Alimenta
 Entrada: "paguei 120 de luz e recebi 3000 de salário"
 Saída: [{"tipo":"despesa","valor":120,"descricao":"conta de luz","categoria":"Casa"},{"tipo":"receita","valor":3000,"descricao":"salário","categoria":"Salário"}]`;
 
-const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Bolso.
+const SYSTEM_PROMPT_DIVIDA = `Você é o assistente financeiro do Seu Secretário.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 Hoje é: {DATA_HOJE}.
 
@@ -114,7 +114,7 @@ Exemplos que NÃO são dívidas a receber:
 Para data_vencimento: converta "dia 30", "dia 15/10", "fim do mês", "semana que vem" para YYYY-MM-DD usando OBRIGATORIAMENTE o ano de {ANO_ATUAL}. Se não houver data clara, use null.`;
 
 // ── SYSTEM PROMPT — Agenda ──────────────────────────────────────────────────
-const SYSTEM_PROMPT_AGENDA = `Você é o assistente de agenda do Seu Bolso.
+const SYSTEM_PROMPT_AGENDA = `Você é o assistente de agenda do Seu Secretário.
 Analise a mensagem e retorne APENAS JSON, sem markdown, sem explicação.
 Hoje é: {DATA_HOJE}. Hora atual (BRT): {HORA_ATUAL}.
 
@@ -224,7 +224,7 @@ async function usePostgresAuthState() {
 // ────────────────────────────────────────────────────────────────────────────
 // Classe principal
 // ────────────────────────────────────────────────────────────────────────────
-class BotGranaZen {
+class BotSeuSecretario {
   constructor() {
     this.socket = null;
     this.conectado = false;
@@ -442,7 +442,7 @@ class BotGranaZen {
 
       this.socket = makeWASocket({
         version, auth: state,
-        browser: ['GranaZen', 'Chrome', '120.0.0'],
+        browser: ['SeuSecretario', 'Chrome', '120.0.0'],
         logger: this._logger, syncFullHistory: false,
         connectTimeoutMs: 90000, defaultQueryTimeoutMs: 90000,
         keepAliveIntervalMs: 20000, retryRequestDelayMs: 3000,
@@ -1870,7 +1870,7 @@ class BotGranaZen {
   // ────────────────────────────────────────────────────────────────────────
   msgBemVindo(nome) {
     return (
-      `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Bolso*! 👋\n\n` +
+      `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Secretário*! 👋\n\n` +
       `🤖 Sou seu assistente financeiro pessoal. Estou aqui para te ajudar a controlar seus gastos e receitas direto pelo WhatsApp — sem precisar abrir nenhum app!\n\n` +
       `Já deixei sua conta configurada e pronta para usar. Em instantes vou te mostrar como funciona. 😊`
     );
@@ -1878,7 +1878,7 @@ class BotGranaZen {
 
   msgTutorial() {
     return (
-      `📚 *Como usar o Seu Bolso:*\n\n` +
+      `📚 *Como usar o Seu Secretário:*\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `💬 *1. Registre gastos e receitas:*\n\n` +
       `_"Gastei 35 no almoço"_\n` +
@@ -1951,4 +1951,4 @@ class BotGranaZen {
 
 function textoLower(t) { return (t || '').toLowerCase().trim(); }
 
-module.exports = BotGranaZen;
+module.exports = BotSeuSecretario;

@@ -3,8 +3,18 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const Stripe = require('stripe');
 const db = require('../database/db');
 const autenticar = require('../middleware/auth');
+
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+const PRICE_IDS = {
+  basico_mensal: process.env.STRIPE_PRICE_BASICO_MENSAL,
+  basico_anual:  process.env.STRIPE_PRICE_BASICO_ANUAL,
+  pro_mensal:    process.env.STRIPE_PRICE_PRO_MENSAL,
+  pro_anual:     process.env.STRIPE_PRICE_PRO_ANUAL,
+};
 
 // ── Normaliza telefone → sempre sem DDI, 10 ou 11 dígitos ────
 function normalizarTelefone(telefone) {
@@ -65,7 +75,7 @@ function gerarToken(usuario) {
 
 // ── POST /api/auth/cadastro ──────────────────────────────────
 router.post('/cadastro', async (req, res) => {
-  const { nome, email, senha, telefone, plano, cupomCodigo } = req.body;
+  const { nome, email, senha, telefone, plano, cupomCodigo, paymentMethodId } = req.body;
 
   if (!nome || !email || !senha)
     return res.status(400).json({ erro: 'Nome, e-mail e senha são obrigatórios' });
@@ -89,12 +99,13 @@ router.post('/cadastro', async (req, res) => {
     const [primeiroNome, ...restoNome] = nome.trim().split(' ');
     const sobrenomeExtraido = restoNome.join(' ') || null;
 
+    // Insere usuário inicialmente como gratuito — será atualizado após Stripe
     const { rows: usuariosInseridos } = await db.query(
       `INSERT INTO usuarios (nome, sobrenome, email, senha_hash, telefone, plano, whatsapp_ativo)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, nome, sobrenome, email, plano`,
       [primeiroNome, sobrenomeExtraido, email.toLowerCase(), senha_hash,
-       telefoneLimpo, plano || 'gratuito', telefoneLimpo ? true : false]
+       telefoneLimpo, 'gratuito', telefoneLimpo ? true : false]
     );
 
     const usuario = usuariosInseridos[0];
@@ -104,6 +115,67 @@ router.post('/cadastro', async (req, res) => {
       `INSERT INTO contas (usuario_id, nome, padrao, saldo) VALUES ($1, 'Carteira', true, 0)`,
       [usuario.id]
     );
+
+    // ── Integração Stripe: cria customer + assinatura com trial ──
+    if (paymentMethodId && plano && PRICE_IDS[plano]) {
+      try {
+        // Cria customer na Stripe
+        const customer = await stripe.customers.create({
+          email: email.toLowerCase(),
+          name: nome.trim(),
+          payment_method: paymentMethodId,
+          invoice_settings: { default_payment_method: paymentMethodId },
+          metadata: { usuario_id: String(usuario.id) },
+        });
+
+        // Cria assinatura com 7 dias de trial
+        const subscription = await stripe.subscriptions.create({
+          customer: customer.id,
+          items: [{ price: PRICE_IDS[plano] }],
+          trial_period_days: 7,
+          expand: ['latest_invoice.payment_intent'],
+        });
+
+        const planoDb = plano.startsWith('pro') ? 'pro' : 'basico';
+
+        // Atualiza usuário com dados da Stripe e plano correto
+        await db.query(
+          `UPDATE usuarios
+           SET plano = $1, stripe_customer_id = $2, stripe_subscription_id = $3, whatsapp_ativo = true
+           WHERE id = $4`,
+          [planoDb, customer.id, subscription.id, usuario.id]
+        );
+
+        usuario.plano = planoDb;
+        console.log(`✅ Assinatura Stripe criada: ${subscription.id} — plano "${planoDb}" para usuário ${usuario.id}`);
+
+        // Verifica se precisa de autenticação 3D Secure
+        const invoice = subscription.latest_invoice;
+        const paymentIntent = invoice?.payment_intent;
+        if (paymentIntent?.status === 'requires_action') {
+          const token = gerarToken(usuario);
+          return res.status(201).json({
+            token,
+            usuario: {
+              id: usuario.id,
+              nome: usuario.nome,
+              sobrenome: usuario.sobrenome,
+              email: usuario.email,
+              plano: usuario.plano,
+            },
+            requiresAction: true,
+            clientSecret: paymentIntent.client_secret,
+          });
+        }
+
+      } catch (stripeErr) {
+        console.error('❌ Erro Stripe no cadastro:', stripeErr.message);
+        // Remove usuário criado para não deixar conta órfã sem assinatura
+        await db.query('DELETE FROM contas WHERE usuario_id = $1', [usuario.id]);
+        await db.query('DELETE FROM usuarios WHERE id = $1', [usuario.id]);
+        return res.status(400).json({ erro: 'Erro ao processar pagamento: ' + stripeErr.message });
+      }
+    }
 
     // ── Resgata cupom de acesso gratuito (se informado) ──────────
     if (cupomCodigo) {
@@ -144,7 +216,7 @@ router.post('/cadastro', async (req, res) => {
       }
     }
 
-    // Vincula WhatsApp
+    // ── Vincula WhatsApp ──────────────────────────────────────────
     if (telefoneLimpo) {
       const jidInfo = await resolverJidWhatsApp(telefoneLimpo);
       const lidParaSalvar = jidInfo?.lid || null;
@@ -152,7 +224,7 @@ router.post('/cadastro', async (req, res) => {
       await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
       await db.query(`CREATE INDEX IF NOT EXISTS idx_sessoes_bot_lid ON sessoes_bot(lid)`).catch(() => {});
 
-      // ── Limpa sessões órfãs do mesmo telefone (usuário deletado) ──
+      // Limpa sessões órfãs do mesmo telefone (usuário deletado)
       await db.query(
         `DELETE FROM sessoes_bot
          WHERE telefone = $1
@@ -160,10 +232,9 @@ router.post('/cadastro', async (req, res) => {
         [telefoneLimpo]
       );
 
-      // ── Também limpa lid_map órfão ────────────────────────────────
+      // Limpa lid_map órfão
       await db.query(
-        `DELETE FROM lid_map
-         WHERE telefone = $1`,
+        `DELETE FROM lid_map WHERE telefone = $1`,
         [telefoneLimpo]
       ).catch(() => {});
 
@@ -194,7 +265,7 @@ router.post('/cadastro', async (req, res) => {
         nome: usuario.nome,
         sobrenome: usuario.sobrenome,
         email: usuario.email,
-        plano: usuario.plano
+        plano: usuario.plano,
       }
     });
 
@@ -283,7 +354,6 @@ router.put('/perfil', autenticar, async (req, res) => {
     );
 
     if (telefoneLimpo) {
-      // Limpa sessões órfãs antes de atualizar
       await db.query(
         `DELETE FROM sessoes_bot
          WHERE telefone = $1

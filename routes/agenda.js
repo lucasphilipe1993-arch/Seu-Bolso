@@ -54,11 +54,27 @@ router.get('/gcal/status', async (req, res) => {
 });
 
 // ── GET /api/agenda/gcal/autorizar ───────────────────────────────────────────
-// Redireciona o usuário para a tela de autorização do Google
-router.get('/gcal/autorizar', (req, res) => {
+// Redireciona o usuário para a tela de autorização do Google.
+// Como este endpoint faz redirect (não é JSON), o frontend envia o token
+// via query param ?token=... em vez do header Authorization.
+router.get('/gcal/autorizar', async (req, res) => {
   try {
-    // Passa o usuarioId como "state" para recuperar no callback
-    const url = gcal.gerarUrlOAuth(req.usuarioId);
+    let usuarioId = req.usuarioId; // vem do middleware (se token no header)
+
+    // Fallback: token via query param (necessário para redirects do browser)
+    if (!usuarioId && req.query.token) {
+      const jwt = require('jsonwebtoken');
+      try {
+        const decoded = jwt.verify(req.query.token, process.env.JWT_SECRET);
+        usuarioId = decoded.id || decoded.usuarioId || decoded.sub;
+      } catch {
+        return res.status(401).json({ erro: 'Token inválido' });
+      }
+    }
+
+    if (!usuarioId) return res.status(401).json({ erro: 'Não autenticado' });
+
+    const url = gcal.gerarUrlOAuth(usuarioId);
     res.redirect(url);
   } catch (err) {
     console.error('Erro ao gerar URL OAuth:', err);

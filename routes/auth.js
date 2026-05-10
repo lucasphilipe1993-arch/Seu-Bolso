@@ -1,10 +1,10 @@
 // routes/auth.js
-const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const Stripe = require('stripe');
-const db = require('../database/db');
+const express  = require('express');
+const router   = express.Router();
+const bcrypt   = require('bcryptjs');
+const jwt      = require('jsonwebtoken');
+const Stripe   = require('stripe');
+const db       = require('../database/db');
 const autenticar = require('../middleware/auth');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -23,46 +23,6 @@ function normalizarTelefone(telefone) {
   if (digits.startsWith('55') && digits.length > 11) digits = digits.slice(2);
   if (digits.length < 10 || digits.length > 11) return null;
   return digits;
-}
-
-// ── Referência global ao bot (injetada pelo server.js) ───────
-let _botInstance = null;
-function setBotInstance(bot) { _botInstance = bot; }
-
-// ── Resolve o JID real do WhatsApp para o telefone ───────────
-async function resolverJidWhatsApp(telefoneLimpo) {
-  if (!_botInstance || !_botInstance.conectado) return null;
-
-  const jidConsulta = `55${telefoneLimpo}@s.whatsapp.net`;
-
-  for (let tentativa = 1; tentativa <= 3; tentativa++) {
-    try {
-      const [info] = await _botInstance.socket.onWhatsApp(jidConsulta);
-      if (!info?.exists) return null;
-
-      const jidReal = info.jid;
-
-      if (jidReal.endsWith('@lid')) {
-        await _botInstance._garantirTabelaLidMap();
-        await db.query(
-          `INSERT INTO lid_map (lid, telefone) VALUES ($1, $2)
-           ON CONFLICT (lid) DO UPDATE SET telefone = $2`,
-          [jidReal, telefoneLimpo]
-        );
-        _botInstance.lidCache?.set(jidReal, telefoneLimpo);
-        console.log(`🔗 Cadastro: LID mapeado ${jidReal} → ${telefoneLimpo}`);
-        return { jid: jidReal, lid: jidReal };
-      }
-
-      return { jid: jidReal, lid: null };
-    } catch (err) {
-      console.warn(`⚠️  resolverJid tentativa ${tentativa}/3 falhou:`, err.message);
-      if (tentativa < 3) await new Promise(r => setTimeout(r, 2000));
-    }
-  }
-
-  console.warn(`❌ Não foi possível resolver JID para ${telefoneLimpo} após 3 tentativas`);
-  return null;
 }
 
 function gerarToken(usuario) {
@@ -95,11 +55,9 @@ router.post('/cadastro', async (req, res) => {
 
     const senha_hash = await bcrypt.hash(senha, 12);
 
-    // Separa nome e sobrenome automaticamente
     const [primeiroNome, ...restoNome] = nome.trim().split(' ');
     const sobrenomeExtraido = restoNome.join(' ') || null;
 
-    // Insere usuário inicialmente como gratuito — será atualizado após Stripe
     const { rows: usuariosInseridos } = await db.query(
       `INSERT INTO usuarios (nome, sobrenome, email, senha_hash, telefone, plano, whatsapp_ativo)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -116,10 +74,9 @@ router.post('/cadastro', async (req, res) => {
       [usuario.id]
     );
 
-    // ── Integração Stripe: cria customer + assinatura com trial ──
+    // ── Integração Stripe ─────────────────────────────────────
     if (paymentMethodId && plano && PRICE_IDS[plano]) {
       try {
-        // Cria customer na Stripe
         const customer = await stripe.customers.create({
           email: email.toLowerCase(),
           name: nome.trim(),
@@ -128,7 +85,6 @@ router.post('/cadastro', async (req, res) => {
           metadata: { usuario_id: String(usuario.id) },
         });
 
-        // Cria assinatura com 7 dias de trial
         const subscription = await stripe.subscriptions.create({
           customer: customer.id,
           items: [{ price: PRICE_IDS[plano] }],
@@ -138,7 +94,6 @@ router.post('/cadastro', async (req, res) => {
 
         const planoDb = plano.startsWith('pro') ? 'pro' : 'basico';
 
-        // Atualiza usuário com dados da Stripe e plano correto
         await db.query(
           `UPDATE usuarios
            SET plano = $1, stripe_customer_id = $2, stripe_subscription_id = $3, whatsapp_ativo = true
@@ -149,20 +104,13 @@ router.post('/cadastro', async (req, res) => {
         usuario.plano = planoDb;
         console.log(`✅ Assinatura Stripe criada: ${subscription.id} — plano "${planoDb}" para usuário ${usuario.id}`);
 
-        // Verifica se precisa de autenticação 3D Secure
-        const invoice = subscription.latest_invoice;
+        const invoice       = subscription.latest_invoice;
         const paymentIntent = invoice?.payment_intent;
         if (paymentIntent?.status === 'requires_action') {
           const token = gerarToken(usuario);
           return res.status(201).json({
             token,
-            usuario: {
-              id: usuario.id,
-              nome: usuario.nome,
-              sobrenome: usuario.sobrenome,
-              email: usuario.email,
-              plano: usuario.plano,
-            },
+            usuario: { id: usuario.id, nome: usuario.nome, sobrenome: usuario.sobrenome, email: usuario.email, plano: usuario.plano },
             requiresAction: true,
             clientSecret: paymentIntent.client_secret,
           });
@@ -170,14 +118,13 @@ router.post('/cadastro', async (req, res) => {
 
       } catch (stripeErr) {
         console.error('❌ Erro Stripe no cadastro:', stripeErr.message);
-        // Remove usuário criado para não deixar conta órfã sem assinatura
         await db.query('DELETE FROM contas WHERE usuario_id = $1', [usuario.id]);
         await db.query('DELETE FROM usuarios WHERE id = $1', [usuario.id]);
         return res.status(400).json({ erro: 'Erro ao processar pagamento: ' + stripeErr.message });
       }
     }
 
-    // ── Resgata cupom de acesso gratuito (se informado) ──────────
+    // ── Cupom de acesso gratuito ──────────────────────────────
     if (cupomCodigo) {
       try {
         const { rows: cupomRows } = await db.query(
@@ -189,8 +136,8 @@ router.post('/cadastro', async (req, res) => {
         );
 
         if (cupomRows.length > 0) {
-          const cupom = cupomRows[0];
-          const expira = new Date();
+          const cupom   = cupomRows[0];
+          const expira  = new Date();
           expira.setDate(expira.getDate() + cupom.dias);
 
           await db.query(
@@ -207,24 +154,15 @@ router.post('/cadastro', async (req, res) => {
           );
 
           usuario.plano = cupom.plano || 'basico';
-          console.log(`🎁 Cupom "${cupomCodigo}" resgatado pelo usuário ${usuario.id} — acesso até ${expira.toLocaleDateString('pt-BR')}`);
-        } else {
-          console.warn(`⚠️  Cupom "${cupomCodigo}" inválido ou esgotado no momento do cadastro`);
+          console.log(`🎁 Cupom "${cupomCodigo}" resgatado pelo usuário ${usuario.id}`);
         }
       } catch (err) {
         console.warn('⚠️  Erro ao resgatar cupom (não crítico):', err.message);
       }
     }
 
-    // ── Vincula WhatsApp ──────────────────────────────────────────
+    // ── Vincula WhatsApp no banco ─────────────────────────────
     if (telefoneLimpo) {
-      const jidInfo = await resolverJidWhatsApp(telefoneLimpo);
-      const lidParaSalvar = jidInfo?.lid || null;
-
-      await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_sessoes_bot_lid ON sessoes_bot(lid)`).catch(() => {});
-
-      // Limpa sessões órfãs do mesmo telefone (usuário deletado)
       await db.query(
         `DELETE FROM sessoes_bot
          WHERE telefone = $1
@@ -232,27 +170,24 @@ router.post('/cadastro', async (req, res) => {
         [telefoneLimpo]
       );
 
-      // Limpa lid_map órfão
       await db.query(
-        `DELETE FROM lid_map WHERE telefone = $1`,
-        [telefoneLimpo]
-      ).catch(() => {});
-
-      await db.query(
-        `INSERT INTO sessoes_bot (telefone, usuario_id, estado, lid)
-         VALUES ($1, $2, 'ativo', $3)
+        `INSERT INTO sessoes_bot (telefone, usuario_id, estado)
+         VALUES ($1, $2, 'ativo')
          ON CONFLICT (telefone) DO UPDATE
-         SET usuario_id = $2, estado = 'ativo', lid = COALESCE($3, sessoes_bot.lid), atualizado_em = NOW()`,
-        [telefoneLimpo, usuario.id, lidParaSalvar]
+         SET usuario_id = $2, estado = 'ativo', atualizado_em = NOW()`,
+        [telefoneLimpo, usuario.id]
       );
 
       console.log(`✅ Sessão criada para WhatsApp: ${telefoneLimpo} (Usuário: ${usuario.id})`);
 
+      // ── Envia boas-vindas via API Oficial (Meta) ──────────
       setImmediate(async () => {
         try {
-          await _botInstance?.enviarBoasVindasECapturarLid(telefoneLimpo, usuario.id, usuario.nome);
+          const { botOficial } = require('./whatsapp-oficial');
+          await botOficial.enviar(telefoneLimpo, botOficial.msgBemVindo(primeiroNome));
+          console.log(`👋 Boas-vindas enviadas via Meta API para ${telefoneLimpo}`);
         } catch (err) {
-          console.warn('Erro ao enviar boas-vindas:', err.message);
+          console.warn('⚠️  Erro ao enviar boas-vindas:', err.message);
         }
       });
     }
@@ -261,11 +196,11 @@ router.post('/cadastro', async (req, res) => {
     res.status(201).json({
       token,
       usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
+        id:        usuario.id,
+        nome:      usuario.nome,
         sobrenome: usuario.sobrenome,
-        email: usuario.email,
-        plano: usuario.plano,
+        email:     usuario.email,
+        plano:     usuario.plano,
       }
     });
 
@@ -296,11 +231,11 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        sobrenome: usuario.sobrenome,
-        email: usuario.email,
-        plano: usuario.plano,
+        id:             usuario.id,
+        nome:           usuario.nome,
+        sobrenome:      usuario.sobrenome,
+        email:          usuario.email,
+        plano:          usuario.plano,
         whatsapp_ativo: usuario.whatsapp_ativo,
       }
     });
@@ -409,4 +344,3 @@ router.put('/senha', autenticar, async (req, res) => {
 });
 
 module.exports = router;
-module.exports.setBotInstance = setBotInstance;

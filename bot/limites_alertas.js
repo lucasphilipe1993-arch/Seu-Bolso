@@ -127,7 +127,7 @@ class LimitesAlertas {
     let catClause = '';
     if (categoria) {
       params.push(categoria);
-      catClause = `AND LOWER(COALESCE(c.nome, 'Outros')) = LOWER(${params.length})`;
+      catClause = `AND LOWER(COALESCE(c.nome, 'Outros')) = LOWER($${params.length})`;
     }
     const res = await db.query(
       `SELECT COALESCE(SUM(t.valor), 0) AS total
@@ -207,9 +207,10 @@ class LimitesAlertas {
       'limite', 'limites', 'meus limites', 'ver limite', 'ver limites',
       'limite de gastos', 'limites de gastos', 'configurar limite', 'configurar limites',
     ];
-    if (triggerVerLimites.includes(textoClean))
+    if (triggerVerLimites.includes(textoClean)) {
       await this._enviarMenuLimites(remoteJid, usuarioId, nome);
       return true;
+    }
 
     // ── Remover limite ───────────────────────────────────────────────────────
     // "remover limite alimentação" | "excluir limite global"

@@ -17,9 +17,6 @@ botOficial.iniciarLembretes();
 
 // ── GET /webhook/whatsapp — Verificação da Meta ───────────────────────────────
 router.get('/', (req, res) => {
-  // LOG DE DEBUG — mostra exatamente o que a Meta está enviando
-  console.log('[META] GET params:', JSON.stringify(req.query));
-
   const mode      = req.query['hub.mode'];
   const token     = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -30,13 +27,14 @@ router.get('/', (req, res) => {
     return res.status(200).send(challenge);
   }
 
-  // ✅ Health check sem parâmetros — responde 200 silenciosamente
-  if (!mode && !token) {
+  // ✅ Health check — Meta envia GET sem parâmetros ou com objeto vazio
+  // Responde 200 silenciosamente, não é erro
+  if (!mode) {
     return res.sendStatus(200);
   }
 
-  // ❌ Token ou mode inválido — loga detalhes para debug
-  console.warn('[META] Verificação falhou | mode:', mode, '| token:', token, '| VERIFY_TOKEN:', VERIFY_TOKEN);
+  // ❌ Tem mode mas token errado — aí sim é problema
+  console.warn('[META] Verificação falhou | mode:', mode, '| token:', token);
   res.sendStatus(403);
 });
 

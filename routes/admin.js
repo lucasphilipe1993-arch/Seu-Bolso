@@ -403,6 +403,60 @@ router.get('/categorias', autenticarAdmin, async (req, res) => {
   }
 });
 
-module.exports = { router, setBotInstance };
+// ─── POST /api/admin/users/:id/mensagem ──────────────────────
+// Envia mensagem WhatsApp manual para um usuário (só admin)
+router.post('/users/:id/mensagem', autenticarAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { texto } = req.body;
+  if (!texto) return res.status(400).json({ erro: 'Texto obrigatório' });
 
-// PLACEHOLDER - will be replaced
+  try {
+    const { rows } = await db.query(
+      `SELECT s.telefone, s.lid FROM sessoes_bot s WHERE s.usuario_id = $1`, [id]
+    );
+    if (!rows.length || !rows[0].telefone)
+      return res.status(404).json({ erro: 'Usuário sem WhatsApp vinculado' });
+
+    if (!_bot?.conectado || !_bot?.socket)
+      return res.status(503).json({ erro: 'Bot desconectado' });
+
+    const { telefone, lid } = rows[0];
+    const jid = lid || `55${telefone}@s.whatsapp.net`;
+
+    await _bot.socket.sendMessage(jid, { text: texto, linkPreview: false });
+    console.log(`📤 Mensagem manual enviada para ${telefone} (${jid})`);
+    res.json({ ok: true, mensagem: `Enviado para ${telefone}` });
+  } catch (err) {
+    console.error('❌ admin/mensagem POST:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─── POST /api/admin/users/:id/boas-vindas ────────────────────
+// Re-envia boas-vindas e tenta capturar LID
+router.post('/users/:id/boas-vindas', autenticarAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { rows } = await db.query(
+      `SELECT u.nome, u.telefone FROM usuarios u WHERE u.id = $1`, [id]
+    );
+    if (!rows.length || !rows[0].telefone)
+      return res.status(404).json({ erro: 'Usuário sem telefone cadastrado' });
+
+    if (!_bot?.conectado)
+      return res.status(503).json({ erro: 'Bot desconectado' });
+
+    const { nome, telefone } = rows[0];
+    setImmediate(() => {
+      _bot.enviarBoasVindasECapturarLid(telefone, id, nome).catch(console.error);
+    });
+
+    res.json({ ok: true, mensagem: `Boas-vindas enviadas para ${telefone}` });
+  } catch (err) {
+    console.error('❌ admin/boas-vindas POST:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+module.exports = { router, setBotInstance };

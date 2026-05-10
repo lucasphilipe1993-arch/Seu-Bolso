@@ -5,16 +5,13 @@ const express = require('express');
 const cors    = require('cors');
 const http    = require('http');
 const { Server } = require('socket.io');
-const QRCode  = require('qrcode');
 const path    = require('path');
 
-const db                 = require('./database/db');
-const BotSeuSecretario   = require('./bot/handler');
+const db = require('./database/db');
 
 // Rotas
 const authRoutes           = require('./routes/auth');
 const transactionRoutes    = require('./routes/transactions');
-const whatsappRoute        = require('./routes/whatsapp');
 const adminRoute           = require('./routes/admin');
 const dividasRoute         = require('./routes/dividas');
 const stripeRoute          = require('./routes/stripe');
@@ -30,12 +27,6 @@ const io     = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const bot  = new BotSeuSecretario();
-
-// Injeta a instância do bot nas rotas
-whatsappRoute.setBotInstance(bot);
-adminRoute.setBotInstance(bot);
-authRoutes.setBotInstance(bot);
 
 // ─── Redirecionamento: seusecretario.com.br → www ────────────
 app.use((req, res, next) => {
@@ -69,56 +60,15 @@ app.use(express.static(DASHBOARD_PATH));
 // ─── Socket.io ────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log('📡 Dashboard conectado via socket:', socket.id);
-
-  socket.emit('status', { status: bot.conectado ? 'connected' : 'disconnected' });
-
-  if (bot.qrAtual) {
-    QRCode.toDataURL(bot.qrAtual)
-      .then(url => socket.emit('qr', { url }))
-      .catch(() => {});
-  }
-
   socket.on('disconnect', () => {
     console.log('📡 Dashboard desconectado:', socket.id);
   });
 });
 
-// ─── Eventos do bot → Socket ──────────────────────────────────
-bot.onQR = async (qr) => {
-  try {
-    const url = await QRCode.toDataURL(qr);
-    io.emit('qr',     { url });
-    io.emit('status', { status: 'qr' });
-  } catch {}
-};
-
-bot.onConnected = async () => {
-  io.emit('status',  { status: 'connected' });
-  io.emit('qr_clear');
-  try {
-    const creds  = bot.socket?.authState?.creds;
-    const jid    = creds?.me?.id || null;
-    if (jid) {
-      const numero = jid.replace(/:\d+/, '').replace('@s.whatsapp.net', '');
-      io.emit('numero', { numero });
-      console.log(`📱 Número conectado: ${numero}`);
-    }
-  } catch {}
-};
-
-bot.onDisconnected = () => {
-  io.emit('status', { status: 'disconnected' });
-};
-
-bot.onNovaTransacao = (data) => {
-  io.emit('nova_transacao', data);
-};
-
 // ─── API Routes ───────────────────────────────────────────────
 app.use('/api/auth',         authRoutes);
 app.use('/api/transactions', transactionRoutes);
-app.use('/api/whatsapp',     whatsappRoute.router);
-app.use('/api/admin',        adminRoute.router);
+app.use('/api/admin',        adminRoute);
 app.use('/api/dividas',      dividasRoute);
 app.use('/api/stripe',       stripeRoute);
 app.use('/api/cupons',       cuponsRoute);
@@ -147,7 +97,7 @@ app.get('/api/me', autenticar, async (req, res) => {
 
 // ─── Health check ─────────────────────────────────────────────
 app.get('/health', (req, res) =>
-  res.json({ ok: true, bot: bot.conectado, ts: new Date().toISOString() })
+  res.json({ ok: true, ts: new Date().toISOString() })
 );
 
 // ─── Fallback API ─────────────────────────────────────────────
@@ -162,7 +112,7 @@ app.get('*', (req, res) => {
   const { existsSync } = require('fs');
   const index = path.join(DASHBOARD_PATH, 'index.html');
   if (existsSync(index)) return res.sendFile(index);
-  res.json({ message: 'Seu Secretário API', conectado: bot.conectado });
+  res.json({ message: 'Seu Secretário API' });
 });
 
 // ─── Encerramento limpo ───────────────────────────────────────
@@ -172,12 +122,6 @@ async function encerrarLimpo(sinal) {
   if (encerrando) return;
   encerrando = true;
   console.log(`\n🛑 Sinal ${sinal} recebido. Encerrando...`);
-  try {
-    await bot._fecharSocket();
-    console.log('✅ Socket WhatsApp fechado.');
-  } catch (err) {
-    console.warn('⚠️  Erro ao fechar socket:', err.message);
-  }
   setTimeout(() => process.exit(0), 1000);
 }
 
@@ -193,10 +137,4 @@ server.listen(PORT, async () => {
 ║   Dashboard: http://localhost:${PORT} ║
 ╚═══════════════════════════════════════╝
   `);
-
-  if (process.env.AUTO_CONNECT === 'true') {
-    const delay = parseInt(process.env.WA_START_DELAY_MS || '5000', 10);
-    console.log(`🔄 Auto-conectando WhatsApp em ${delay / 1000}s...`);
-    setTimeout(() => bot.iniciar().catch(console.error), delay);
-  }
 });

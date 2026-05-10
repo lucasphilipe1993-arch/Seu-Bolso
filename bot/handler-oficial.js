@@ -285,6 +285,13 @@ class BotOficial {
       return this.quitarDivida(jid, usuarioId, matchQuitar[1].toUpperCase());
 
     // ── Limites de gastos ──────────────────────────────────────────────────
+    // processarComandoLimite retorna true/false; _enviarMenuLimites é chamado internamente
+    // Patch: se o texto é exatamente um trigger de "ver limites", chama direto para garantir o await
+    const TRIGGER_LIMITES = ['limite','limites','meus limites','ver limite','ver limites','limite de gastos','limites de gastos','configurar limite','configurar limites'];
+    if (TRIGGER_LIMITES.includes(textoClean)) {
+      await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
+      return;
+    }
     const limiteHandled = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoClean, texto);
     if (limiteHandled) return;
 
@@ -598,7 +605,8 @@ class BotOficial {
         return this.enviarGastosFixos(jid, usuarioId);
 
       case 'btn_limite':
-        return this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, 'limite', 'limite');
+        // Chama _enviarMenuLimites diretamente para evitar o bug do operador vírgula
+        return this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
 
       case 'btn_a_receber':
       case 'menu_receber_ver':

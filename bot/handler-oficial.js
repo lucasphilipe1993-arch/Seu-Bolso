@@ -472,7 +472,7 @@ class BotOficial {
         action: {
           buttons: botoes.slice(0, 3).map(b => ({
             type: 'reply',
-            reply: { id: b.id, title: b.titulo.slice(0, 20) },
+            reply: { id: b.id, title: [...(b.titulo||'')].slice(0,20).join('') },
           })),
         },
       },
@@ -485,15 +485,15 @@ class BotOficial {
     await this.enviarInterativo(para, {
       interactive: {
         type: 'list',
-        body: { text: textoCorpo },
+        body: { text: textoCorpo.slice(0, 4096) },
         action: {
-          button: labelBotao.slice(0, 20),
+          button: [...(labelBotao||'')].slice(0,20).join(''),
           sections: secoes.map(s => ({
-            title: s.titulo,
+            title: [...(s.titulo||'')].slice(0,24).join(''),
             rows: s.itens.slice(0, 10).map(i => ({
               id: i.id,
-              title: i.titulo.slice(0, 24),
-              ...(i.descricao ? { description: i.descricao.slice(0, 72) } : {}),
+              title: [...(i.titulo||'')].slice(0,24).join(''),
+              ...(i.descricao ? { description: [...(i.descricao||'')].slice(0,72).join('') } : {}),
             })),
           })),
         },
@@ -2015,8 +2015,8 @@ _Digite o número ou "sem data" para pular_`);
         titulo: '💸 Gastos e Receitas',
         itens: [
           { id: 'btn_resumo',    titulo: '📊 Ver resumo do mês',       descricao: 'Saldo, receitas e despesas' },
-          { id: 'btn_historico', titulo: '🕐 Histórico de transações',  descricao: 'Últimas 5 transações' },
-          { id: 'btn_pdf',       titulo: '📄 Gerar relatório PDF',      descricao: 'Relatório completo do mês' },
+          { id: 'btn_historico', titulo: '🕐 Histórico',               descricao: 'Últimas 5 transações' },
+          { id: 'btn_pdf',       titulo: '📄 Relatório PDF',            descricao: 'Relatório completo do mês' },
           { id: 'btn_limite',    titulo: '🎯 Limites de gastos',        descricao: 'Definir alertas por categoria' },
           { id: 'btn_categorias',titulo: '📂 Minhas categorias',        descricao: 'Ver e gerenciar categorias' },
         ],
@@ -2030,7 +2030,7 @@ _Digite o número ou "sem data" para pular_`);
       {
         titulo: '👥 Quem me deve',
         itens: [
-          { id: 'menu_receber_ver',    titulo: '📋 Ver lista de devedores',  descricao: 'Quem ainda te deve' },
+          { id: 'menu_receber_ver',    titulo: '📋 Ver devedores',           descricao: 'Quem ainda te deve' },
           { id: 'menu_receber_add',    titulo: '➕ Adicionar dívida',        descricao: 'Registrar novo devedor' },
           { id: 'menu_receber_lembrete',titulo: '🔔 Enviar lembrete',       descricao: 'Cobrar um devedor' },
         ],
@@ -2039,7 +2039,7 @@ _Digite o número ou "sem data" para pular_`);
         titulo: '⚙️ Gastos Fixos',
         itens: [
           { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos',       descricao: 'Suas contas mensais' },
-          { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar gasto fixo',   descricao: 'Nova conta mensal' },
+          { id: 'btn_gastos_fixos_add', titulo: '➕ Novo gasto fixo',        descricao: 'Nova conta mensal' },
         ],
       },
       {

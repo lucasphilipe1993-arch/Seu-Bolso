@@ -1166,6 +1166,15 @@
                 <input class="form-input" type="password" id="admUsrSenha" placeholder="••••••••" autocomplete="new-password">
             </div>
         </div>
+        <div class="form-group" id="admUsrMsgGroup" style="display:none;margin-top:8px;padding-top:16px;border-top:1px solid var(--gray-200)">
+            <label class="form-label">📱 Enviar mensagem WhatsApp</label>
+            <textarea class="form-input" id="admUsrMsgTexto" rows="3" placeholder="Digite a mensagem para enviar ao cliente..." style="resize:vertical;min-height:80px;font-family:inherit"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-outline-green" style="flex:1" onclick="adminEnviarMensagem()">📤 Enviar agora</button>
+                <button class="btn btn-secondary" style="padding:8px 12px;font-size:12px" onclick="adminEnviarBoasVindas()">🎉 Boas-vindas</button>
+            </div>
+            <div id="admUsrMsgStatus" style="font-size:11px;margin-top:6px;color:var(--gray-400)"></div>
+        </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" onclick="closeModal('modalAdminUsuario')">Cancelar</button>
             <button class="btn btn-outline-green" id="admUsrBtnLid" style="display:none" onclick="adminSalvarLid()">💾 Salvar LID</button>
@@ -2385,6 +2394,11 @@ function adminAbrirModalUsuario(id) {
     document.getElementById('admUsrBtnLid').style.display = id ? 'inline-flex' : 'none';
     document.getElementById('admUsrLid').value = '';
     document.getElementById('admUsrSessaoInfo').textContent = '';
+    // Seção de mensagem: só admin e só ao editar
+    const isAdmin = _usuario?.email === 'matheus10201971@gmail.com';
+    document.getElementById('admUsrMsgGroup').style.display = (id && isAdmin) ? 'block' : 'none';
+    document.getElementById('admUsrMsgTexto').value = '';
+    document.getElementById('admUsrMsgStatus').textContent = '';
     if (id) {
         const u = _admUsuarios.find(x => String(x.id) === String(id));
         if (u) {
@@ -2472,6 +2486,55 @@ async function adminSalvarLid() {
             showToast(res.erro || 'Erro ao vincular', 'error');
         }
     } catch { showToast('Erro de conexão', 'error'); }
+}
+async function adminEnviarMensagem() {
+    const token = localStorage.getItem('gz_token');
+    const id = document.getElementById('admUsrEditId').value;
+    const texto = document.getElementById('admUsrMsgTexto').value.trim();
+    const statusEl = document.getElementById('admUsrMsgStatus');
+    if (!texto) { statusEl.textContent = '⚠️ Digite uma mensagem antes de enviar.'; statusEl.style.color = 'var(--red)'; return; }
+    statusEl.textContent = '⏳ Enviando...'; statusEl.style.color = 'var(--gray-400)';
+    try {
+        const res = await fetch(`/api/admin/users/${id}/mensagem`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ texto })
+        }).then(r => r.json());
+        if (res.ok) {
+            statusEl.textContent = '✅ Mensagem enviada!';
+            statusEl.style.color = 'var(--green)';
+            document.getElementById('admUsrMsgTexto').value = '';
+        } else {
+            statusEl.textContent = '❌ ' + (res.erro || 'Erro ao enviar');
+            statusEl.style.color = 'var(--red)';
+        }
+    } catch {
+        statusEl.textContent = '❌ Erro de conexão';
+        statusEl.style.color = 'var(--red)';
+    }
+}
+
+async function adminEnviarBoasVindas() {
+    const token = localStorage.getItem('gz_token');
+    const id = document.getElementById('admUsrEditId').value;
+    const statusEl = document.getElementById('admUsrMsgStatus');
+    statusEl.textContent = '⏳ Enviando boas-vindas...'; statusEl.style.color = 'var(--gray-400)';
+    try {
+        const res = await fetch(`/api/admin/users/${id}/boas-vindas`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+        if (res.ok) {
+            statusEl.textContent = '✅ Boas-vindas enviadas!';
+            statusEl.style.color = 'var(--green)';
+        } else {
+            statusEl.textContent = '❌ ' + (res.erro || 'Erro ao enviar');
+            statusEl.style.color = 'var(--red)';
+        }
+    } catch {
+        statusEl.textContent = '❌ Erro de conexão';
+        statusEl.style.color = 'var(--red)';
+    }
 }
 </script>
 </body>

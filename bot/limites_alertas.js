@@ -206,7 +206,8 @@ class LimitesAlertas {
       'limite de gastos', 'limites de gastos', 'configurar limite', 'configurar limites',
     ];
     if (triggerVerLimites.includes(textoClean))
-      return this._enviarMenuLimites(remoteJid, usuarioId, nome), true;
+      await this._enviarMenuLimites(remoteJid, usuarioId, nome);
+      return true;
 
     // ── Remover limite ───────────────────────────────────────────────────────
     // "remover limite alimentação" | "excluir limite global"

@@ -1,49 +1,56 @@
 // routes/whatsapp-oficial.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Webhook da API Oficial do WhatsApp (Meta)
-// Substitui o arquivo anterior — agora delega toda lógica ao BotOficial.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const express  = require('express');
-const router   = express.Router();
+const express    = require('express');
+const router     = express.Router();
 const BotOficial = require('../bot/handler-oficial');
 
 const VERIFY_TOKEN = process.env.WA_OFICIAL_VERIFY_TOKEN || 'secretario_webhook_2026';
 
-// Instância única do bot oficial (criada uma vez, reutilizada em todos os requests)
+// Instância única do bot oficial
 const botOficial = new BotOficial();
 
-// Inicia o loop de lembretes assim que a rota for carregada
-// (independente do bot Baileys — cada um cuida dos próprios compromissos)
+// Inicia o loop de lembretes (independente do bot Baileys)
 botOficial.iniciarLembretes();
 
 // ── GET /webhook/whatsapp — Verificação da Meta ───────────────────────────────
 router.get('/', (req, res) => {
+  // LOG DE DEBUG — mostra exatamente o que a Meta está enviando
+  console.log('[META] GET params:', JSON.stringify(req.query));
+
   const mode      = req.query['hub.mode'];
   const token     = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
+  // ✅ Verificação real da Meta
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('✅ [META] Webhook verificado com sucesso!');
     return res.status(200).send(challenge);
   }
 
-  console.warn('❌ [META] Webhook: token inválido —', token);
+  // ✅ Health check sem parâmetros — responde 200 silenciosamente
+  if (!mode && !token) {
+    return res.sendStatus(200);
+  }
+
+  // ❌ Token ou mode inválido — loga detalhes para debug
+  console.warn('[META] Verificação falhou | mode:', mode, '| token:', token, '| VERIFY_TOKEN:', VERIFY_TOKEN);
   res.sendStatus(403);
 });
 
 // ── POST /webhook/whatsapp — Receber eventos da Meta ─────────────────────────
 router.post('/', async (req, res) => {
-  // ⚠️ CRÍTICO: responde 200 IMEDIATAMENTE antes de qualquer processamento.
-  // A Meta considera o webhook com falha se não receber 200 em 20s e vai reenviar.
+  // ⚠️ CRÍTICO: responde 200 IMEDIATAMENTE
+  // A Meta considera falha se não receber 200 em 20s e vai reenviar
   res.sendStatus(200);
 
-  // Processa em background (não bloqueia a resposta)
+  // Processa em background
   botOficial.processarWebhook(req.body).catch(err => {
     console.error('[META] Erro não capturado no webhook:', err.message);
   });
 });
 
-// ── Exporta o router e a instância do bot (para uso no server.js se necessário)
 module.exports = router;
 module.exports.botOficial = botOficial;

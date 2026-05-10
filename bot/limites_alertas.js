@@ -127,14 +127,15 @@ class LimitesAlertas {
     let catClause = '';
     if (categoria) {
       params.push(categoria);
-      catClause = `AND LOWER(t.categoria) = LOWER($${params.length})`;
+      catClause = `AND LOWER(COALESCE(c.nome, 'Outros')) = LOWER(${params.length})`;
     }
     const res = await db.query(
       `SELECT COALESCE(SUM(t.valor), 0) AS total
        FROM transacoes t
+       LEFT JOIN categorias c ON c.id = t.categoria_id
        WHERE t.usuario_id = $1
          AND t.tipo = 'despesa'
-         AND date_trunc('month', t.criado_em AT TIME ZONE 'America/Sao_Paulo')
+         AND date_trunc('month', COALESCE(t.data_pagamento, t.criado_em) AT TIME ZONE 'America/Sao_Paulo')
              = date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')
          ${catClause}`,
       params
@@ -160,13 +161,14 @@ class LimitesAlertas {
   // ── Gastos por categoria na semana atual ──────────────────────────────────
   async _gastosPorCategoriaSemana(usuarioId, semanaOffset = 0) {
     const res = await db.query(
-      `SELECT t.categoria, COALESCE(SUM(t.valor), 0) AS total
+      `SELECT COALESCE(c.nome, 'Outros') AS categoria, COALESCE(SUM(t.valor), 0) AS total
        FROM transacoes t
+       LEFT JOIN categorias c ON c.id = t.categoria_id
        WHERE t.usuario_id = $1
          AND t.tipo = 'despesa'
-         AND date_trunc('week', t.criado_em AT TIME ZONE 'America/Sao_Paulo')
+         AND date_trunc('week', COALESCE(t.data_pagamento, t.criado_em) AT TIME ZONE 'America/Sao_Paulo')
              = date_trunc('week', (NOW() AT TIME ZONE 'America/Sao_Paulo') + ($2 * INTERVAL '1 week'))
-       GROUP BY t.categoria
+       GROUP BY c.nome
        ORDER BY total DESC`,
       [usuarioId, semanaOffset]
     );

@@ -1838,7 +1838,7 @@ class BotSeuSecretario {
 
     // Tenta todas as variações do número (com/sem 9 dígito, com/sem DDI)
     const variacoes = this._gerarVariacoesTelefone(telefone)
-      .filter(v => v.length >= 10 && v.length <= 13 && /^d+$/.test(v))
+      .filter(v => v.length >= 10 && /^\d+$/.test(v))
       .map(v => {
         const semDDI = v.startsWith('55') ? v.slice(2) : v;
         return `55${semDDI}@s.whatsapp.net`;

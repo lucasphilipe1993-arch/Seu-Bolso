@@ -318,6 +318,14 @@ class BotOficial {
         return this.enviarRelatorioPorCategoria(jid, usuarioId, recat[1].trim());
     }
 
+    // ── Submenu quem me deve ───────────────────────────────────────────────
+    if (['quem me deve','quem deve','devedores','dividas','dívidas','a receber'].includes(textoClean))
+      return this.enviarMenuQuemMeDeve(jid, usuarioId);
+
+    // ── Submenu gastos fixos (texto) ────────────────────────────────────────
+    if (['menu gastos fixos','configurar gastos fixos','gastos fixos menu'].includes(textoClean))
+      return this.enviarMenuGastosFixos(jid, usuarioId);
+
     // ── IA: dívida a receber ───────────────────────────────────────────────
     const divida = await this.interpretarDivida(texto);
     if (divida)
@@ -585,7 +593,28 @@ class BotOficial {
         return this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, 'limite', 'limite');
 
       case 'btn_a_receber':
+      case 'menu_receber_ver':
         return this.enviarDividasReceber(jid, usuarioId);
+
+      case 'menu_receber_add':
+        return this.enviar(jid,
+          `➕ *Adicionar dívida*\n\n` +
+          `Diga quem te deve, quanto e quando recebe:\n` +
+          `_"João me deve 200, recebo dia 20"_\n` +
+          `_"Maria me deve 150"_`
+        );
+
+      case 'menu_receber_lembrete':
+        return this.enviarLembreteDevedores(jid, usuarioId);
+
+      case 'btn_menu_quem_deve':
+        return this.enviarMenuQuemMeDeve(jid, usuarioId);
+
+      case 'btn_menu_gastos_fixos':
+        return this.enviarMenuGastosFixos(jid, usuarioId);
+
+      case 'btn_menu_principal':
+        return this.enviarAjudaComBotoes(jid);
 
       case 'btn_pdf':
         return this.enviarRelatorioPdf(jid, usuarioId, nome);
@@ -1894,6 +1923,33 @@ _Digite o número ou "sem data" para pular_`);
     await this.enviar(jid, msg);
   }
 
+  // Envia lembrete de cobrança para devedores pendentes
+  async enviarLembreteDevedores(jid, usuarioId) {
+    const { rows } = await db.query(
+      `SELECT id_curto, nome_devedor, valor, data_prevista
+       FROM dividas_receber
+       WHERE usuario_id=$1 AND quitado=false
+       ORDER BY data_prevista ASC NULLS LAST
+       LIMIT 10`,
+      [usuarioId]
+    ).catch(() => ({ rows: [] }));
+
+    if (rows.length === 0)
+      return this.enviar(jid, `✅ Nenhuma dívida pendente para lembrar!`);
+
+    let msg = `🔔 *Devedores pendentes*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `Quais dívidas deseja enviar lembrete?\n` +
+           `Digite: _"lembrar [ID]"_\n` +
+           `Ou: _"lembrar todos"_ para cobrar todos\n\n`;
+    for (const d of rows) {
+      const venc = d.data_prevista
+        ? new Date(d.data_prevista).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })
+        : 'sem data';
+      msg += `👤 *${d.nome_devedor}* — ${this._fmt(d.valor)} | 📅 ${venc} | 🔖 *${d.id_curto}*\n`;
+    }
+    await this.enviar(jid, msg);
+  }
+
   _fmt(v) {
     return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
@@ -1941,40 +1997,117 @@ _Digite o número ou "sem data" para pular_`);
     );
   }
 
-  // Envia o menu de ajuda com lista completa de ações
+  // ── Menu Principal — 5 botões de acesso rápido ────────────────────────────
   async enviarAjudaComBotoes(jid) {
-    const texto =
-      `🤖 *Seu Secretário — Menu Principal*\n\n` +
-      `💸 Registre gastos e receitas por texto, áudio ou foto\n` +
-      `📅 Agende compromissos e receba lembretes\n` +
-      `📊 Veja resumos, categorias e gastos fixos\n\n` +
-      `Escolha uma opção abaixo 👇`;
+    const corpo =
+      `🤖 *Seu Secretário — Menu Principal*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💸 Registre gastos e receitas\n` +
+      `📅 Agende compromissos e lembretes\n` +
+      `📊 Veja resumos, relatórios e gastos fixos\n` +
+      `👥 Gerencie quem te deve dinheiro\n` +
+      `⚙️ Configure gastos fixos mensais\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `Escolha uma seção abaixo 👇`;
 
-    await this.enviarLista(jid, texto, '📋 Ver opções', [
+    await this.enviarLista(jid, corpo, '📋 Abrir menu', [
       {
-        titulo: '📊 Financeiro',
+        titulo: '💸 Gastos e Receitas',
         itens: [
-          { id: 'btn_resumo',       titulo: '📊 Ver resumo do mês',       descricao: 'Saldo, receitas e despesas' },
-          { id: 'btn_historico',    titulo: '🕐 Histórico de transações',  descricao: 'Últimas 5 transações' },
-          { id: 'btn_categorias',   titulo: '📂 Minhas categorias',        descricao: 'Ver e gerenciar categorias' },
-          { id: 'btn_gastos_fixos', titulo: '🏠 Gastos fixos mensais',     descricao: 'Configurar contas fixas' },
-          { id: 'btn_limite',       titulo: '🎯 Limites de gastos',        descricao: 'Definir alertas por categoria' },
-          { id: 'btn_a_receber',    titulo: '💸 Dívidas a receber',        descricao: 'Ver quem te deve' },
+          { id: 'btn_resumo',    titulo: '📊 Ver resumo do mês',       descricao: 'Saldo, receitas e despesas' },
+          { id: 'btn_historico', titulo: '🕐 Histórico de transac',  descricao: 'Últimas 5 transações' },
+          { id: 'btn_pdf',       titulo: '📄 Gerar relatório PDF',      descricao: 'Relatório completo do mês' },
+          { id: 'btn_limite',    titulo: '🎯 Limites de gastos',        descricao: 'Definir alertas por categoria' },
+          { id: 'btn_categorias',titulo: '📂 Minhas categorias',        descricao: 'Ver e gerenciar categorias' },
         ],
       },
       {
-        titulo: '📅 Agenda',
+        titulo: '📅 Compromissos',
         itens: [
-          { id: 'btn_agenda', titulo: '📅 Minha agenda', descricao: 'Ver próximos compromissos' },
+          { id: 'btn_agenda',    titulo: '📅 Minha agenda',             descricao: 'Próximos compromissos' },
+        ],
+      },
+      {
+        titulo: '👥 Quem me deve',
+        itens: [
+          { id: 'menu_receber_ver',    titulo: '📋 Ver lista de devedores',  descricao: 'Quem ainda te deve' },
+          { id: 'menu_receber_add',    titulo: '➕ Adicionar dívida',        descricao: 'Registrar novo devedor' },
+          { id: 'menu_receber_lembrete',titulo: '🔔 Enviar lembrete',       descricao: 'Cobrar um devedor' },
+        ],
+      },
+      {
+        titulo: '⚙️ Gastos Fixos',
+        itens: [
+          { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos',       descricao: 'Suas contas mensais' },
+          { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar gasto fixo',   descricao: 'Nova conta mensal' },
         ],
       },
       {
         titulo: '🌐 Outros',
         itens: [
-          { id: 'btn_pdf',    titulo: '📄 Gerar relatório PDF',      descricao: 'PDF do mês atual' },
           { id: 'btn_painel', titulo: '🌐 Abrir painel web', descricao: 'Gráficos e relatórios completos' },
         ],
       },
+    ]);
+  }
+
+  // ── Submenu: Quem me deve ──────────────────────────────────────────────────
+  async enviarMenuQuemMeDeve(jid, usuarioId) {
+    // Conta pendências para exibir no header
+    const { rows } = await db.query(
+      `SELECT COUNT(*) AS qtd, COALESCE(SUM(valor),0) AS total
+       FROM dividas_receber WHERE usuario_id=$1 AND quitado=false`,
+      [usuarioId]
+    ).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
+    const qtd   = parseInt(rows[0]?.qtd || 0);
+    const total = parseFloat(rows[0]?.total || 0);
+
+    const corpo = qtd > 0
+      ? `👥 *Quem me deve — Menu*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `📌 *${qtd}* pessoa(s) te devem no total *${this._fmt(total)}*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Gerencie as pessoas que te devem dinheiro.`
+      : `👥 *Quem me deve — Menu*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Nenhuma dívida pendente no momento.\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Gerencie as pessoas que te devem dinheiro.`;
+
+    await this.enviarBotoes(jid, corpo, [
+      { id: 'menu_receber_ver',     titulo: '📋 Ver devedores' },
+      { id: 'menu_receber_add',     titulo: '➕ Adicionar dívida' },
+      { id: 'menu_receber_lembrete',titulo: '🔔 Enviar lembrete' },
+    ]);
+  }
+
+  // ── Submenu: Gastos Fixos ──────────────────────────────────────────────────
+  async enviarMenuGastosFixos(jid, usuarioId) {
+    await this._garantirTabelaGastosFixos();
+    const { rows } = await db.query(
+      `SELECT COUNT(*) AS qtd, COALESCE(SUM(valor),0) AS total
+       FROM gastos_fixos WHERE usuario_id=$1 AND ativo=true`,
+      [usuarioId]
+    ).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
+    const qtd   = parseInt(rows[0]?.qtd || 0);
+    const total = parseFloat(rows[0]?.total || 0);
+
+    const corpo = qtd > 0
+      ? `⚙️ *Gastos Fixos — Menu*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `📌 *${qtd}* gasto(s) fixo(s) | Total: *${this._fmt(total)}/mês*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Configure suas contas mensais fixas.`
+      : `⚙️ *Gastos Fixos — Menu*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Nenhum gasto fixo cadastrado.\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Configure suas contas mensais fixas.`;
+
+    await this.enviarBotoes(jid, corpo, [
+      { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos' },
+      { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar novo' },
+      { id: 'btn_menu_principal',   titulo: '🔙 Menu principal' },
     ]);
   }
 }

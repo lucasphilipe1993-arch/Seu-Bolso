@@ -300,7 +300,8 @@ class BotOficial {
       return this.excluirGastoFixo(jid, usuarioId, matchExcluirFixo[1].toUpperCase());
 
     // ── Relatório por categoria ────────────────────────────────────────────
-    const matchCategoria = texto.match(/^(?:gasto|gastos|quanto gastei|relat[oó]rio)s+(?:em|com|de|no|na)s+(.+)$/i);
+    const matchCategoria = texto.match(/^(?:gastos?|quanto gastei|relat[oó]rio|ver gastos?|mostrar gastos?)\s+(?:em|com|de|no|na|de\s+)\s*(.+)$/i)
+                        || texto.match(/^(?:gastos?|quanto gastei)\s+(.+)$/i);
     if (matchCategoria)
       return this.enviarRelatorioPorCategoria(jid, usuarioId, matchCategoria[1].trim());
 
@@ -1726,7 +1727,69 @@ _Digite o número ou "sem data" para pular_`);
     const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     const mes = agora.getMonth() + 1;
     const ano = agora.getFullYear();
-    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const MESES_LABEL = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+    // Mapa de palavras-chave → categoria cadastrada
+    // Assim "gasolina", "combustível", "uber" etc. resolvem para a categoria correta
+    const PALAVRAS_CATEGORIA = {
+      'gasolina':      'Transporte', 'combustivel':    'Transporte', 'combustível':   'Transporte',
+      'uber':          'Transporte', 'onibus':         'Transporte', 'ônibus':        'Transporte',
+      'transporte':    'Transporte', 'taxi':           'Transporte', 'táxi':          'Transporte',
+      'pedagio':       'Transporte', 'pedágio':        'Transporte', 'estacionamento':'Transporte',
+      'ifood':         'Alimentação','restaurante':    'Alimentação','lanche':        'Alimentação',
+      'alimentacao':   'Alimentação','alimentação':    'Alimentação','comida':        'Alimentação',
+      'almoco':        'Alimentação','almoço':         'Alimentação','jantar':        'Alimentação',
+      'delivery':      'Alimentação',
+      'mercado':       'Mercado',    'supermercado':   'Mercado',    'feira':         'Mercado',
+      'farmacia':      'Saúde',      'farmácia':       'Saúde',      'medico':        'Saúde',
+      'médico':        'Saúde',      'consulta':       'Saúde',      'saude':         'Saúde',
+      'saúde':         'Saúde',      'remedio':        'Saúde',      'remédio':       'Saúde',
+      'academia':      'Saúde',      'dentista':       'Saúde',
+      'netflix':       'Assinatura', 'spotify':        'Assinatura', 'assinatura':    'Assinatura',
+      'amazon':        'Assinatura', 'disney':         'Assinatura',
+      'aluguel':       'Casa',       'agua':           'Casa',       'água':          'Casa',
+      'energia':       'Casa',       'luz':            'Casa',       'internet':      'Casa',
+      'gas':           'Casa',       'gás':            'Casa',       'condominio':    'Casa',
+      'condomínio':    'Casa',       'casa':           'Casa',
+      'escola':        'Educação',   'faculdade':      'Educação',   'curso':         'Educação',
+      'educacao':      'Educação',   'educação':       'Educação',
+      'roupa':         'Vestuário',  'sapato':         'Vestuário',  'tenis':         'Vestuário',
+      'tênis':         'Vestuário',  'vestuario':      'Vestuário',  'vestuário':     'Vestuário',
+      'salao':         'Cuidados pessoais', 'salão':  'Cuidados pessoais', 'barbearia': 'Cuidados pessoais',
+      'pets':          'Pets',       'pet':            'Pets',       'racao':         'Pets', 'ração': 'Pets',
+      'viagem':        'Viagem',     'hotel':          'Viagem',     'passagem':      'Viagem',
+      'imposto':       'Impostos',   'ipva':           'Impostos',   'iptu':          'Impostos',
+      'multa':         'Impostos',   'impostos':       'Impostos',
+      'cinema':        'Lazer e Entretenimento', 'show': 'Lazer e Entretenimento', 'lazer': 'Lazer e Entretenimento',
+      'salario':       'Salário',    'salário':        'Salário',    'receita':       'Salário',
+      'outros':        'Outros',
+    };
+
+    const termoLower = nomeCategoria.toLowerCase().trim();
+
+    // Resolve o nome da categoria: primeiro tenta mapa de palavras-chave,
+    // depois busca por LIKE no banco (nome parcial), por último usa o termo literal
+    let categoriaResolvida = PALAVRAS_CATEGORIA[termoLower] || null;
+
+    if (!categoriaResolvida) {
+      // Tenta achar no banco do usuário por nome parcial
+      const { rows: catRows } = await db.query(
+        `SELECT nome FROM categorias WHERE usuario_id = $1 AND LOWER(nome) LIKE LOWER($2) LIMIT 1`,
+        [usuarioId, `%${termoLower}%`]
+      );
+      if (catRows.length > 0) categoriaResolvida = catRows[0].nome;
+    }
+
+    // Monta o filtro SQL: busca por categoria resolvida OU pelo termo na descrição
+    let whereCategoria, params;
+    if (categoriaResolvida) {
+      whereCategoria = `LOWER(COALESCE(c.nome, 'outros')) = LOWER($2)`;
+      params = [usuarioId, categoriaResolvida, mes, ano];
+    } else {
+      // Busca tanto na categoria quanto na descrição da transação
+      whereCategoria = `(LOWER(COALESCE(c.nome, 'outros')) LIKE LOWER($2) OR LOWER(t.descricao) LIKE LOWER($2))`;
+      params = [usuarioId, `%${termoLower}%`, mes, ano];
+    }
 
     const { rows: transacoes } = await db.query(
       `SELECT t.descricao, t.valor, t.data_pagamento, t.id_curto, c.nome AS categoria
@@ -1734,31 +1797,63 @@ _Digite o número ou "sem data" para pular_`);
        LEFT JOIN categorias c ON c.id = t.categoria_id
        WHERE t.usuario_id = $1
          AND t.tipo = 'despesa'
-         AND LOWER(COALESCE(c.nome, 'outros')) LIKE LOWER($2)
+         AND ${whereCategoria}
          AND EXTRACT(MONTH FROM t.data_pagamento) = $3
          AND EXTRACT(YEAR  FROM t.data_pagamento) = $4
        ORDER BY t.data_pagamento DESC`,
-      [usuarioId, `%${nomeCategoria}%`, mes, ano]
+      params
     );
 
-    const categoriaFinal = transacoes.length > 0 ? (transacoes[0].categoria || nomeCategoria) : nomeCategoria;
-    const total = transacoes.reduce((acc, t2) => acc + parseFloat(t2.valor), 0);
-    const emoji = EMOJI_CATEGORIA[categoriaFinal] || '📦';
-    const mesLabel = meses[mes - 1] + '/' + ano;
+    const nomeFinal    = categoriaResolvida || nomeCategoria;
+    const categoriaFmt = transacoes.length > 0 ? (transacoes[0].categoria || nomeFinal) : nomeFinal;
+    const total        = transacoes.reduce((acc, t2) => acc + parseFloat(t2.valor), 0);
+    const emoji        = EMOJI_CATEGORIA[categoriaFmt] || '📦';
+    const mesLabel     = MESES_LABEL[mes - 1] + '/' + ano;
 
     if (transacoes.length === 0) {
-      return this.enviar(jid,
-        `${emoji} *Gastos em "${nomeCategoria}"*
-
-` +
-        `Nenhum gasto encontrado em ${mesLabel} nessa categoria.
-
-` +
-        `💡 Tente: _"gasto em Transporte"_, _"gasto em Alimentação"_`
+      // Tenta o mês anterior como sugestão
+      const mesAnterior = mes === 1 ? 12 : mes - 1;
+      const anoAnterior = mes === 1 ? ano - 1 : ano;
+      const { rows: contagem } = await db.query(
+        `SELECT COUNT(*) AS qtd, COALESCE(SUM(t.valor),0) AS total
+         FROM transacoes t
+         LEFT JOIN categorias c ON c.id = t.categoria_id
+         WHERE t.usuario_id = $1
+           AND t.tipo = 'despesa'
+           AND ${whereCategoria.replace('$3','$3').replace('$4','$4')}
+           AND EXTRACT(MONTH FROM t.data_pagamento) = $3
+           AND EXTRACT(YEAR  FROM t.data_pagamento) = $4`,
+        [usuarioId, ...(categoriaResolvida ? [categoriaResolvida] : [`%${termoLower}%`]), mesAnterior, anoAnterior]
       );
+      const qtdAnt = parseInt(contagem[0]?.qtd || 0);
+      const totAnt = parseFloat(contagem[0]?.total || 0);
+
+      let msg = `${emoji} *Gastos em "${nomeFinal}"*
+`;
+      msg += `📅 ${mesLabel}
+`;
+      msg += `━━━━━━━━━━━━━━━━━━━━
+`;
+      msg += `Nenhum gasto encontrado neste mês.
+
+`;
+      if (qtdAnt > 0) {
+        msg += `📌 No mês anterior (${MESES_LABEL[mesAnterior-1]}): *${this._fmt(totAnt)}* em ${qtdAnt} lançamento(s).
+
+`;
+      }
+      msg += `💡 Tente outras categorias:
+`;
+      msg += `• _gasto em Transporte_
+• _gasto em Alimentação_
+• _gasto em Mercado_`;
+      return this.enviar(jid, msg);
     }
 
-    let msg = `${emoji} *Gastos em ${categoriaFinal}*
+    let msg = `${emoji} *Gastos em ${categoriaFmt}*
+`;
+    if (categoriaResolvida && categoriaResolvida.toLowerCase() !== termoLower)
+      msg += `🔍 _Pesquisado: "${nomeCategoria}"_
 `;
     msg += `📅 ${mesLabel}
 `;
@@ -1785,7 +1880,7 @@ _Digite o número ou "sem data" para pular_`);
 
     msg += `━━━━━━━━━━━━━━━━━━━━
 `;
-    msg += `🔍 Para outra categoria: _"gasto em [nome]"_
+    msg += `🔍 Outra categoria: _"gasto em [nome]"_
 `;
     msg += `📊 Resumo geral: _resumo_`;
 

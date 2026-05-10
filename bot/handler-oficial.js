@@ -152,9 +152,13 @@ class BotOficial {
       if (type === 'text') {
         texto = message.text?.body || '';
       } else if (type === 'audio') {
-        // Transcrição via Whisper (mesmo fluxo do Baileys)
+        // Avisa imediatamente e transcreve em paralelo
         const mediaId = message.audio?.id;
-        texto = await this._transcreverAudioMeta(mediaId);
+        const [, transcricao] = await Promise.all([
+          this.enviarDigitando(from).catch(() => {}),
+          this._transcreverAudioMeta(mediaId),
+        ]);
+        texto = transcricao;
         if (!texto) return this.enviar(from, '❌ Não consegui entender o áudio. Tente enviar texto.');
       } else if (type === 'image') {
         await this.enviar(from, '🖼️ Recebi sua imagem! Analisando...');
@@ -1351,10 +1355,10 @@ class BotOficial {
   async _baixarMidiaMeta(mediaId) {
     if (!ACCESS_TOKEN) return null;
     try {
-      // 1. Obtém URL temporária do arquivo
+      // 1. Obtém URL temporária do arquivo (timeout apertado — falha rápido)
       const infoRes = await axios.get(
         `https://graph.facebook.com/v20.0/${mediaId}`,
-        { headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }, timeout: 10000 }
+        { headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }, timeout: 7000 }
       );
       const url = infoRes.data?.url;
       if (!url) return null;
@@ -1363,7 +1367,7 @@ class BotOficial {
       const fileRes = await axios.get(url, {
         headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
         responseType: 'arraybuffer',
-        timeout: 30000,
+        timeout: 20000,
       });
       return Buffer.from(fileRes.data);
     } catch (err) {
@@ -1374,33 +1378,31 @@ class BotOficial {
 
   async _transcreverAudioMeta(mediaId) {
     if (!process.env.OPENAI_API_KEY || !mediaId) return null;
-    const fs       = require('fs');
-    const path     = require('path');
     const FormData = require('form-data');
-    const TMP_DIR  = path.join(process.cwd(), 'tmp');
-    if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
+    // Baixa URL e arquivo em paralelo não é possível (URL vem antes), mas
+    // eliminamos o arquivo temporário — passa o buffer direto ao Whisper
     const buffer = await this._baixarMidiaMeta(mediaId);
     if (!buffer) return null;
 
-    const tmpFile = path.join(TMP_DIR, `audio_meta_${Date.now()}.ogg`);
     try {
-      fs.writeFileSync(tmpFile, buffer);
       const form = new FormData();
-      form.append('file', fs.createReadStream(tmpFile), { filename: 'audio.ogg', contentType: 'audio/ogg' });
+      // Passa o buffer diretamente — sem escrita em disco
+      form.append('file', buffer, { filename: 'audio.ogg', contentType: 'audio/ogg' });
       form.append('model', 'whisper-1');
       form.append('language', 'pt');
       form.append('response_format', 'text');
+
       const resp = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
         headers: { ...form.getHeaders(), Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
         timeout: 30000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       });
       return typeof resp.data === 'string' ? resp.data.trim() : resp.data?.text?.trim() || null;
     } catch (err) {
       console.error('[META] Erro ao transcrever áudio:', err.message);
       return null;
-    } finally {
-      if (fs.existsSync(tmpFile)) { try { fs.unlinkSync(tmpFile); } catch {} }
     }
   }
 

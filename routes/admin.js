@@ -359,6 +359,21 @@ router.get('/faturamento', autenticarAdmin, async (req, res) => {
 // Evolução mensal dos últimos 12 meses
 router.get('/faturamento/evolucao', autenticarAdmin, async (req, res) => {
   try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS faturamento_empresa (
+        id SERIAL PRIMARY KEY,
+        stripe_invoice_id TEXT UNIQUE,
+        stripe_customer_id TEXT,
+        usuario_id UUID,
+        nome TEXT,
+        email TEXT,
+        plano TEXT,
+        periodo TEXT,
+        valor NUMERIC(10,2),
+        status TEXT DEFAULT 'pago',
+        pago_em TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
     const { rows } = await db.query(`
       SELECT
         EXTRACT(YEAR FROM pago_em)::int  AS ano,
@@ -482,7 +497,10 @@ router.post('/users/:id/mensagem', autenticarAdmin, async (req, res) => {
 
   try {
     const { rows } = await db.query(
-      `SELECT s.telefone, s.lid FROM sessoes_bot s WHERE s.usuario_id = $1`, [id]
+      `SELECT s.telefone, s.lid FROM sessoes_bot s
+       WHERE s.usuario_id = $1
+       ORDER BY (s.lid IS NOT NULL) DESC, (s.estado = 'ativo') DESC
+       LIMIT 1`, [id]
     );
     if (!rows.length || !rows[0].telefone)
       return res.status(404).json({ erro: 'Usuário sem WhatsApp vinculado' });

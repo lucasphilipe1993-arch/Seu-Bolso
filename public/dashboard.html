@@ -569,51 +569,37 @@
                     <div class="stat-box" style="border-left:4px solid var(--green)">
                         <div class="stat-label">Receita do Mês</div>
                         <div class="stat-value" id="adm-fat-receita" style="color:var(--green)">—</div>
-                        <div class="stat-meta">Entradas no período</div>
-                    </div>
-                    <div class="stat-box" style="border-left:4px solid var(--red)">
-                        <div class="stat-label">Despesas do Mês</div>
-                        <div class="stat-value" id="adm-fat-despesas" style="color:var(--red)">—</div>
-                        <div class="stat-meta">Saídas no período</div>
-                    </div>
-                    <div class="stat-box" style="border-left:4px solid var(--navy)">
-                        <div class="stat-label">Saldo do Mês</div>
-                        <div class="stat-value" id="adm-fat-saldo">—</div>
-                        <div class="stat-meta">Receita − Despesas</div>
+                        <div class="stat-meta">Assinaturas pagas</div>
                     </div>
                     <div class="stat-box" style="border-left:4px solid var(--gold)">
+                        <div class="stat-label">Assinaturas Ativas</div>
+                        <div class="stat-value" id="adm-fat-assinaturas" style="color:var(--gold)">—</div>
+                        <div class="stat-meta">Clientes pagantes</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--navy)">
                         <div class="stat-label">Total de Usuários</div>
-                        <div class="stat-value" id="adm-fat-usuarios" style="color:var(--gold)">—</div>
+                        <div class="stat-value" id="adm-fat-usuarios" style="color:var(--navy)">—</div>
                         <div class="stat-meta">Contas cadastradas</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--green)">
+                        <div class="stat-label">Receita Acumulada</div>
+                        <div class="stat-value" id="adm-fat-acumulada" style="color:var(--green)">—</div>
+                        <div class="stat-meta">Total histórico</div>
                     </div>
                 </div>
 
                 <!-- Gráfico evolução mensal -->
-                <div class="grid grid-2" style="margin-bottom:22px">
-                    <div class="card" style="margin:0">
-                        <h3 class="card-title">Evolução Mensal — Entradas vs Saídas</h3>
-                        <canvas id="adm-chart-evolucao" height="200"></canvas>
-                    </div>
-                    <div class="card" style="margin:0">
-                        <h3 class="card-title">Despesas por Categoria</h3>
-                        <div style="display:flex;gap:20px;align-items:center">
-                            <canvas id="adm-chart-pizza" width="150" height="150" style="flex-shrink:0"></canvas>
-                            <div id="adm-legenda-pizza" style="flex:1;font-size:13px"></div>
-                        </div>
-                    </div>
+                <div class="card" style="margin-bottom:22px">
+                    <h3 class="card-title">Receita Mensal — Assinaturas</h3>
+                    <canvas id="adm-chart-evolucao" height="120"></canvas>
                 </div>
 
-                <!-- Filtros e tabela de transações -->
+                <!-- Filtros e tabela de pagamentos -->
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
-                        <h3 class="card-title" style="margin:0">Lançamentos — Todos os Usuários</h3>
+                        <h3 class="card-title" style="margin:0">Pagamentos Recebidos</h3>
                         <div style="display:flex;gap:10px;flex-wrap:wrap">
                             <select class="form-select" id="adm-fat-mes" style="width:auto" onchange="adminCarregarFaturamento()">
-                            </select>
-                            <select class="form-select" id="adm-fat-tipo" style="width:auto" onchange="adminFiltrarFaturamento()">
-                                <option value="">Todos</option>
-                                <option value="receita">Receita</option>
-                                <option value="despesa">Despesa</option>
                             </select>
                         </div>
                     </div>
@@ -621,15 +607,16 @@
                         <thead>
                             <tr>
                                 <th>Data</th>
-                                <th>Usuário</th>
-                                <th>Descrição</th>
-                                <th>Categoria</th>
-                                <th>Tipo</th>
+                                <th>Cliente</th>
+                                <th>Email</th>
+                                <th>Plano</th>
+                                <th>Período</th>
                                 <th>Valor</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="adm-fat-tbody">
-                            <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
+                            <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -2107,7 +2094,6 @@ async function adminCarregarFaturamento() {
     const token = localStorage.getItem('gz_token');
     const mesEl = document.getElementById('adm-fat-mes');
 
-    // Preenche select de mês se vazio
     if (!mesEl.options.length) {
         const hoje = new Date();
         for (let i = 0; i < 12; i++) {
@@ -2121,46 +2107,28 @@ async function adminCarregarFaturamento() {
 
     const mesSel = mesEl.value || new Date().toISOString().slice(0, 7);
     const [ano, mes] = mesSel.split('-').map(Number);
-
     const tbody = document.getElementById('adm-fat-tbody');
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
 
     try {
-        // Busca todos os usuários e o resumo financeiro global
-        const [usersRes, resumoRes, transRes, categRes] = await Promise.all([
+        const [usersRes, fatRes, evolRes] = await Promise.all([
             fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => []),
-            fetch(`/api/admin/resumo?mes=${mes}&ano=${ano}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => null),
-            fetch(`/api/admin/transactions?mes=${mes}&ano=${ano}&limit=200`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({})),
-            fetch(`/api/admin/categorias?mes=${mes}&ano=${ano}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])
+            fetch(`/api/admin/faturamento?mes=${mes}&ano=${ano}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => ({})),
+            fetch('/api/admin/faturamento/evolucao', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])
         ]);
 
         // KPIs
-        const receita = resumoRes?.receita_total || 0;
-        const despesa = resumoRes?.despesa_total || 0;
-        const saldo = receita - despesa;
-        document.getElementById('adm-fat-receita').textContent = Fmt.moeda(receita);
-        document.getElementById('adm-fat-despesas').textContent = Fmt.moeda(despesa);
-        const saldoEl = document.getElementById('adm-fat-saldo');
-        saldoEl.textContent = Fmt.moeda(saldo);
-        saldoEl.style.color = saldo >= 0 ? 'var(--green)' : 'var(--red)';
-        const totalUsuarios = Array.isArray(usersRes) ? usersRes.length : (usersRes?.total || '—');
+        const totalUsuarios = Array.isArray(usersRes) ? usersRes.length : 0;
+        const assinaturasAtivas = Array.isArray(usersRes) ? usersRes.filter(u => u.plano !== 'gratuito').length : 0;
         document.getElementById('adm-fat-usuarios').textContent = totalUsuarios;
+        document.getElementById('adm-fat-assinaturas').textContent = assinaturasAtivas;
+        document.getElementById('adm-fat-receita').textContent = Fmt.moeda(fatRes?.total_mes || 0);
+        document.getElementById('adm-fat-acumulada').textContent = Fmt.moeda(fatRes?.total_acumulado || 0);
 
-        // Gráfico evolução últimos 6 meses
-        const evolLabels = [], evolReceitas = [], evolDespesas = [];
-        const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(ano, mes - 1 - i, 1);
-            evolLabels.push(meses[d.getMonth()]);
-            try {
-                const r = await fetch(`/api/admin/resumo?mes=${d.getMonth()+1}&ano=${d.getFullYear()}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                }).then(r => r.json()).catch(() => null);
-                evolReceitas.push(parseFloat(r?.receita_total || 0));
-                evolDespesas.push(parseFloat(r?.despesa_total || 0));
-            } catch { evolReceitas.push(0); evolDespesas.push(0); }
-        }
-
+        // Gráfico evolução
+        const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const evolLabels = Array.isArray(evolRes) ? evolRes.map(e => mesesNomes[e.mes - 1] + '/' + String(e.ano).slice(2)) : [];
+        const evolVals = Array.isArray(evolRes) ? evolRes.map(e => parseFloat(e.total)) : [];
         const ctxEv = document.getElementById('adm-chart-evolucao');
         if (ctxEv && window.Chart) {
             if (_admFatChartEvolucao) _admFatChartEvolucao.destroy();
@@ -2168,44 +2136,39 @@ async function adminCarregarFaturamento() {
                 type: 'bar',
                 data: {
                     labels: evolLabels,
-                    datasets: [
-                        { label: 'Receitas', data: evolReceitas, backgroundColor: 'rgba(45,122,95,.7)', borderRadius: 5 },
-                        { label: 'Despesas', data: evolDespesas, backgroundColor: 'rgba(192,57,43,.6)', borderRadius: 5 }
-                    ]
+                    datasets: [{ label: 'Receita (R$)', data: evolVals, backgroundColor: 'rgba(45,122,95,.7)', borderRadius: 5 }]
                 },
                 options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#9e9689', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#9e9689' }, grid: { display: false } }, y: { ticks: { color: '#9e9689', callback: v => 'R$' + v.toLocaleString('pt-BR') }, grid: { color: 'rgba(0,0,0,.05)' } } } }
             });
         }
 
-        // Gráfico pizza categorias
-        const cats = Array.isArray(categRes) ? categRes.slice(0, 8) : [];
-        const CORES = ['#b89456','#0f2237','#2d7a5f','#c0392b','#1e4060','#d4b07a','#374151','#9e9689'];
-        if (cats.length) {
-            const ctxPz = document.getElementById('adm-chart-pizza');
-            if (ctxPz && window.Chart) {
-                if (_admFatChartPizza) _admFatChartPizza.destroy();
-                _admFatChartPizza = new Chart(ctxPz, {
-                    type: 'doughnut',
-                    data: { labels: cats.map(c => c.categoria || 'Outros'), datasets: [{ data: cats.map(c => parseFloat(c.total)), backgroundColor: CORES, borderWidth: 0 }] },
-                    options: { responsive: false, plugins: { legend: { display: false } } }
-                });
-            }
-            const totalG = cats.reduce((s, c) => s + parseFloat(c.total), 0);
-            document.getElementById('adm-legenda-pizza').innerHTML = cats.map((c, i) => `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-                    <span style="width:10px;height:10px;border-radius:50%;background:${CORES[i]};display:inline-block;flex-shrink:0"></span>
-                    <span style="font-size:12px;color:var(--gray-700);flex:1">${c.categoria || 'Outros'}</span>
-                    <span style="font-size:12px;font-weight:600;color:var(--red)">${Fmt.moeda(c.total)}</span>
-                </div>`).join('');
+        // Tabela de pagamentos
+        const pagamentos = fatRes?.pagamentos || [];
+        if (!pagamentos.length) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum pagamento encontrado neste período.</td></tr>`;
+            return;
         }
-
-        // Tabela de transações
-        _admFatDados = transRes?.transacoes || [];
-        adminFiltrarFaturamento();
+        const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        tbody.innerHTML = pagamentos.map(p => {
+            const dt = new Date(p.pago_em);
+            const dataFmt = `${String(dt.getDate()).padStart(2,'0')}/${meses[dt.getMonth()]}/${dt.getFullYear()}`;
+            const statusColor = p.status === 'pago' ? 'var(--green)' : 'var(--red)';
+            const planoLabel = { basico: 'Básico', pro: 'Pro', gratuito: 'Gratuito' }[p.plano] || p.plano;
+            const periodoLabel = p.periodo === 'anual' ? '📅 Anual' : '📆 Mensal';
+            return `<tr>
+                <td>${dataFmt}</td>
+                <td><strong>${p.nome || '—'}</strong></td>
+                <td style="font-size:12px;color:var(--gray-400)">${p.email || '—'}</td>
+                <td><span class="badge badge-navy">${planoLabel}</span></td>
+                <td style="font-size:12px">${periodoLabel}</td>
+                <td style="color:var(--green);font-weight:600">${Fmt.moeda(p.valor)}</td>
+                <td><span style="color:${statusColor};font-size:12px;font-weight:600">${p.status}</span></td>
+            </tr>`;
+        }).join('');
 
     } catch (e) {
         console.error('adminCarregarFaturamento', e);
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--red)">Erro ao carregar dados. Verifique as rotas /api/admin/resumo e /api/admin/transactions.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--red)">Erro ao carregar dados.</td></tr>`;
     }
 }
 

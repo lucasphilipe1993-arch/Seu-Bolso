@@ -509,11 +509,24 @@ router.post('/users/:id/mensagem', autenticarAdmin, async (req, res) => {
       return res.status(503).json({ erro: 'Bot desconectado' });
 
     const { telefone, lid } = rows[0];
-    // Sempre envia para @s.whatsapp.net — o Baileys não aceita @lid como destino direto
-    const jid = `55${telefone}@s.whatsapp.net`;
+    // Tenta enviar pelo LID se disponível, fallback para número normal
+    const jidLid = lid || null;
+    const jidTel = `55${telefone}@s.whatsapp.net`;
 
-    await _bot.socket.sendMessage(jid, { text: texto, linkPreview: false });
-    console.log(`📤 Mensagem manual enviada para ${telefone} (${jid})`);
+    let enviado = false;
+    if (jidLid) {
+      try {
+        await _bot.socket.sendMessage(jidLid, { text: texto, linkPreview: false });
+        console.log(`📤 Mensagem manual enviada via LID para ${telefone} (${jidLid})`);
+        enviado = true;
+      } catch (errLid) {
+        console.warn(`⚠️  Falha ao enviar via LID, tentando número: ${errLid.message}`);
+      }
+    }
+    if (!enviado) {
+      await _bot.socket.sendMessage(jidTel, { text: texto, linkPreview: false });
+      console.log(`📤 Mensagem manual enviada via número para ${telefone} (${jidTel})`);
+    }
     res.json({ ok: true, mensagem: `Enviado para ${telefone}` });
   } catch (err) {
     console.error('❌ admin/mensagem POST:', err);

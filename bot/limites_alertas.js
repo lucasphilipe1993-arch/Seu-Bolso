@@ -255,7 +255,8 @@ class LimitesAlertas {
         ? this._normalizarCategoria(categoriaRaw)
         : null;
 
-      const valor = parseFloat(valorRaw.replace(',', '.'));
+      // Remove pontos de milhar (formato BR: "1.000" → "1000") antes de converter
+      const valor = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.'));
       if (isNaN(valor) || valor <= 0) return false;
 
       await this._definirLimite(remoteJid, usuarioId, categoria, periodo, valor);

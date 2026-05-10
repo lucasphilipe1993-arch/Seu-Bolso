@@ -9,6 +9,7 @@
 const axios  = require('axios');
 const db     = require('../database/db');
 const { LimitesAlertas } = require('./limites_alertas');
+const { gerarRelatorio, limparPdfsAntigos } = require('./relatorio');
 
 // ── Constantes de ambiente ────────────────────────────────────────────────────
 const ACCESS_TOKEN    = process.env.WA_OFICIAL_ACCESS_TOKEN;
@@ -244,12 +245,10 @@ class BotOficial {
     if (['últimas','ultimas','historico','histórico','últimas transações','histórico de transações'].includes(textoClean))
       return this.enviarUltimasTransacoes(jid, usuarioId);
 
-    // ── PDF ────────────────────────────────────────────────────────────────
-    const triggerPdf = ['pdf','relatorio pdf','relatório pdf','gerar pdf','exportar pdf'];
+    // ── PDF ──────────────────────────────────────────────────────────────────────
+    const triggerPdf = ['pdf','relatorio pdf','relatório pdf','gerar pdf','exportar pdf','relatorio mensal','relatório mensal'];
     if (triggerPdf.includes(textoClean) || textoClean.includes('pdf'))
-      return this.enviar(jid,
-        `📄 O relatório em PDF pode ser acessado no painel:\n🌐 *https://www.seusecretario.com.br/dashboard*`
-      );
+      return this.enviarRelatorioPdf(jid, usuarioId, nome);
 
     // ── Agenda — listar ────────────────────────────────────────────────────
     const triggerAgenda = [
@@ -573,6 +572,9 @@ class BotOficial {
 
       case 'btn_a_receber':
         return this.enviarDividasReceber(jid, usuarioId);
+
+      case 'btn_pdf':
+        return this.enviarRelatorioPdf(jid, usuarioId, nome);
 
       case 'btn_painel':
         return this.enviarBotaoLink(
@@ -1394,6 +1396,111 @@ class BotOficial {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // PDF — Geração e envio do relatório mensal
+  // ─────────────────────────────────────────────────────────────────────────
+  async enviarRelatorioPdf(jid, usuarioId, nome) {
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const mes = agora.getMonth() + 1;
+    const ano = agora.getFullYear();
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    await this.enviar(jid, `⏳ Gerando seu relatório PDF de *${meses[mes-1]}/${ano}*... Aguarde!`);
+
+    try {
+      limparPdfsAntigos();
+      const { outputPath, dados } = await gerarRelatorio(usuarioId, mes, ano);
+
+      const fs2    = require('fs');
+      const axios2 = require('axios');
+      const FormData = require('form-data');
+
+      if (!process.env.WA_OFICIAL_ACCESS_TOKEN || !process.env.WA_OFICIAL_PHONE_ID) {
+        return this.enviar(jid, '❌ Configuração da API incompleta para envio de PDF.');
+      }
+
+      // 1. Faz upload do PDF para a API da Meta (media upload)
+      const form = new FormData();
+      form.append('file', fs2.createReadStream(outputPath), {
+        filename: `relatorio_${meses[mes-1].toLowerCase()}_${ano}.pdf`,
+        contentType: 'application/pdf',
+      });
+      form.append('messaging_product', 'whatsapp');
+      form.append('type', 'application/pdf');
+
+      const uploadRes = await axios2.post(
+        `https://graph.facebook.com/v20.0/${process.env.WA_OFICIAL_PHONE_ID}/media`,
+        form,
+        {
+          headers: {
+            ...form.getHeaders(),
+            Authorization: `Bearer ${process.env.WA_OFICIAL_ACCESS_TOKEN}`,
+          },
+          timeout: 60000,
+        }
+      );
+
+      const mediaId = uploadRes.data?.id;
+      if (!mediaId) throw new Error('Upload de mídia falhou: sem media_id');
+
+      // 2. Envia o documento via WhatsApp
+      const recebido  = parseFloat(dados.totais.recebido || 0);
+      const pago      = parseFloat(dados.totais.pago || 0);
+      const saldo     = recebido - pago;
+      const sinalSaldo = saldo >= 0 ? '+' : '';
+
+      await axios2.post(
+        `https://graph.facebook.com/v20.0/${process.env.WA_OFICIAL_PHONE_ID}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          to: jid,
+          type: 'document',
+          document: {
+            id: mediaId,
+            filename: `Relatorio_${meses[mes-1]}_${ano}.pdf`,
+            caption:
+              `📊 *Relatório ${meses[mes-1]}/${ano}*
+
+` +
+              `💰 Receitas: *${this._fmt(recebido)}*
+` +
+              `💸 Despesas: *${this._fmt(pago)}*
+` +
+              `📈 Resultado: *${sinalSaldo}${this._fmt(saldo)}*
+
+` +
+              `📄 Relatório completo em PDF com todas as transações.`,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.WA_OFICIAL_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        }
+      );
+
+      // 3. Limpa o arquivo temporário
+      try { fs2.unlinkSync(outputPath); } catch {}
+
+      console.log(`[META] PDF enviado para ${jid}`);
+
+    } catch (err) {
+      console.error('[META] Erro ao gerar/enviar PDF:', err.message);
+      // Fallback: envia resumo texto + link do painel
+      await this.enviar(jid,
+        `❌ Não foi possível gerar o PDF agora.
+
+` +
+        `Tente novamente ou acesse o painel web para baixar:
+` +
+        `🌐 *https://www.seusecretario.com.br/dashboard*`
+      );
+    }
+  }
+
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Gastos Fixos Mensais
   // ─────────────────────────────────────────────────────────────────────────
   async _garantirTabelaGastosFixos() {
@@ -1762,6 +1869,7 @@ _Digite o número ou "sem data" para pular_`);
       {
         titulo: '🌐 Outros',
         itens: [
+          { id: 'btn_pdf',    titulo: '📄 Gerar relatório PDF',      descricao: 'PDF do mês atual' },
           { id: 'btn_painel', titulo: '🌐 Abrir painel web', descricao: 'Gráficos e relatórios completos' },
         ],
       },

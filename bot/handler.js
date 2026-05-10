@@ -15,6 +15,7 @@ const FormData = require('form-data');
 const db = require('../database/db');
 const { gerarRelatorio, limparPdfsAntigos } = require('./relatorio');
 const gcal = require('../utils/gcal'); // ← sincronização Google Calendar
+const { LimitesAlertas } = require('./limites_alertas'); // ← limites de gastos e alertas automáticos
 
 const TMP_DIR = path.join(process.cwd(), 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -239,6 +240,8 @@ class BotSeuSecretario {
     this.onNovaTransacao = null;
     this._estadosCategoriaFluxo = new Map();
     this._timerLembretes = null;
+    this._timerAlertas = null;
+    this._limitesAlertas = new LimitesAlertas(this);
   }
 
   get _logger() {
@@ -560,6 +563,16 @@ class BotSeuSecretario {
     console.log('⏰ Loop de lembretes iniciado (intervalo: 1min)');
     this._timerLembretes = setInterval(() => this._verificarLembretes(), 60 * 1000);
     this._verificarLembretes();
+
+    // ── Loop de alertas automáticos (limites + comparativo semanal) ──────────
+    if (!this._timerAlertas) {
+      console.log('📊 Loop de alertas financeiros iniciado (intervalo: 1h)');
+      this._timerAlertas = setInterval(
+        () => this._limitesAlertas.verificarAlertasAutomaticos(),
+        60 * 60 * 1000
+      );
+      this._limitesAlertas.verificarAlertasAutomaticos();
+    }
   }
 
   _pararChecagemLembretes() {
@@ -567,6 +580,11 @@ class BotSeuSecretario {
       clearInterval(this._timerLembretes);
       this._timerLembretes = null;
       console.log('⏰ Loop de lembretes parado.');
+    }
+    if (this._timerAlertas) {
+      clearInterval(this._timerAlertas);
+      this._timerAlertas = null;
+      console.log('📊 Loop de alertas financeiros parado.');
     }
   }
 
@@ -849,6 +867,10 @@ class BotSeuSecretario {
     );
     if (matchQuitar)
       return this.quitarDivida(remoteJid, usuarioId, matchQuitar[1].toUpperCase());
+
+    // ── Limites de gastos ───────────────────────────────────────────────────
+    const limiteHandled = await this._limitesAlertas.processarComandoLimite(remoteJid, usuarioId, nome, textoClean, texto);
+    if (limiteHandled) return;
 
     const divida = await this.interpretarDivida(texto);
     if (divida)
@@ -1656,6 +1678,9 @@ class BotSeuSecretario {
       `🔖 ID: *${idCurto}*\n\n` +
       `🗑️ Errou? Diga: _"excluir ${idCurto}"_ ou _"excluir última"_`
     );
+
+    // ── Verifica limites em tempo real após registrar despesa ───────────────
+    await this._limitesAlertas.verificarLimiteAposTransacao(remoteJid, usuarioId, { ...transacao, categoria: categoriaNome });
   }
 
   async registrarTransacaoSilencioso(remoteJid, usuarioId, transacao, textoOriginal) {
@@ -1695,6 +1720,9 @@ class BotSeuSecretario {
     }
 
     if (this.onNovaTransacao) this.onNovaTransacao({ id: rows[0].id, idCurto, tipo: transacao.tipo, valor: transacao.valor, descricao: transacao.descricao, categoria: categoriaNome, origem: 'whatsapp' });
+
+    // ── Verifica limites em tempo real (modo silencioso — múltiplas transações) ──
+    await this._limitesAlertas.verificarLimiteAposTransacao(remoteJid, usuarioId, { ...transacao, categoria: categoriaNome });
 
     return idCurto;
   }
@@ -1969,6 +1997,7 @@ class BotSeuSecretario {
       `• *agenda* — Ver seus compromissos\n` +
       `• *a receber* — Ver dívidas pendentes\n` +
       `• *categorias* — Ver suas categorias\n` +
+      `• *limite* — Definir limite de gastos\n` +
       `• *pdf* — Baixar relatório em PDF\n` +
       `• *ajuda* — Ver todos os comandos\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -2005,6 +2034,7 @@ class BotSeuSecretario {
       `🕐 *histórico* — Últimas transações\n` +
       `📂 *categorias* — Suas categorias\n` +
       `➕ *nova categoria* — Adicionar categoria\n` +
+      `🎯 *limite* — Ver e definir limites de gastos\n` +
       `📄 *pdf* — Relatório mensal em PDF\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🗑️ *Excluir transações:*\n` +

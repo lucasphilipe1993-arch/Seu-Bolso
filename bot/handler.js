@@ -1836,16 +1836,43 @@ class BotSeuSecretario {
     if (!this.socket || !this.conectado) throw new Error('Bot desconectado');
     await this._garantirCategoriasPadrao(usuarioId);
 
-    // Tenta todas as variações do número (com/sem 9 dígito, com/sem DDI)
+    // Busca LID salvo no banco — usa primeiro (igual ao endpoint de mensagem manual)
+    const jidsParaTentar = [];
+    try {
+      const lidRes = await db.query(
+        'SELECT s.lid FROM sessoes_bot s WHERE s.usuario_id = $1 AND s.lid IS NOT NULL LIMIT 1',
+        [usuarioId]
+      );
+      if (lidRes.rows.length > 0 && lidRes.rows[0].lid) {
+        jidsParaTentar.push(lidRes.rows[0].lid);
+        console.log('🔖 LID encontrado no banco: ' + lidRes.rows[0].lid);
+      }
+    } catch {}
+
+    // Também busca no lid_map pelo telefone
+    try {
+      const mapRes = await db.query(
+        'SELECT lid FROM lid_map WHERE telefone = $1 LIMIT 1',
+        [telefone]
+      );
+      if (mapRes.rows.length > 0 && !jidsParaTentar.includes(mapRes.rows[0].lid)) {
+        jidsParaTentar.push(mapRes.rows[0].lid);
+        console.log('🔖 LID encontrado no lid_map: ' + mapRes.rows[0].lid);
+      }
+    } catch {}
+
+    // Fallback: variações do número por telefone
     const variacoes = this._gerarVariacoesTelefone(telefone)
-      .filter(v => v.length >= 10 && /^\d+$/.test(v))
+      .filter(v => v.length >= 10 && /^d+$/.test(v))
       .map(v => {
         const semDDI = v.startsWith('55') ? v.slice(2) : v;
-        return `55${semDDI}@s.whatsapp.net`;
+        return '55' + semDDI + '@s.whatsapp.net';
       });
-    const jidsParaTentar = [...new Set(variacoes)];
-    console.log(`📤 Tentando boas-vindas para: ${jidsParaTentar.join(', ')}`);
+    for (const v of [...new Set(variacoes)]) {
+      if (!jidsParaTentar.includes(v)) jidsParaTentar.push(v);
+    }
 
+    console.log('📤 Tentando boas-vindas para: ' + jidsParaTentar.join(', '));
     let jidUsado = null;
     let resultado = null;
 

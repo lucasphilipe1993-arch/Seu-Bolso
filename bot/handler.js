@@ -1833,40 +1833,71 @@ class BotSeuSecretario {
   }
 
   async enviarBoasVindasECapturarLid(telefone, usuarioId, nome) {
-    if (!this.socket || !this.conectado) { console.warn('Bot desconectado'); return; }
+    if (!this.socket || !this.conectado) throw new Error('Bot desconectado');
     await this._garantirCategoriasPadrao(usuarioId);
-    const jid = `55${telefone}@s.whatsapp.net`;
-    try {
-      const resultado = await Promise.race([
-        this.socket.sendMessage(jid, { text: this.msgBemVindo(nome) }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
-      ]);
-      // Captura LID de todos os campos possíveis da resposta do sendMessage
-      const possiveisJids = [
-        resultado?.key?.remoteJid,
-        resultado?.key?.participant,
-        resultado?.participant,
-      ].filter(Boolean);
-      const jidReal = possiveisJids.find(j => j?.endsWith('@lid')) || null;
 
-      if (jidReal) {
-        lidCache.set(jidReal, telefone);
-        await this._garantirTabelaLidMap();
-        await db.query(`INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`, [jidReal, telefone]);
-        await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
-        await db.query(`UPDATE sessoes_bot SET lid = $1 WHERE usuario_id = $2`, [jidReal, usuarioId]);
-        console.log(`✅ LID capturado nas boas-vindas — usuario ${usuarioId}: ${jidReal}`);
-      } else {
-        console.log(`ℹ️  LID não retornado no envio para ${telefone} — será capturado quando o cliente responder`);
+    // Tenta todas as variações do número (com/sem 9 dígito, com/sem DDI)
+    const variacoes = this._gerarVariacoesTelefone(telefone)
+      .filter(v => v.length >= 10 && v.length <= 13 && /^d+$/.test(v))
+      .map(v => {
+        const semDDI = v.startsWith('55') ? v.slice(2) : v;
+        return `55${semDDI}@s.whatsapp.net`;
+      });
+    const jidsParaTentar = [...new Set(variacoes)];
+    console.log(`📤 Tentando boas-vindas para: ${jidsParaTentar.join(', ')}`);
+
+    let jidUsado = null;
+    let resultado = null;
+
+    for (const jid of jidsParaTentar) {
+      try {
+        resultado = await Promise.race([
+          this.socket.sendMessage(jid, { text: this.msgBemVindo(nome), linkPreview: false }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
+        ]);
+        jidUsado = jid;
+        console.log(`✅ Boas-vindas (msg 1) enviadas via ${jid}`);
+        break;
+      } catch (err) {
+        console.warn(`⚠️  Falha ao enviar para ${jid}: ${err.message}`);
       }
-      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (!jidUsado) {
+      throw new Error(`Não foi possível entregar a mensagem para nenhuma variação do número ${telefone}`);
+    }
+
+    // Tenta capturar LID da resposta do sendMessage
+    const possiveisJids = [
+      resultado?.key?.remoteJid,
+      resultado?.key?.participant,
+      resultado?.participant,
+    ].filter(Boolean);
+    const jidLid = possiveisJids.find(j => j?.endsWith('@lid')) || null;
+
+    if (jidLid) {
+      lidCache.set(jidLid, telefone);
+      await this._garantirTabelaLidMap();
+      await db.query(`INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`, [jidLid, telefone]);
+      await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
+      await db.query(`UPDATE sessoes_bot SET lid = $1 WHERE usuario_id = $2`, [jidLid, usuarioId]);
+      console.log(`✅ LID capturado nas boas-vindas — usuario ${usuarioId}: ${jidLid}`);
+    } else {
+      console.log(`ℹ️  LID não retornado no envio para ${telefone} — será capturado quando o cliente responder`);
+    }
+
+    // Aguarda 2s e envia o tutorial
+    await new Promise(r => setTimeout(r, 2000));
+    try {
       await Promise.race([
-        this.socket.sendMessage(jid, { text: this.msgTutorial() }),
+        this.socket.sendMessage(jidUsado, { text: this.msgTutorial(), linkPreview: false }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
       ]);
-    } catch (err) { console.warn(`Falha ao enviar boas-vindas para ${jid}:`, err.message); }
+      console.log(`✅ Tutorial enviado via ${jidUsado}`);
+    } catch (err) {
+      console.warn(`⚠️  Tutorial não enviado (boas-vindas OK): ${err.message}`);
+    }
   }
-
   async reconectar() {
     this._tentativas = 0; this._reconectando = false;
     if (this._timerReconexao) { clearTimeout(this._timerReconexao); this._timerReconexao = null; }

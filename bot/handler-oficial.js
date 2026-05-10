@@ -300,10 +300,19 @@ class BotOficial {
       return this.excluirGastoFixo(jid, usuarioId, matchExcluirFixo[1].toUpperCase());
 
     // ── Relatório por categoria ────────────────────────────────────────────
-    const matchCategoria = texto.match(/^(?:gastos?|quanto gastei|relat[oó]rio|ver gastos?|mostrar gastos?)\s+(?:em|com|de|no|na|de\s+)\s*(.+)$/i)
-                        || texto.match(/^(?:gastos?|quanto gastei)\s+(.+)$/i);
-    if (matchCategoria)
-      return this.enviarRelatorioPorCategoria(jid, usuarioId, matchCategoria[1].trim());
+    {
+      // Padrões aceitos:
+      // "gasto em gasolina", "gastos com combustível", "quanto de gasolina gastei"
+      // "quanto gastei de gasolina", "quanto gastei esse mês gasolina"
+      // "ver gastos transporte", "relatório alimentação"
+      const recat =
+        texto.match(/^quanto\s+de\s+(.+?)\s+(?:gastei|eu\s+gastei)/i)     // "quanto de X gastei"
+        || texto.match(/^quanto\s+(?:eu\s+)?gastei\s+(?:de|em|com|no|na)\s+(.+)/i) // "quanto gastei de X"
+        || texto.match(/^(?:gastos?|ver\s+gastos?|mostrar\s+gastos?|relat[oó]rio)\s+(?:em|com|de|no|na)?\s*(.+)$/i) // "gasto em X"
+        || texto.match(/^(?:quanto\s+gastei)\s+(.+)$/i);                    // "quanto gastei X"
+      if (recat)
+        return this.enviarRelatorioPorCategoria(jid, usuarioId, recat[1].trim());
+    }
 
     // ── IA: dívida a receber ───────────────────────────────────────────────
     const divida = await this.interpretarDivida(texto);
@@ -569,7 +578,7 @@ class BotOficial {
         return this.enviarGastosFixos(jid, usuarioId);
 
       case 'btn_limite':
-        return this.processarTexto(jid, usuarioId, nome, 'limite', jid);
+        return this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, 'limite', 'limite');
 
       case 'btn_a_receber':
         return this.enviarDividasReceber(jid, usuarioId);
@@ -598,6 +607,18 @@ class BotOficial {
         return this.iniciarFluxoNovoGastoFixo(jid, jid, '');
 
       default: {
+        // Clique em categoria → relatório de gastos da categoria no mês
+        if (buttonId.startsWith('cat_')) {
+          const catSlug = buttonId.replace('cat_', '').replace(/_/g, ' ');
+          // Busca nome real no banco
+          const { rows: catFound } = await db.query(
+            `SELECT nome FROM categorias WHERE usuario_id=$1 AND LOWER(REPLACE(nome,' ','_')) = LOWER($2) LIMIT 1`,
+            [usuarioId, buttonId.replace('cat_', '')]
+          );
+          const catNome = catFound[0]?.nome || catSlug;
+          return this.enviarRelatorioPorCategoria(jid, usuarioId, catNome);
+        }
+
         // Seleção de categoria para gasto fixo (fixo_cat_*)
         if (buttonId.startsWith('fixo_cat_')) {
           const estado = this._estados.get(jid);
@@ -910,18 +931,21 @@ class BotOficial {
       [usuarioId]
     );
     if (rows.length === 0) return this.enviar(jid, '📭 Nenhuma transação registrada ainda.');
-    let msg = `🕐 *Últimas transações:*\n\n`;
+    let msg = `🕐 *Últimas transações:*\n━━━━━━━━━━━━━━━━━━━━\n`;
     for (const tx of rows) {
       const emoji = tx.tipo === 'despesa' ? '💸' : '💰';
       const data = tx.data_pagamento
-        ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+        ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit' })
         : '—';
-      msg += `${emoji} *${tx.descricao}* — ${fmt(tx.valor)}\n`;
-      msg += `   🏷️ ${tx.categoria || 'Outros'} | 📅 ${data}`;
+      // Abrevia descrição (máx 22 chars) e categoria (máx 12 chars)
+      const desc = tx.descricao.length > 22 ? tx.descricao.slice(0, 21) + '…' : tx.descricao;
+      const cat  = (tx.categoria || 'Outros').length > 12 ? (tx.categoria || 'Outros').slice(0, 11) + '…' : (tx.categoria || 'Outros');
+      msg += `${emoji} *${desc}* — ${fmt(tx.valor)}\n`;
+      msg += `   🏷️ ${cat} | 📅 ${data}`;
       if (tx.id_curto) msg += ` | 🔖 *${tx.id_curto}*`;
-      msg += `\n\n`;
+      msg += `\n`;
     }
-    msg += `━━━━━━━━━━━━━━━━━━━━\n🗑️ Para excluir:\n• _excluir última_\n• _excluir [ID]_ — Ex: excluir A3B`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n🗑️ Excluir: _excluir última_ ou _excluir [ID]_`;
     await this.enviar(jid, msg);
   }
 
@@ -986,26 +1010,36 @@ class BotOficial {
       `SELECT DISTINCT ON (LOWER(nome)) nome FROM categorias WHERE usuario_id = $1 ORDER BY LOWER(nome) ASC`,
       [usuarioId]
     );
-    if (rows.length === 0) return this.enviar(jid, '📂 Você ainda não tem categorias.');
+    if (rows.length === 0) return this.enviar(jid, '📂 Você ainda não tem categorias. Digite _nova categoria_ para criar.');
 
-    // Usa lista interativa (até 10 itens por seção)
-    const itens = rows.map(row => ({
-      id: `cat_${row.nome.toLowerCase().replace(/\s+/g, '_').slice(0, 20)}`,
-      titulo: `${EMOJI_CATEGORIA[row.nome] || '📦'} ${row.nome}`,
-    }));
-
-    // Divide em seções de até 10 itens (limite da API)
-    const secoes = [];
-    for (let i = 0; i < itens.length; i += 10) {
-      secoes.push({ titulo: 'Categorias', itens: itens.slice(i, i + 10) });
+    // Monta mensagem de texto com todas as categorias
+    let msg = `📂 *Suas Categorias*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    for (const row of rows) {
+      const emoji = EMOJI_CATEGORIA[row.nome] || '📦';
+      msg += `${emoji} ${row.nome}\n`;
     }
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🔍 Ver gastos de uma categoria:\n`;
+    msg += `   _"gasto em Transporte"_\n`;
+    msg += `   _"gasto em Alimentação"_\n\n`;
+    msg += `➕ Criar nova: _nova categoria_\n`;
+    msg += `🎯 Definir limite: _limite_`;
 
-    await this.enviarLista(
-      jid,
-      `📂 *Suas Categorias*\n\nSelecione uma categoria para ver os gastos, ou adicione uma nova digitando _nova categoria_.`,
-      '📂 Ver categorias',
-      secoes
-    );
+    await this.enviar(jid, msg);
+
+    // Tenta enviar lista interativa também (permite clicar para ver gastos da categoria)
+    try {
+      const itens = rows.map(row => ({
+        id: `cat_${row.nome.toLowerCase().replace(/\s+/g, '_').slice(0, 20)}`,
+        titulo: `${EMOJI_CATEGORIA[row.nome] || '📦'} ${row.nome}`,
+        descricao: 'Ver gastos do mês',
+      }));
+      const secoes = [];
+      for (let i = 0; i < itens.length; i += 10) {
+        secoes.push({ titulo: 'Ver gastos por categoria', itens: itens.slice(i, i + 10) });
+      }
+      await this.enviarLista(jid, '👇 Toque para ver os gastos de uma categoria:', '📂 Selecionar', secoes);
+    } catch (_) { /* lista opcional — texto já foi enviado */ }
   }
 
   async iniciarFluxoNovaCategoria(jid, telefone) {

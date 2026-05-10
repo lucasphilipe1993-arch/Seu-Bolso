@@ -1841,14 +1841,23 @@ class BotSeuSecretario {
         this.socket.sendMessage(jid, { text: this.msgBemVindo(nome) }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 20s')), 20000)),
       ]);
-      const jidReal = resultado?.key?.remoteJid || resultado?.key?.participant || null;
-      if (jidReal && jidReal.endsWith('@lid')) {
+      // Captura LID de todos os campos possíveis da resposta do sendMessage
+      const possiveisJids = [
+        resultado?.key?.remoteJid,
+        resultado?.key?.participant,
+        resultado?.participant,
+      ].filter(Boolean);
+      const jidReal = possiveisJids.find(j => j?.endsWith('@lid')) || null;
+
+      if (jidReal) {
         lidCache.set(jidReal, telefone);
         await this._garantirTabelaLidMap();
         await db.query(`INSERT INTO lid_map (lid, telefone) VALUES ($1, $2) ON CONFLICT (lid) DO UPDATE SET telefone = $2`, [jidReal, telefone]);
         await db.query(`ALTER TABLE sessoes_bot ADD COLUMN IF NOT EXISTS lid TEXT`).catch(() => {});
         await db.query(`UPDATE sessoes_bot SET lid = $1 WHERE usuario_id = $2`, [jidReal, usuarioId]);
-        console.log(`LID vinculado ao usuario ${usuarioId}: ${jidReal}`);
+        console.log(`✅ LID capturado nas boas-vindas — usuario ${usuarioId}: ${jidReal}`);
+      } else {
+        console.log(`ℹ️  LID não retornado no envio para ${telefone} — será capturado quando o cliente responder`);
       }
       await new Promise(r => setTimeout(r, 2000));
       await Promise.race([

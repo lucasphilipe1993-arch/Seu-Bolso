@@ -421,7 +421,8 @@ router.post('/users/:id/mensagem', autenticarAdmin, async (req, res) => {
       return res.status(503).json({ erro: 'Bot desconectado' });
 
     const { telefone, lid } = rows[0];
-    const jid = lid || `55${telefone}@s.whatsapp.net`;
+    // Sempre envia para @s.whatsapp.net — o Baileys não aceita @lid como destino direto
+    const jid = `55${telefone}@s.whatsapp.net`;
 
     await _bot.socket.sendMessage(jid, { text: texto, linkPreview: false });
     console.log(`📤 Mensagem manual enviada para ${telefone} (${jid})`);

@@ -152,11 +152,9 @@ class BotOficial {
         texto = message.text?.body || '';
       } else if (type === 'audio') {
         // Transcrição via Whisper (mesmo fluxo do Baileys)
-        await this.enviar(from, '🎵 Recebi seu áudio! Transcrevendo...');
         const mediaId = message.audio?.id;
         texto = await this._transcreverAudioMeta(mediaId);
         if (!texto) return this.enviar(from, '❌ Não consegui entender o áudio. Tente enviar texto.');
-        await this.enviar(from, `🎙️ _Entendi: "${texto}"_`);
       } else if (type === 'image') {
         await this.enviar(from, '🖼️ Recebi sua imagem! Analisando...');
         const mediaId = message.image?.id;
@@ -286,6 +284,26 @@ class BotOficial {
     // ── Limites de gastos ──────────────────────────────────────────────────
     const limiteHandled = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoClean, texto);
     if (limiteHandled) return;
+
+    // ── Gastos fixos ───────────────────────────────────────────────────────
+    const triggerGastosFixos = ['gastos fixos','gasto fixo','contas fixas','conta fixa','fixos mensais','gastos mensais'];
+    if (triggerGastosFixos.includes(textoClean) || textoClean.startsWith('gastos fixos') || textoClean.startsWith('gasto fixo'))
+      return this.enviarGastosFixos(jid, usuarioId);
+
+    // ── Novo gasto fixo ────────────────────────────────────────────────────
+    const matchNovoFixo = texto.match(/^(?:add|adicionar|novo|criar)s+(?:gasto|conta)s+fixo?s+(.+)/i);
+    if (matchNovoFixo)
+      return this.iniciarFluxoNovoGastoFixo(jid, telefone, matchNovoFixo[1].trim());
+
+    // ── Excluir gasto fixo ─────────────────────────────────────────────────
+    const matchExcluirFixo = texto.match(/^(?:excluir|remover|deletar|apagar)s+(?:gasto|conta)s+fixo?s+([A-Z0-9]{2,6})/i);
+    if (matchExcluirFixo)
+      return this.excluirGastoFixo(jid, usuarioId, matchExcluirFixo[1].toUpperCase());
+
+    // ── Relatório por categoria ────────────────────────────────────────────
+    const matchCategoria = texto.match(/^(?:gasto|gastos|quanto gastei|relat[oó]rio)s+(?:em|com|de|no|na)s+(.+)$/i);
+    if (matchCategoria)
+      return this.enviarRelatorioPorCategoria(jid, usuarioId, matchCategoria[1].trim());
 
     // ── IA: dívida a receber ───────────────────────────────────────────────
     const divida = await this.interpretarDivida(texto);
@@ -547,6 +565,12 @@ class BotOficial {
       case 'btn_categorias':
         return this.enviarCategorias(jid, usuarioId);
 
+      case 'btn_gastos_fixos':
+        return this.enviarGastosFixos(jid, usuarioId);
+
+      case 'btn_limite':
+        return this.processarTexto(jid, usuarioId, nome, 'limite', jid);
+
       case 'btn_a_receber':
         return this.enviarDividasReceber(jid, usuarioId);
 
@@ -558,9 +582,50 @@ class BotOficial {
           'https://www.seusecretario.com.br/dashboard'
         );
 
-      default:
+      case 'btn_gastos_fixos_add':
+        return this.iniciarFluxoNovoGastoFixo(jid, jid, '');
+
+      case 'fluxo_fixo_internet':
+        return this.iniciarFluxoNovoGastoFixo(jid, jid, 'Internet');
+
+      case 'fluxo_fixo_aluguel':
+        return this.iniciarFluxoNovoGastoFixo(jid, jid, 'Aluguel');
+
+      case 'fluxo_fixo_outro':
+        return this.iniciarFluxoNovoGastoFixo(jid, jid, '');
+
+      default: {
+        // Seleção de categoria para gasto fixo (fixo_cat_*)
+        if (buttonId.startsWith('fixo_cat_')) {
+          const estado = this._estados.get(jid);
+          if (estado && estado.tipo === 'novo_gasto_fixo' && estado.etapa === 'aguardando_categoria') {
+            // Encontra nome real da categoria pelo id
+            const catKey = buttonId.replace('fixo_cat_', '').replace(/_/g, ' ');
+            const catEncontrada = CATEGORIAS_PADRAO.find(c =>
+              c.nome.toLowerCase().replace(/s+/g, '_').slice(0, 15) === buttonId.replace('fixo_cat_', '')
+            );
+            estado.categoria = catEncontrada ? catEncontrada.nome : catKey;
+            estado.etapa = 'aguardando_confirmacao_fixo';
+            this._estados.set(jid, estado);
+            return this.enviar(jid,
+              `✅ Confirmar o gasto fixo?
+
+🏠 *${estado.descricao}*
+` +
+              `💵 *${this._fmt(estado.valor)}*/mês
+` +
+              (estado.dia ? `📅 Vence dia ${estado.dia}
+` : '') +
+              `📂 Categoria: *${estado.categoria}*
+
+` +
+              `Responda *sim* para confirmar ou *não* para cancelar.`
+            );
+          }
+        }
         // ID de botão desconhecido — trata como texto normal
         return this.processarTexto(jid, usuarioId, nome, buttonId, jid);
+      }
     }
   }
 
@@ -954,6 +1019,10 @@ class BotOficial {
       return this.enviar(telefone, '❌ Operação cancelada.');
     }
 
+    if (estado.tipo === 'novo_gasto_fixo') {
+      return this._continuarFluxoGastoFixo(telefone, texto, estado);
+    }
+
     if (estado.tipo === 'nova_categoria') {
       const sessao = await this._buscarSessao(telefone);
       if (!sessao) { this._estados.delete(telefone); return; }
@@ -1325,6 +1394,303 @@ class BotOficial {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Gastos Fixos Mensais
+  // ─────────────────────────────────────────────────────────────────────────
+  async _garantirTabelaGastosFixos() {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS gastos_fixos (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        usuario_id UUID NOT NULL,
+        descricao TEXT NOT NULL,
+        valor NUMERIC(12,2) NOT NULL,
+        categoria TEXT NOT NULL DEFAULT 'Outros',
+        dia_vencimento INT DEFAULT 1,
+        ativo BOOLEAN NOT NULL DEFAULT TRUE,
+        id_curto TEXT,
+        criado_em TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+  }
+
+  async enviarGastosFixos(jid, usuarioId) {
+    await this._garantirTabelaGastosFixos();
+    const { rows } = await db.query(
+      `SELECT id_curto, descricao, valor, categoria, dia_vencimento
+       FROM gastos_fixos WHERE usuario_id = $1 AND ativo = true
+       ORDER BY dia_vencimento ASC, descricao ASC`,
+      [usuarioId]
+    );
+
+    const totalFixo = rows.reduce((acc, r) => acc + parseFloat(r.valor), 0);
+
+    let msg = `🏠 *Gastos Fixos Mensais*
+━━━━━━━━━━━━━━━━━━━━
+`;
+
+    if (rows.length === 0) {
+      msg += `
+Você ainda não tem gastos fixos cadastrados.
+
+`;
+    } else {
+      msg += `💰 Total mensal: *${this._fmt(totalFixo)}*
+
+`;
+      for (const r of rows) {
+        const emoji = EMOJI_CATEGORIA[r.categoria] || '📦';
+        const dia = r.dia_vencimento ? `Vence dia ${r.dia_vencimento}` : '';
+        msg += `${emoji} *${r.descricao}* — ${this._fmt(r.valor)}
+`;
+        if (dia) msg += `   📅 ${dia} | `;
+        else msg += `   `;
+        msg += `🔖 *${r.id_curto}*
+
+`;
+      }
+      msg += `━━━━━━━━━━━━━━━━━━━━
+`;
+    }
+
+    msg += `➕ Para adicionar: _"add gasto fixo [nome] [valor]"_
+`;
+    msg += `   Ex: _"add gasto fixo Internet 90"_
+`;
+    msg += `🗑️ Para remover: _"excluir gasto fixo [ID]"_`;
+
+    await this.enviar(jid, msg);
+
+    if (rows.length === 0) {
+      await this.enviarBotoes(jid, '👇 Adicione seu primeiro gasto fixo:', [
+        { id: 'fluxo_fixo_internet', titulo: '🌐 Internet/Telefone' },
+        { id: 'fluxo_fixo_aluguel',  titulo: '🏠 Aluguel/Moradia' },
+        { id: 'fluxo_fixo_outro',    titulo: '➕ Outro gasto fixo' },
+      ]);
+    } else {
+      await this.enviarBotoes(jid, 'O que deseja fazer?', [
+        { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar novo' },
+        { id: 'btn_resumo',           titulo: '📊 Ver resumo' },
+        { id: 'btn_historico',        titulo: '🕐 Histórico' },
+      ]);
+    }
+  }
+
+  async iniciarFluxoNovoGastoFixo(jid, telefone, textoInicial) {
+    const matchValor = textoInicial.match(/^(.+?)\s+R?\$?\s*(\d+(?:[.,]\d{1,2})?)$/i);
+    if (matchValor) {
+      const descricao = matchValor[1].trim();
+      const valor = parseFloat(matchValor[2].replace(',', '.'));
+      this._estados.set(telefone, { tipo: 'novo_gasto_fixo', etapa: 'aguardando_dia', descricao, valor });
+      return this.enviar(telefone,
+        `🏠 *Novo Gasto Fixo*
+
+📋 *${descricao}*
+💵 *${this._fmt(valor)}*
+
+` +
+        `Qual o dia do vencimento? (1-31)
+_Digite o número ou "sem data" para pular_`
+      );
+    }
+    this._estados.set(telefone, { tipo: 'novo_gasto_fixo', etapa: 'aguardando_nome' });
+    await this.enviar(telefone,
+      `🏠 *Novo Gasto Fixo*
+
+Qual o nome do gasto fixo?
+
+_Ex: Internet, Aluguel, Energia, Netflix_`
+    );
+  }
+
+  async _continuarFluxoGastoFixo(telefone, texto, estado) {
+    const sessao = await this._buscarSessao(telefone);
+    if (!sessao) { this._estados.delete(telefone); return; }
+
+    if (estado.etapa === 'aguardando_nome') {
+      estado.descricao = texto.trim();
+      estado.etapa = 'aguardando_valor';
+      this._estados.set(telefone, estado);
+      return this.enviar(telefone, `💵 Qual o valor mensal de *${estado.descricao}*?
+
+_Ex: 150 ou 150,00_`);
+    }
+
+    if (estado.etapa === 'aguardando_valor') {
+      const valor = parseFloat(texto.replace(',', '.').replace(/[^0-9.]/g, ''));
+      if (!valor || valor <= 0) return this.enviar(telefone, '⚠️ Valor inválido. Digite apenas o número, ex: 150');
+      estado.valor = valor;
+      estado.etapa = 'aguardando_dia';
+      this._estados.set(telefone, estado);
+      return this.enviar(telefone, `📅 Qual o dia do vencimento? (1-31)
+_Digite o número ou "sem data" para pular_`);
+    }
+
+    if (estado.etapa === 'aguardando_dia') {
+      let dia = null;
+      if (!['sem data','nao','nao','pular','skip'].includes(texto.toLowerCase().trim())) {
+        dia = parseInt(texto);
+        if (isNaN(dia) || dia < 1 || dia > 31)
+          return this.enviar(telefone, '⚠️ Dia inválido. Digite um número de 1 a 31 ou "sem data".');
+      }
+      estado.dia = dia;
+      estado.etapa = 'aguardando_categoria';
+      this._estados.set(telefone, estado);
+      const categoriasOpcoes = CATEGORIAS_PADRAO.filter(c => c.tipo !== 'receita').map(c => ({
+        id: `fixo_cat_${c.nome.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`,
+        titulo: `${EMOJI_CATEGORIA[c.nome] || '📦'} ${c.nome}`,
+      }));
+      return this.enviarLista(
+        telefone,
+        `📂 Qual a categoria de *${estado.descricao}*?`,
+        '📂 Escolher categoria',
+        [{ titulo: 'Categorias', itens: categoriasOpcoes.slice(0, 10) }]
+      );
+    }
+
+    if (estado.etapa === 'aguardando_confirmacao_fixo') {
+      if (['sim','s','yes','confirmar'].includes(texto.toLowerCase().trim())) {
+        await this._salvarGastoFixo(telefone, sessao.usuarioId, estado);
+      } else {
+        this._estados.delete(telefone);
+        await this.enviar(telefone, '❌ Gasto fixo não cadastrado.');
+      }
+    }
+  }
+
+  async _salvarGastoFixo(telefone, usuarioId, estado) {
+    await this._garantirTabelaGastosFixos();
+    let idCurto; let t = 0;
+    do {
+      idCurto = gerarIdCurto();
+      const ex = await db.query('SELECT id FROM gastos_fixos WHERE id_curto=$1', [idCurto]);
+      if (ex.rows.length === 0) break;
+    } while (++t < 20);
+
+    await db.query(
+      `INSERT INTO gastos_fixos (usuario_id, descricao, valor, categoria, dia_vencimento, id_curto)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [usuarioId, estado.descricao, estado.valor, estado.categoria || 'Outros', estado.dia || null, idCurto]
+    );
+    this._estados.delete(telefone);
+    await this.enviar(telefone,
+      `✅ *Gasto fixo cadastrado!*
+
+🏠 *${estado.descricao}*
+` +
+      `💵 *${this._fmt(estado.valor)}*/mês
+` +
+      (estado.dia ? `📅 Vence dia ${estado.dia}
+` : '') +
+      `📂 Categoria: ${estado.categoria || 'Outros'}
+` +
+      `🔖 ID: *${idCurto}*
+
+` +
+      `🗑️ Para remover: _"excluir gasto fixo ${idCurto}"_
+` +
+      `🏠 Ver todos: _"gastos fixos"_`
+    );
+  }
+
+  async excluirGastoFixo(jid, usuarioId, idCurto) {
+    await this._garantirTabelaGastosFixos();
+    const { rows } = await db.query(
+      `UPDATE gastos_fixos SET ativo=false
+       WHERE usuario_id=$1 AND UPPER(id_curto)=$2 AND ativo=true
+       RETURNING descricao, valor`,
+      [usuarioId, idCurto]
+    );
+    if (rows.length === 0)
+      return this.enviar(jid, `❌ Gasto fixo *${idCurto}* não encontrado.`);
+    await this.enviar(jid,
+      `🗑️ *Gasto fixo removido!*
+
+🏠 ${rows[0].descricao}
+💵 ${this._fmt(rows[0].valor)}/mês
+
+` +
+      `Digite *gastos fixos* para ver os demais.`
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Relatório por Categoria
+  // ─────────────────────────────────────────────────────────────────────────
+  async enviarRelatorioPorCategoria(jid, usuarioId, nomeCategoria) {
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const mes = agora.getMonth() + 1;
+    const ano = agora.getFullYear();
+    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+    const { rows: transacoes } = await db.query(
+      `SELECT t.descricao, t.valor, t.data_pagamento, t.id_curto, c.nome AS categoria
+       FROM transacoes t
+       LEFT JOIN categorias c ON c.id = t.categoria_id
+       WHERE t.usuario_id = $1
+         AND t.tipo = 'despesa'
+         AND LOWER(COALESCE(c.nome, 'outros')) LIKE LOWER($2)
+         AND EXTRACT(MONTH FROM t.data_pagamento) = $3
+         AND EXTRACT(YEAR  FROM t.data_pagamento) = $4
+       ORDER BY t.data_pagamento DESC`,
+      [usuarioId, `%${nomeCategoria}%`, mes, ano]
+    );
+
+    const categoriaFinal = transacoes.length > 0 ? (transacoes[0].categoria || nomeCategoria) : nomeCategoria;
+    const total = transacoes.reduce((acc, t2) => acc + parseFloat(t2.valor), 0);
+    const emoji = EMOJI_CATEGORIA[categoriaFinal] || '📦';
+    const mesLabel = meses[mes - 1] + '/' + ano;
+
+    if (transacoes.length === 0) {
+      return this.enviar(jid,
+        `${emoji} *Gastos em "${nomeCategoria}"*
+
+` +
+        `Nenhum gasto encontrado em ${mesLabel} nessa categoria.
+
+` +
+        `💡 Tente: _"gasto em Transporte"_, _"gasto em Alimentação"_`
+      );
+    }
+
+    let msg = `${emoji} *Gastos em ${categoriaFinal}*
+`;
+    msg += `📅 ${mesLabel}
+`;
+    msg += `━━━━━━━━━━━━━━━━━━━━
+`;
+    msg += `💰 Total: *${this._fmt(total)}*
+`;
+    msg += `📊 Lançamentos: *${transacoes.length}*
+
+`;
+
+    for (const tx of transacoes) {
+      const data = tx.data_pagamento
+        ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit' })
+        : '—';
+      msg += `💸 *${tx.descricao}* — ${this._fmt(tx.valor)}
+`;
+      msg += `   📅 ${data}`;
+      if (tx.id_curto) msg += ` | 🔖 *${tx.id_curto}*`;
+      msg += `
+
+`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━
+`;
+    msg += `🔍 Para outra categoria: _"gasto em [nome]"_
+`;
+    msg += `📊 Resumo geral: _resumo_`;
+
+    await this.enviar(jid, msg);
+  }
+
+  _fmt(v) {
+    return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Mensagens fixas
   // ─────────────────────────────────────────────────────────────────────────
   msgBemVindo(nome) {
@@ -1358,25 +1724,47 @@ class BotOficial {
       `📊 *resumo* — Saldo e relatório\n` +
       `🕐 *histórico* — Últimas transações\n` +
       `📂 *categorias* — Suas categorias\n` +
-      `🎯 *limite* — Definir limites de gastos\n\n` +
+      `🎯 *limite* — Definir limites de gastos\n` +
+      `🏠 *gastos fixos* — Configurar gastos mensais fixos\n` +
+      `🔍 *gasto em [categoria]* — Ex: _gasto em gasolina_\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🌐 Painel: *https://www.seusecretario.com.br/dashboard*`
     );
   }
 
-  // Envia o menu de ajuda com botões de ação rápida
+  // Envia o menu de ajuda com lista completa de ações
   async enviarAjudaComBotoes(jid) {
     const texto =
-      `🤖 *O que deseja fazer?*\n\n` +
+      `🤖 *Seu Secretário — Menu Principal*\n\n` +
       `💸 Registre gastos e receitas por texto, áudio ou foto\n` +
       `📅 Agende compromissos e receba lembretes\n` +
-      `📊 Veja resumos e relatórios do seu mês\n\n` +
-      `Ou escolha uma opção abaixo:`;
+      `📊 Veja resumos, categorias e gastos fixos\n\n` +
+      `Escolha uma opção abaixo 👇`;
 
-    await this.enviarBotoes(jid, texto, [
-      { id: 'btn_resumo',    titulo: '📊 Ver resumo' },
-      { id: 'btn_agenda',    titulo: '📅 Minha agenda' },
-      { id: 'btn_historico', titulo: '🕐 Histórico' },
+    await this.enviarLista(jid, texto, '📋 Ver opções', [
+      {
+        titulo: '📊 Financeiro',
+        itens: [
+          { id: 'btn_resumo',       titulo: '📊 Ver resumo do mês',       descricao: 'Saldo, receitas e despesas' },
+          { id: 'btn_historico',    titulo: '🕐 Histórico de transações',  descricao: 'Últimas 5 transações' },
+          { id: 'btn_categorias',   titulo: '📂 Minhas categorias',        descricao: 'Ver e gerenciar categorias' },
+          { id: 'btn_gastos_fixos', titulo: '🏠 Gastos fixos mensais',     descricao: 'Configurar contas fixas' },
+          { id: 'btn_limite',       titulo: '🎯 Limites de gastos',        descricao: 'Definir alertas por categoria' },
+          { id: 'btn_a_receber',    titulo: '💸 Dívidas a receber',        descricao: 'Ver quem te deve' },
+        ],
+      },
+      {
+        titulo: '📅 Agenda',
+        itens: [
+          { id: 'btn_agenda', titulo: '📅 Minha agenda', descricao: 'Ver próximos compromissos' },
+        ],
+      },
+      {
+        titulo: '🌐 Outros',
+        itens: [
+          { id: 'btn_painel', titulo: '🌐 Abrir painel web', descricao: 'Gráficos e relatórios completos' },
+        ],
+      },
     ]);
   }
 }

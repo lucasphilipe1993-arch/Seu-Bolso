@@ -205,6 +205,67 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         break;
       }
 
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+        if (invoice.billing_reason === 'subscription_create' || invoice.billing_reason === 'subscription_cycle') {
+          try {
+            // Garante que a tabela existe
+            await db.query(`
+              CREATE TABLE IF NOT EXISTS faturamento_empresa (
+                id SERIAL PRIMARY KEY,
+                stripe_invoice_id TEXT UNIQUE,
+                stripe_customer_id TEXT,
+                usuario_id UUID,
+                nome TEXT,
+                email TEXT,
+                plano TEXT,
+                periodo TEXT,
+                valor NUMERIC(10,2),
+                status TEXT DEFAULT 'pago',
+                pago_em TIMESTAMPTZ DEFAULT NOW()
+              )
+            `);
+
+            const priceId = invoice.lines?.data?.[0]?.price?.id;
+            let plano = 'basico', periodo = 'mensal';
+            for (const [key, cfg] of Object.entries(PLANOS)) {
+              if (cfg.priceId === priceId) {
+                plano = cfg.planoDb;
+                periodo = key.includes('anual') ? 'anual' : 'mensal';
+                break;
+              }
+            }
+
+            // Busca dados do usuário
+            const { rows } = await db.query(
+              'SELECT id, nome, email FROM usuarios WHERE stripe_customer_id = $1',
+              [invoice.customer]
+            );
+            const u = rows[0];
+
+            await db.query(`
+              INSERT INTO faturamento_empresa
+                (stripe_invoice_id, stripe_customer_id, usuario_id, nome, email, plano, periodo, valor, status, pago_em)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pago', NOW())
+              ON CONFLICT (stripe_invoice_id) DO NOTHING
+            `, [
+              invoice.id,
+              invoice.customer,
+              u?.id || null,
+              u?.nome || invoice.customer_name || null,
+              u?.email || invoice.customer_email || null,
+              plano,
+              periodo,
+              (invoice.amount_paid / 100).toFixed(2)
+            ]);
+            console.log(`💰 Pagamento registrado: R$ ${(invoice.amount_paid / 100).toFixed(2)} — ${u?.email || invoice.customer}`);
+          } catch (err) {
+            console.error('❌ Erro ao registrar pagamento:', err.message);
+          }
+        }
+        break;
+      }
+
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
         console.warn('❌ Pagamento falhou para customer: ' + invoice.customer);

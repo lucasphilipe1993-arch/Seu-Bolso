@@ -479,16 +479,24 @@ class BotOficial {
     });
   }
 
-  // Envia lista de opções (máx 10 itens)
+  // Envia lista de opções — LIMITE HARD da Meta: 10 rows TOTAIS por lista
   async enviarLista(para, textoCorpo, labelBotao, secoes) {
     // secoes: [{ titulo: 'string', itens: [{ id, titulo, descricao? }] }]
+    // Garante nunca ultrapassar 10 rows totais (API Meta rejeita com #131009)
+    let rowsRestantes = 10;
+    const secoesLimitadas = secoes
+      .filter(s => s.itens && s.itens.length > 0)
+      .map(s => ({ ...s, itens: s.itens.slice(0, rowsRestantes) }))
+      .filter(s => { rowsRestantes -= s.itens.length; return s.itens.length > 0 && rowsRestantes >= 0; });
+
     await this.enviarInterativo(para, {
       interactive: {
         type: 'list',
         body: { text: textoCorpo.slice(0, 4096) },
         action: {
           button: [...(labelBotao||'')].slice(0,20).join(''),
-          sections: secoes.map(s => ({
+          sections: secoesLimitadas.map(s => ({
+
             title: [...(s.titulo||'')].slice(0,24).join(''),
             rows: s.itens.slice(0, 10).map(i => ({
               id: i.id,
@@ -2012,43 +2020,42 @@ _Digite o número ou "sem data" para pular_`);
 
     await this.enviarLista(jid, corpo, '📋 Abrir menu', [
       {
-        titulo: '💸 Gastos e Receitas',
+        titulo: '💸 Financeiro',
         itens: [
-          { id: 'btn_resumo',    titulo: '📊 Ver resumo do mês',       descricao: 'Saldo, receitas e despesas' },
-          { id: 'btn_historico', titulo: '🕐 Histórico',               descricao: 'Últimas 5 transações' },
-          { id: 'btn_pdf',       titulo: '📄 Relatório PDF',            descricao: 'Relatório completo do mês' },
-          { id: 'btn_limite',    titulo: '🎯 Limites de gastos',        descricao: 'Definir alertas por categoria' },
-          { id: 'btn_categorias',titulo: '📂 Minhas categorias',        descricao: 'Ver e gerenciar categorias' },
+          { id: 'btn_resumo',    titulo: '📊 Resumo do mês',     descricao: 'Saldo, receitas e despesas' },
+          { id: 'btn_historico', titulo: '🕐 Histórico',         descricao: 'Últimas 5 transações' },
+          { id: 'btn_limite',    titulo: '🎯 Limites de gastos', descricao: 'Alertas por categoria' },
+          { id: 'btn_pdf',       titulo: '📄 Relatório PDF',     descricao: 'Relatório completo do mês' },
         ],
       },
       {
-        titulo: '📅 Compromissos',
+        titulo: '📅 Agenda',
         itens: [
-          { id: 'btn_agenda',    titulo: '📅 Minha agenda',             descricao: 'Próximos compromissos' },
+          { id: 'btn_agenda', titulo: '📅 Minha agenda', descricao: 'Próximos compromissos' },
         ],
       },
       {
         titulo: '👥 Quem me deve',
         itens: [
-          { id: 'menu_receber_ver',    titulo: '📋 Ver devedores',           descricao: 'Quem ainda te deve' },
-          { id: 'menu_receber_add',    titulo: '➕ Adicionar dívida',        descricao: 'Registrar novo devedor' },
-          { id: 'menu_receber_lembrete',titulo: '🔔 Enviar lembrete',       descricao: 'Cobrar um devedor' },
+          { id: 'menu_receber_ver', titulo: '📋 Ver devedores',    descricao: 'Quem ainda te deve' },
+          { id: 'menu_receber_add', titulo: '➕ Adicionar dívida', descricao: 'Registrar novo devedor' },
         ],
       },
       {
         titulo: '⚙️ Gastos Fixos',
         itens: [
-          { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos',       descricao: 'Suas contas mensais' },
-          { id: 'btn_gastos_fixos_add', titulo: '➕ Novo gasto fixo',        descricao: 'Nova conta mensal' },
+          { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos', descricao: 'Suas contas mensais' },
+          { id: 'btn_gastos_fixos_add', titulo: '➕ Novo gasto fixo',  descricao: 'Nova conta mensal' },
         ],
       },
       {
         titulo: '🌐 Outros',
         itens: [
-          { id: 'btn_painel', titulo: '🌐 Abrir painel web', descricao: 'Gráficos e relatórios completos' },
+          { id: 'btn_painel', titulo: '🌐 Painel web', descricao: 'Graficos e relatorios completos' },
         ],
       },
     ]);
+    // Nota: limite da API Meta = 10 rows totais por lista
   }
 
   // ── Submenu: Quem me deve ──────────────────────────────────────────────────

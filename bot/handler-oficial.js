@@ -2002,8 +2002,8 @@ _Digite o número ou "sem data" para pular_`);
     const corpo =
       `🤖 *Seu Secretário — Menu Principal*\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💸 Registre gastos e receitas\n` +
-      `📅 Agende compromissos e lembretes\n` +
+      `💸 Registre gastos e receitas por texto, áudio ou foto\n` +
+      `📅 Agende compromissos e receba lembretes\n` +
       `📊 Veja resumos, relatórios e gastos fixos\n` +
       `👥 Gerencie quem te deve dinheiro\n` +
       `⚙️ Configure gastos fixos mensais\n` +
@@ -2015,7 +2015,7 @@ _Digite o número ou "sem data" para pular_`);
         titulo: '💸 Gastos e Receitas',
         itens: [
           { id: 'btn_resumo',    titulo: '📊 Ver resumo do mês',       descricao: 'Saldo, receitas e despesas' },
-          { id: 'btn_historico', titulo: '🕐 Histórico de transac',  descricao: 'Últimas 5 transações' },
+          { id: 'btn_historico', titulo: '🕐 Histórico de transações',  descricao: 'Últimas 5 transações' },
           { id: 'btn_pdf',       titulo: '📄 Gerar relatório PDF',      descricao: 'Relatório completo do mês' },
           { id: 'btn_limite',    titulo: '🎯 Limites de gastos',        descricao: 'Definir alertas por categoria' },
           { id: 'btn_categorias',titulo: '📂 Minhas categorias',        descricao: 'Ver e gerenciar categorias' },

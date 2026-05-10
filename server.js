@@ -1,24 +1,27 @@
 global.crypto = require('crypto');
 require('dotenv').config();
+
 const express = require('express');
-const cors = require('cors');
-const http = require('http');
+const cors    = require('cors');
+const http    = require('http');
 const { Server } = require('socket.io');
-const QRCode = require('qrcode');
-const path = require('path');
-const db = require('./database/db');
-const BotSeuSecretario = require('./bot/handler');
+const QRCode  = require('qrcode');
+const path    = require('path');
+
+const db                 = require('./database/db');
+const BotSeuSecretario   = require('./bot/handler');
 
 // Rotas
-const authRoutes        = require('./routes/auth');
-const transactionRoutes = require('./routes/transactions');
-const whatsappRoute     = require('./routes/whatsapp');
-const adminRoute        = require('./routes/admin');
-const dividasRoute      = require('./routes/dividas');
-const stripeRoute       = require('./routes/stripe'); // ← STRIPE
-const cuponsRoute       = require('./routes/cupons'); // ← CUPONS
-const agendaRouter      = require('./routes/agenda'); // ← AGENDA
-const configRoute       = require('./routes/config'); // ← CONFIG GLOBAL
+const authRoutes           = require('./routes/auth');
+const transactionRoutes    = require('./routes/transactions');
+const whatsappRoute        = require('./routes/whatsapp');
+const adminRoute           = require('./routes/admin');
+const dividasRoute         = require('./routes/dividas');
+const stripeRoute          = require('./routes/stripe');
+const cuponsRoute          = require('./routes/cupons');
+const agendaRouter         = require('./routes/agenda');
+const configRoute          = require('./routes/config');
+const whatsappOficialRoute = require('./routes/whatsapp-oficial'); // ← META API OFICIAL
 
 const app    = express();
 const server = http.createServer(app);
@@ -48,7 +51,6 @@ app.use(cors({ origin: '*' }));
 // ⚠️ IMPORTANTE: o webhook do Stripe precisa do body RAW,
 // então registramos ANTES do express.json()
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
-
 app.use(express.json({ limit: '10mb' }));
 
 const DASHBOARD_PATH = path.join(__dirname, 'public');
@@ -56,7 +58,6 @@ const DASHBOARD_PATH = path.join(__dirname, 'public');
 // ─── URLs limpas (sem .html) ──────────────────────────────────
 app.use((req, res, next) => {
   const { existsSync } = require('fs');
-  // Ignora rotas de API, arquivos com extensão e raiz
   if (req.path.startsWith('/api/') || req.path.includes('.') || req.path === '/') return next();
   const filePath = path.join(DASHBOARD_PATH, req.path + '.html');
   if (existsSync(filePath)) return res.sendFile(filePath);
@@ -68,12 +69,15 @@ app.use(express.static(DASHBOARD_PATH));
 // ─── Socket.io ────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log('📡 Dashboard conectado via socket:', socket.id);
+
   socket.emit('status', { status: bot.conectado ? 'connected' : 'disconnected' });
+
   if (bot.qrAtual) {
     QRCode.toDataURL(bot.qrAtual)
       .then(url => socket.emit('qr', { url }))
       .catch(() => {});
   }
+
   socket.on('disconnect', () => {
     console.log('📡 Dashboard desconectado:', socket.id);
   });
@@ -92,8 +96,8 @@ bot.onConnected = async () => {
   io.emit('status',  { status: 'connected' });
   io.emit('qr_clear');
   try {
-    const creds = bot.socket?.authState?.creds;
-    const jid   = creds?.me?.id || null;
+    const creds  = bot.socket?.authState?.creds;
+    const jid    = creds?.me?.id || null;
     if (jid) {
       const numero = jid.replace(/:\d+/, '').replace('@s.whatsapp.net', '');
       io.emit('numero', { numero });
@@ -116,11 +120,14 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/whatsapp',     whatsappRoute.router);
 app.use('/api/admin',        adminRoute.router);
 app.use('/api/dividas',      dividasRoute);
-app.use('/api/stripe',       stripeRoute); // ← STRIPE
-app.use('/api/cupons',       cuponsRoute); // ← CUPONS
-app.use('/api/agenda',       agendaRouter); // ← AGENDA
-app.use('/api/config',      configRoute);  // ← CONFIG GLOBAL (Google Calendar admin)
-app.use('/api/gcal',        configRoute);  // ← alias para /api/gcal/test
+app.use('/api/stripe',       stripeRoute);
+app.use('/api/cupons',       cuponsRoute);
+app.use('/api/agenda',       agendaRouter);
+app.use('/api/config',       configRoute);
+app.use('/api/gcal',         configRoute);
+
+// ─── Webhook API Oficial WhatsApp (Meta) ──────────────────────
+app.use('/webhook/whatsapp', whatsappOficialRoute);
 
 // ─── Atalho /api/me → /api/auth/me ───────────────────────────
 const autenticar = require('./middleware/auth');
@@ -143,7 +150,7 @@ app.get('/health', (req, res) =>
   res.json({ ok: true, bot: bot.conectado, ts: new Date().toISOString() })
 );
 
-// ─── Fallback ─────────────────────────────────────────────────
+// ─── Fallback API ─────────────────────────────────────────────
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ erro: `Rota não encontrada: ${req.path}` });
@@ -160,6 +167,7 @@ app.get('*', (req, res) => {
 
 // ─── Encerramento limpo ───────────────────────────────────────
 let encerrando = false;
+
 async function encerrarLimpo(sinal) {
   if (encerrando) return;
   encerrando = true;
@@ -180,7 +188,7 @@ process.on('SIGINT',  () => encerrarLimpo('SIGINT'));
 server.listen(PORT, async () => {
   console.log(`
 ╔═══════════════════════════════════════╗
-║   💰 Seu Secretário — Iniciado!            ║
+║   💰 Seu Secretário — Iniciado!       ║
 ║   Porta: ${PORT}                      ║
 ║   Dashboard: http://localhost:${PORT} ║
 ╚═══════════════════════════════════════╝

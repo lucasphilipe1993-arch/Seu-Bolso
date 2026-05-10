@@ -546,18 +546,20 @@ router.post('/users/:id/boas-vindas', autenticarAdmin, async (req, res) => {
     if (!rows.length || !rows[0].telefone)
       return res.status(404).json({ erro: 'Usuário sem telefone cadastrado' });
 
-    if (!_bot?.conectado)
+    if (!_bot?.conectado || !_bot?.socket)
       return res.status(503).json({ erro: 'Bot desconectado' });
 
     const { nome, telefone } = rows[0];
-    setImmediate(() => {
-      _bot.enviarBoasVindasECapturarLid(telefone, id, nome).catch(console.error);
-    });
+
+    // Aguarda o envio terminar antes de responder ao dashboard
+    await _bot.enviarBoasVindasECapturarLid(telefone, id, nome);
+    console.log(`✅ Boas-vindas enviadas com sucesso para ${telefone} (usuário ${id})`);
 
     res.json({ ok: true, mensagem: `Boas-vindas enviadas para ${telefone}` });
   } catch (err) {
     console.error('❌ admin/boas-vindas POST:', err);
-    res.status(500).json({ erro: err.message });
+    // Retorna o erro real para o dashboard exibir ao admin
+    res.status(500).json({ erro: err.message || 'Falha ao enviar boas-vindas' });
   }
 });
 

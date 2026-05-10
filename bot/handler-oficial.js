@@ -127,6 +127,25 @@ class BotOficial {
       const type     = message.type;
       const pushName = contact?.profile?.name || null;
 
+      // ── Clique em botão ou seleção de lista ───────────────────────────────
+      if (type === 'interactive') {
+        const iType = message.interactive?.type;
+        let buttonId = null;
+
+        if (iType === 'button_reply') {
+          buttonId = message.interactive.button_reply?.id;
+        } else if (iType === 'list_reply') {
+          buttonId = message.interactive.list_reply?.id;
+        }
+
+        if (buttonId) {
+          const sessao = await this._buscarSessao(from);
+          if (!sessao) return this._responderNaoCadastrado(from);
+          return this._processarCliqueBotao(from, sessao.usuarioId, sessao.nome, buttonId);
+        }
+        return; // tipo interativo desconhecido — ignorar
+      }
+
       let texto = '';
 
       if (type === 'text') {
@@ -202,7 +221,7 @@ class BotOficial {
 
     // ── Ajuda ──────────────────────────────────────────────────────────────
     if (['ajuda','help','?','menu'].includes(textoClean))
-      return this.enviar(jid, this.msgAjuda());
+      return this.enviarAjudaComBotoes(jid);
 
     // ── Categorias ─────────────────────────────────────────────────────────
     if (['categorias','ver categorias','minhas categorias','listar categorias'].includes(textoClean))
@@ -336,10 +355,17 @@ class BotOficial {
 
     // ── Fallback ───────────────────────────────────────────────────────────
     await this.enviar(jid,
-      `❓ Não entendi essa mensagem como uma transação financeira.\n\n` +
+      `❓ Não entendi essa mensagem.\n\n` +
       `Tente algo como:\n• _Gastei 50 no mercado_\n• _Recebi 3000 de salário_\n\n` +
-      `Ou mande uma *foto* de nota fiscal ou *áudio* descrevendo o gasto.\n\n` +
-      `Digite *ajuda* para mais opções.`
+      `Ou mande uma *foto* de nota fiscal ou *áudio* descrevendo o gasto.`
+    );
+    await this.enviarBotoes(jid,
+      `O que deseja fazer agora?`,
+      [
+        { id: 'btn_resumo',    titulo: '📊 Ver resumo' },
+        { id: 'btn_agenda',    titulo: '📅 Minha agenda' },
+        { id: 'btn_historico', titulo: '🕐 Histórico' },
+      ]
     );
   }
 
@@ -368,6 +394,89 @@ class BotOficial {
       const msg = err.response?.data?.error?.message || err.message;
       console.error(`[META] Erro ao enviar para ${para}:`, msg);
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // enviarInterativo — envia mensagens com botões (reply buttons, lista, CTA)
+  // ─────────────────────────────────────────────────────────────────────────
+  async enviarInterativo(para, payload) {
+    if (!ACCESS_TOKEN || !PHONE_NUMBER_ID) {
+      console.warn('[META] WA_OFICIAL_ACCESS_TOKEN ou WA_OFICIAL_PHONE_ID não configurado');
+      return;
+    }
+    try {
+      await axios.post(GRAPH_URL, {
+        messaging_product: 'whatsapp',
+        to: para,
+        type: 'interactive',
+        ...payload,
+      }, {
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      });
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || err.message;
+      console.error(`[META] Erro ao enviar interativo para ${para}:`, msg);
+    }
+  }
+
+  // Envia até 3 botões de resposta rápida
+  async enviarBotoes(para, textoCorpo, botoes) {
+    // botoes: [{ id: 'string', titulo: 'string' }, ...]  (máx 3)
+    await this.enviarInterativo(para, {
+      interactive: {
+        type: 'button',
+        body: { text: textoCorpo },
+        action: {
+          buttons: botoes.slice(0, 3).map(b => ({
+            type: 'reply',
+            reply: { id: b.id, title: b.titulo.slice(0, 20) },
+          })),
+        },
+      },
+    });
+  }
+
+  // Envia lista de opções (máx 10 itens)
+  async enviarLista(para, textoCorpo, labelBotao, secoes) {
+    // secoes: [{ titulo: 'string', itens: [{ id, titulo, descricao? }] }]
+    await this.enviarInterativo(para, {
+      interactive: {
+        type: 'list',
+        body: { text: textoCorpo },
+        action: {
+          button: labelBotao.slice(0, 20),
+          sections: secoes.map(s => ({
+            title: s.titulo,
+            rows: s.itens.slice(0, 10).map(i => ({
+              id: i.id,
+              title: i.titulo.slice(0, 24),
+              ...(i.descricao ? { description: i.descricao.slice(0, 72) } : {}),
+            })),
+          })),
+        },
+      },
+    });
+  }
+
+  // Envia botão de link externo (CTA URL)
+  async enviarBotaoLink(para, textoCorpo, labelBotao, url) {
+    await this.enviarInterativo(para, {
+      interactive: {
+        type: 'cta_url',
+        body: { text: textoCorpo },
+        action: {
+          name: 'cta_url',
+          parameters: {
+            display_text: labelBotao.slice(0, 20),
+            url,
+          },
+        },
+      },
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -417,6 +526,42 @@ class BotOficial {
       variacoes.add('55' + sem9);
     }
     return Array.from(variacoes);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Trata cliques em botões e seleções de lista
+  // ─────────────────────────────────────────────────────────────────────────
+  async _processarCliqueBotao(jid, usuarioId, nome, buttonId) {
+    console.log(`🔘 [META] Clique de botão: ${buttonId} de ${jid}`);
+
+    switch (buttonId) {
+      case 'btn_resumo':
+        return this.enviarResumo(jid, usuarioId, nome);
+
+      case 'btn_agenda':
+        return this.enviarAgenda(jid, usuarioId);
+
+      case 'btn_historico':
+        return this.enviarUltimasTransacoes(jid, usuarioId);
+
+      case 'btn_categorias':
+        return this.enviarCategorias(jid, usuarioId);
+
+      case 'btn_a_receber':
+        return this.enviarDividasReceber(jid, usuarioId);
+
+      case 'btn_painel':
+        return this.enviarBotaoLink(
+          jid,
+          '📊 Acesse seu painel completo com gráficos e relatórios:',
+          '🌐 Abrir painel',
+          'https://www.seusecretario.com.br/dashboard'
+        );
+
+      default:
+        // ID de botão desconhecido — trata como texto normal
+        return this.processarTexto(jid, usuarioId, nome, buttonId, jid);
+    }
   }
 
   _responderNaoCadastrado(jid) {
@@ -604,6 +749,12 @@ class BotOficial {
       msg += `📊 Digite *resumo* para ver seu saldo.`;
 
       await this.enviar(jid, msg);
+      // Botões de ação rápida após registrar transação
+      await this.enviarBotoes(jid, 'O que deseja fazer agora?', [
+        { id: 'btn_resumo',    titulo: '📊 Ver resumo' },
+        { id: 'btn_historico', titulo: '🕐 Histórico' },
+        { id: 'btn_painel',    titulo: '🌐 Abrir painel' },
+      ]);
     } catch (err) {
       console.error('[META] Erro ao registrar transação:', err.message);
       await this.enviar(jid, '❌ Erro ao registrar transação. Tente novamente.');
@@ -668,9 +819,14 @@ class BotOficial {
         }
       }
 
-      msg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `🌐 Painel: *https://www.seusecretario.com.br/dashboard*`;
+      msg += `\n━━━━━━━━━━━━━━━━━━━━`;
       await this.enviar(jid, msg);
+      await this.enviarBotaoLink(
+        jid,
+        '🌐 Veja gráficos e relatórios completos no painel:',
+        '📊 Abrir painel',
+        'https://www.seusecretario.com.br/dashboard'
+      );
     } catch (err) {
       console.error('[META] Erro ao gerar resumo:', err.message);
       await this.enviar(jid, '❌ Erro ao gerar resumo. Tente novamente.');
@@ -763,13 +919,25 @@ class BotOficial {
       [usuarioId]
     );
     if (rows.length === 0) return this.enviar(jid, '📂 Você ainda não tem categorias.');
-    let msg = `📂 *Suas Categorias:*\n\n`;
-    for (const row of rows) {
-      const emoji = EMOJI_CATEGORIA[row.nome] || '📦';
-      msg += `${emoji} ${row.nome}\n`;
+
+    // Usa lista interativa (até 10 itens por seção)
+    const itens = rows.map(row => ({
+      id: `cat_${row.nome.toLowerCase().replace(/\s+/g, '_').slice(0, 20)}`,
+      titulo: `${EMOJI_CATEGORIA[row.nome] || '📦'} ${row.nome}`,
+    }));
+
+    // Divide em seções de até 10 itens (limite da API)
+    const secoes = [];
+    for (let i = 0; i < itens.length; i += 10) {
+      secoes.push({ titulo: 'Categorias', itens: itens.slice(i, i + 10) });
     }
-    msg += `\n➕ Para criar uma nova: _nova categoria_`;
-    await this.enviar(jid, msg);
+
+    await this.enviarLista(
+      jid,
+      `📂 *Suas Categorias*\n\nSelecione uma categoria para ver os gastos, ou adicione uma nova digitando _nova categoria_.`,
+      '📂 Ver categorias',
+      secoes
+    );
   }
 
   async iniciarFluxoNovaCategoria(jid, telefone) {
@@ -1194,6 +1362,22 @@ class BotOficial {
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `🌐 Painel: *https://www.seusecretario.com.br/dashboard*`
     );
+  }
+
+  // Envia o menu de ajuda com botões de ação rápida
+  async enviarAjudaComBotoes(jid) {
+    const texto =
+      `🤖 *O que deseja fazer?*\n\n` +
+      `💸 Registre gastos e receitas por texto, áudio ou foto\n` +
+      `📅 Agende compromissos e receba lembretes\n` +
+      `📊 Veja resumos e relatórios do seu mês\n\n` +
+      `Ou escolha uma opção abaixo:`;
+
+    await this.enviarBotoes(jid, texto, [
+      { id: 'btn_resumo',    titulo: '📊 Ver resumo' },
+      { id: 'btn_agenda',    titulo: '📅 Minha agenda' },
+      { id: 'btn_historico', titulo: '🕐 Histórico' },
+    ]);
   }
 }
 

@@ -307,6 +307,76 @@ router.post('/users/:id/vincular-lid', autenticarAdmin, async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/faturamento ──────────────────────────────
+// Faturamento real da empresa (assinaturas pagas via Stripe)
+router.get('/faturamento', autenticarAdmin, async (req, res) => {
+  const mes = parseInt(req.query.mes) || new Date().getMonth() + 1;
+  const ano = parseInt(req.query.ano) || new Date().getFullYear();
+
+  try {
+    // Garante tabela
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS faturamento_empresa (
+        id SERIAL PRIMARY KEY,
+        stripe_invoice_id TEXT UNIQUE,
+        stripe_customer_id TEXT,
+        usuario_id UUID,
+        nome TEXT,
+        email TEXT,
+        plano TEXT,
+        periodo TEXT,
+        valor NUMERIC(10,2),
+        status TEXT DEFAULT 'pago',
+        pago_em TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+
+    const { rows: pagamentos } = await db.query(`
+      SELECT * FROM faturamento_empresa
+      WHERE EXTRACT(MONTH FROM pago_em) = $1
+        AND EXTRACT(YEAR FROM pago_em) = $2
+      ORDER BY pago_em DESC
+    `, [mes, ano]);
+
+    const { rows: acum } = await db.query(
+      `SELECT COALESCE(SUM(valor), 0) AS total FROM faturamento_empresa WHERE status = 'pago'`
+    );
+
+    const total_mes = pagamentos.reduce((s, p) => s + parseFloat(p.valor || 0), 0);
+
+    res.json({
+      total_mes,
+      total_acumulado: parseFloat(acum[0]?.total || 0),
+      pagamentos
+    });
+  } catch (err) {
+    console.error('❌ admin/faturamento GET:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─── GET /api/admin/faturamento/evolucao ─────────────────────
+// Evolução mensal dos últimos 12 meses
+router.get('/faturamento/evolucao', autenticarAdmin, async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT
+        EXTRACT(YEAR FROM pago_em)::int  AS ano,
+        EXTRACT(MONTH FROM pago_em)::int AS mes,
+        COALESCE(SUM(valor), 0)          AS total
+      FROM faturamento_empresa
+      WHERE status = 'pago'
+        AND pago_em >= NOW() - INTERVAL '12 months'
+      GROUP BY ano, mes
+      ORDER BY ano, mes
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ admin/faturamento/evolucao GET:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // ─── GET /api/admin/resumo ────────────────────────────────────
 // Resumo financeiro global de TODOS os usuários (para o painel de faturamento)
 router.get('/resumo', autenticarAdmin, async (req, res) => {

@@ -394,11 +394,6 @@ class BotOficial {
     if (['menu gastos fixos','configurar gastos fixos','gastos fixos menu'].includes(textoClean))
       return this.enviarMenuGastosFixos(jid, usuarioId);
 
-    // ── IA: dívida a receber ───────────────────────────────────────────────
-    const divida = await this.interpretarDivida(texto);
-    if (divida)
-      return this.registrarDividaReceber(jid, usuarioId, divida, texto);
-
     // ── Agenda — comando explícito "agendar ..." ───────────────────────────
     const matchAgendar = texto.match(/^agendar\s+(.+)$/i);
     if (matchAgendar) {
@@ -417,15 +412,21 @@ class BotOficial {
       );
     }
 
-    // ── IA: compromisso (forma livre) ─────────────────────────────────────
-    const compromisso = await this.interpretarCompromisso(texto);
+    // ── IA: dívida + compromisso + transação em PARALELO ──────────────────
+    // Roda as 3 IAs ao mesmo tempo — reduz ~67% do tempo de resposta
+    console.log(`🧠 [META] Interpretando em paralelo: "${texto}"`);
+    const [divida, compromisso, transacoes] = await Promise.all([
+      this.interpretarDivida(texto).catch(() => null),
+      this.interpretarCompromisso(texto).catch(() => null),
+      this.interpretarTransacao(texto).catch(() => null),
+    ]);
+    console.log(`🧠 [META] Resultado — divida:${!!divida} compromisso:${!!compromisso} transacoes:${Array.isArray(transacoes) ? transacoes.length : 0}`);
+
+    if (divida)
+      return this.registrarDividaReceber(jid, usuarioId, divida, texto);
+
     if (compromisso)
       return this.registrarCompromisso(jid, usuarioId, compromisso, texto);
-
-    // ── IA: transação financeira ───────────────────────────────────────────
-    console.log(`🧠 [META] Interpretando: "${texto}"`);
-    const transacoes = await this.interpretarTransacao(texto);
-    console.log(`🧠 [META] Resultado:`, JSON.stringify(transacoes));
 
     if (transacoes && transacoes.length > 0) {
       if (transacoes.length === 1) {
@@ -1002,58 +1003,132 @@ class BotOficial {
       const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
       const mes = agora.getMonth() + 1;
       const ano = agora.getFullYear();
-
-      const { rows: totais } = await db.query(`
-        SELECT
-          COALESCE(SUM(CASE WHEN tipo='receita' THEN valor END), 0) AS receitas,
-          COALESCE(SUM(CASE WHEN tipo='despesa' THEN valor END), 0) AS despesas
-        FROM transacoes
-        WHERE usuario_id = $1
-          AND EXTRACT(MONTH FROM data_pagamento) = $2
-          AND EXTRACT(YEAR  FROM data_pagamento) = $3
-      `, [usuarioId, mes, ano]);
-
-      const { rows: saldoRows } = await db.query(
-        `SELECT COALESCE(SUM(saldo), 0) AS total FROM contas WHERE usuario_id = $1`,
-        [usuarioId]
-      );
-
-      const { rows: cats } = await db.query(`
-        SELECT c.nome AS categoria, COALESCE(SUM(t.valor), 0) AS total
-        FROM transacoes t
-        LEFT JOIN categorias c ON c.id = t.categoria_id
-        WHERE t.usuario_id = $1 AND t.tipo = 'despesa'
-          AND EXTRACT(MONTH FROM t.data_pagamento) = $2
-          AND EXTRACT(YEAR  FROM t.data_pagamento) = $3
-        GROUP BY c.nome
-        ORDER BY total DESC LIMIT 3
-      `, [usuarioId, mes, ano]);
-
       const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-      const receitas = parseFloat(totais[0].receitas);
-      const despesas = parseFloat(totais[0].despesas);
-      const saldo    = parseFloat(saldoRows[0].total);
-      const liquido  = receitas - despesas;
-      const sinalLiq = liquido >= 0 ? '+' : '';
 
+      // Todas as queries em paralelo para máxima velocidade
+      const [totaisRes, saldoRes, catsRes, agendaRes, devedoresRes, fixosRes] = await Promise.all([
+        db.query(`
+          SELECT
+            COALESCE(SUM(CASE WHEN tipo='receita' THEN valor END), 0) AS receitas,
+            COALESCE(SUM(CASE WHEN tipo='despesa' THEN valor END), 0) AS despesas
+          FROM transacoes
+          WHERE usuario_id=$1
+            AND EXTRACT(MONTH FROM data_pagamento)=$2
+            AND EXTRACT(YEAR  FROM data_pagamento)=$3
+        `, [usuarioId, mes, ano]),
+
+        db.query(
+          `SELECT COALESCE(SUM(saldo), 0) AS total FROM contas WHERE usuario_id=$1`,
+          [usuarioId]
+        ),
+
+        db.query(`
+          SELECT c.nome AS categoria, COALESCE(SUM(t.valor), 0) AS total
+          FROM transacoes t
+          LEFT JOIN categorias c ON c.id = t.categoria_id
+          WHERE t.usuario_id=$1 AND t.tipo='despesa'
+            AND EXTRACT(MONTH FROM t.data_pagamento)=$2
+            AND EXTRACT(YEAR  FROM t.data_pagamento)=$3
+          GROUP BY c.nome ORDER BY total DESC LIMIT 3
+        `, [usuarioId, mes, ano]),
+
+        db.query(`
+          SELECT titulo, data_hora, local FROM agenda
+          WHERE usuario_id=$1 AND cancelado=false AND data_hora >= NOW()
+          ORDER BY data_hora ASC LIMIT 3
+        `, [usuarioId]).catch(() => ({ rows: [] })),
+
+        db.query(`
+          SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
+          FROM dividas_receber WHERE usuario_id=$1 AND status='pendente'
+        `, [usuarioId]).catch(() => ({ rows: [{ qtd: 0, total: 0 }] })),
+
+        db.query(`
+          SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
+          FROM gastos_fixos WHERE usuario_id=$1 AND ativo=true
+        `, [usuarioId]).catch(() => ({ rows: [{ qtd: 0, total: 0 }] })),
+      ]);
+
+      const receitas  = parseFloat(totaisRes.rows[0].receitas);
+      const despesas  = parseFloat(totaisRes.rows[0].despesas);
+      const saldo     = parseFloat(saldoRes.rows[0].total);
+      const liquido   = receitas - despesas;
+      const sinalLiq  = liquido >= 0 ? '+' : '';
+      const cats      = catsRes.rows;
+      const agenda    = agendaRes.rows;
+      const devQtd    = parseInt(devedoresRes.rows[0]?.qtd || 0);
+      const devTotal  = parseFloat(devedoresRes.rows[0]?.total || 0);
+      const fixoQtd   = parseInt(fixosRes.rows[0]?.qtd || 0);
+      const fixoTotal = parseFloat(fixosRes.rows[0]?.total || 0);
+
+      // ── Bloco 1: Financeiro ──────────────────────────────────────────────
       let msg = `📊 *Resumo de ${meses[mes - 1]}/${ano}*\n`;
       msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `Receitas: *${fmt(receitas)}*\n`;
-      msg += `Despesas: *${fmt(despesas)}*\n`;
-      msg += `Resultado: *${sinalLiq}${fmt(liquido)}*\n`;
-      msg += `Saldo geral: *${fmt(saldo)}*\n`;
+      msg += `💰 *Financeiro do mês*\n`;
+      msg += `Receitas: *${this._fmt(receitas)}*\n`;
+      msg += `Despesas: *${this._fmt(despesas)}*\n`;
+      msg += `Resultado: *${sinalLiq}${this._fmt(liquido)}*\n`;
+      msg += `Saldo geral: *${this._fmt(saldo)}*\n`;
 
+      // ── Bloco 2: Top categorias ──────────────────────────────────────────
       if (cats.length > 0) {
         msg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `*Top categorias (despesas):*\n`;
+        msg += `🏷️ *Top categorias (despesas)*\n`;
         for (const cat of cats) {
-          const emoji = EMOJI_CATEGORIA[cat.categoria] || '';
-          msg += `${emoji} ${cat.categoria || 'Outros'}: *${fmt(cat.total)}*\n`;
+          const emoji = EMOJI_CATEGORIA[cat.categoria] || '📦';
+          msg += `${emoji} ${cat.categoria || 'Outros'}: *${this._fmt(cat.total)}*\n`;
         }
+        msg += `_"gasto em [categoria]" para detalhar_`;
       }
 
-      msg += `\n━━━━━━━━━━━━━━━━━━━━`;
+      // ── Bloco 3: Gastos fixos ────────────────────────────────────────────
+      if (fixoQtd > 0) {
+        msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `🏠 *Gastos Fixos Mensais*\n`;
+        msg += `${fixoQtd} conta(s) | Total: *${this._fmt(fixoTotal)}/mês*\n`;
+        msg += `_Digite "gastos fixos" para ver a lista_`;
+      }
+
+      // ── Bloco 4: Agenda ──────────────────────────────────────────────────
+      msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `📅 *Próximos Compromissos*\n`;
+      if (agenda.length === 0) {
+        msg += `Nenhum compromisso agendado.\n`;
+        msg += `_"agendar reunião amanhã às 10h" para criar_`;
+      } else {
+        for (const comp of agenda) {
+          const dh      = new Date(comp.data_hora);
+          const dataFmt = dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
+          const horaFmt = dh.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+          msg += `• *${comp.titulo}* — ${dataFmt} às ${horaFmt}`;
+          if (comp.local) msg += ` | ${comp.local}`;
+          msg += `\n`;
+        }
+        msg += `_Digite "agenda" para ver todos_`;
+      }
+
+      // ── Bloco 5: Devedores ───────────────────────────────────────────────
+      msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `👥 *Quem me deve*\n`;
+      if (devQtd === 0) {
+        msg += `Nenhuma dívida pendente.\n`;
+        msg += `_"João me deve 50" para registrar_`;
+      } else {
+        msg += `${devQtd} devedor(es) | Total: *${this._fmt(devTotal)}*\n`;
+        msg += `_Digite "a receber" para ver a lista_`;
+      }
+
+      msg += `\n\n━━━━━━━━━━━━━━━━━━━━`;
+
       await this.enviar(jid, msg);
+
+      // Botões de ação rápida
+      await this.enviarBotoes(jid, 'O que deseja ver agora?', [
+        { id: 'btn_agenda',       titulo: '📅 Ver agenda' },
+        { id: 'menu_receber_ver', titulo: '👥 Ver devedores' },
+        { id: 'btn_pdf',          titulo: '📄 Relatório PDF' },
+      ]);
+
       await this.enviarBotaoLink(
         jid,
         'Veja gráficos e relatórios completos no painel:',

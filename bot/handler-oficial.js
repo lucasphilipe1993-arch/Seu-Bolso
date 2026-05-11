@@ -153,10 +153,10 @@ class BotOficial {
       if (type === 'text') {
         texto = message.text?.body || '';
       } else if (type === 'audio') {
-        // Avisa imediatamente e transcreve em seguida
+        // Avisa IMEDIATAMENTE que está transcrevendo, antes de qualquer processamento
         const mediaId = message.audio?.id;
         if (!mediaId) return this.enviar(from, 'Não consegui receber o áudio. Tente novamente.');
-        await this.enviarDigitando(from).catch(() => {});
+        await this.enviar(from, '🎙️ _Transcrevendo..._');
         const transcricao = await this._transcreverAudioMeta(mediaId);
         texto = transcricao;
         if (!texto) return this.enviar(from, 'Não consegui entender o áudio. Tente enviar texto.');
@@ -394,6 +394,11 @@ class BotOficial {
     if (['menu gastos fixos','configurar gastos fixos','gastos fixos menu'].includes(textoClean))
       return this.enviarMenuGastosFixos(jid, usuarioId);
 
+    // ── IA: dívida a receber ───────────────────────────────────────────────
+    const divida = await this.interpretarDivida(texto);
+    if (divida)
+      return this.registrarDividaReceber(jid, usuarioId, divida, texto);
+
     // ── Agenda — comando explícito "agendar ..." ───────────────────────────
     const matchAgendar = texto.match(/^agendar\s+(.+)$/i);
     if (matchAgendar) {
@@ -412,21 +417,15 @@ class BotOficial {
       );
     }
 
-    // ── IA: dívida + compromisso + transação em PARALELO ──────────────────
-    // Executa as 3 chamadas ao mesmo tempo — reduz ~67% do tempo de resposta
-    console.log(`🧠 [META] Interpretando em paralelo: "${texto}"`);
-    const [divida, compromisso, transacoes] = await Promise.all([
-      this.interpretarDivida(texto).catch(() => null),
-      this.interpretarCompromisso(texto).catch(() => null),
-      this.interpretarTransacao(texto).catch(() => null),
-    ]);
-    console.log(`🧠 [META] Resultado — divida:${!!divida} compromisso:${!!compromisso} transacoes:${Array.isArray(transacoes) ? transacoes.length : 0}`);
-
-    if (divida)
-      return this.registrarDividaReceber(jid, usuarioId, divida, texto);
-
+    // ── IA: compromisso (forma livre) ─────────────────────────────────────
+    const compromisso = await this.interpretarCompromisso(texto);
     if (compromisso)
       return this.registrarCompromisso(jid, usuarioId, compromisso, texto);
+
+    // ── IA: transação financeira ───────────────────────────────────────────
+    console.log(`🧠 [META] Interpretando: "${texto}"`);
+    const transacoes = await this.interpretarTransacao(texto);
+    console.log(`🧠 [META] Resultado:`, JSON.stringify(transacoes));
 
     if (transacoes && transacoes.length > 0) {
       if (transacoes.length === 1) {
@@ -1037,91 +1036,24 @@ class BotOficial {
       const liquido  = receitas - despesas;
       const sinalLiq = liquido >= 0 ? '+' : '';
 
-      // ── Bloco 1: Financeiro do mês ──────────────────────────────────────
       let msg = `📊 *Resumo de ${meses[mes - 1]}/${ano}*\n`;
       msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `💰 *Financeiro do mês*\n`;
       msg += `Receitas: *${fmt(receitas)}*\n`;
       msg += `Despesas: *${fmt(despesas)}*\n`;
       msg += `Resultado: *${sinalLiq}${fmt(liquido)}*\n`;
       msg += `Saldo geral: *${fmt(saldo)}*\n`;
 
-      // ── Bloco 2: Top categorias ──────────────────────────────────────────
       if (cats.length > 0) {
         msg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `🏷️ *Top categorias (despesas)*\n`;
+        msg += `*Top categorias (despesas):*\n`;
         for (const cat of cats) {
-          const emoji = EMOJI_CATEGORIA[cat.categoria] || '📦';
+          const emoji = EMOJI_CATEGORIA[cat.categoria] || '';
           msg += `${emoji} ${cat.categoria || 'Outros'}: *${fmt(cat.total)}*\n`;
         }
-        msg += `_"gasto em [categoria]" para detalhar_`;
       }
 
-      // ── Bloco 3: Gastos fixos mensais ────────────────────────────────────
-      const { rows: fixosRows } = await db.query(`
-        SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
-        FROM gastos_fixos WHERE usuario_id=$1 AND ativo=true
-      `, [usuarioId]).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
-      const fixoQtd   = parseInt(fixosRows[0]?.qtd || 0);
-      const fixoTotal = parseFloat(fixosRows[0]?.total || 0);
-      if (fixoQtd > 0) {
-        msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `🏠 *Gastos Fixos Mensais*\n`;
-        msg += `${fixoQtd} conta(s) | Total: *${fmt(fixoTotal)}/mês*\n`;
-        msg += `_Digite "gastos fixos" para ver a lista_`;
-      }
-
-      // ── Bloco 4: Próximos compromissos ───────────────────────────────────
-      const { rows: agendaRows } = await db.query(`
-        SELECT titulo, data_hora, local FROM agenda
-        WHERE usuario_id=$1 AND cancelado=false AND data_hora >= NOW()
-        ORDER BY data_hora ASC LIMIT 3
-      `, [usuarioId]).catch(() => ({ rows: [] }));
-      msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `📅 *Próximos Compromissos*\n`;
-      if (agendaRows.length === 0) {
-        msg += `Nenhum compromisso agendado.\n`;
-        msg += `_"agendar reunião amanhã às 10h" para criar_`;
-      } else {
-        for (const comp of agendaRows) {
-          const dh      = new Date(comp.data_hora);
-          const dataFmt = dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
-          const horaFmt = dh.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
-          msg += `• *${comp.titulo}* — ${dataFmt} às ${horaFmt}`;
-          if (comp.local) msg += ` | ${comp.local}`;
-          msg += `\n`;
-        }
-        msg += `_Digite "agenda" para ver todos_`;
-      }
-
-      // ── Bloco 5: Devedores ───────────────────────────────────────────────
-      const { rows: devRows } = await db.query(`
-        SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
-        FROM dividas_receber WHERE usuario_id=$1 AND status='pendente'
-      `, [usuarioId]).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
-      const devQtd   = parseInt(devRows[0]?.qtd || 0);
-      const devTotal = parseFloat(devRows[0]?.total || 0);
-      msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `👥 *Quem me deve*\n`;
-      if (devQtd === 0) {
-        msg += `Nenhuma dívida pendente.\n`;
-        msg += `_"João me deve 50" para registrar_`;
-      } else {
-        msg += `${devQtd} devedor(es) | Total: *${fmt(devTotal)}*\n`;
-        msg += `_Digite "a receber" para ver a lista_`;
-      }
-
-      msg += `\n\n━━━━━━━━━━━━━━━━━━━━`;
-
+      msg += `\n━━━━━━━━━━━━━━━━━━━━`;
       await this.enviar(jid, msg);
-
-      // Botões de ação rápida
-      await this.enviarBotoes(jid, 'O que deseja ver agora?', [
-        { id: 'btn_agenda',       titulo: '📅 Ver agenda' },
-        { id: 'menu_receber_ver', titulo: '👥 Ver devedores' },
-        { id: 'btn_pdf',          titulo: '📄 Relatório PDF' },
-      ]);
-
       await this.enviarBotaoLink(
         jid,
         'Veja gráficos e relatórios completos no painel:',
@@ -1433,9 +1365,14 @@ class BotOficial {
     } while (++tentativas < 20);
 
     const vencimento = divida.data_vencimento || null;
-    const vencimentoFmt = vencimento
-      ? new Date(vencimento + 'T12:00:00').toLocaleDateString('pt-BR')
-      : 'Não definido';
+    // Formata a data de forma segura para evitar "Invalid Date" na mensagem de confirmação
+    let vencimentoFmt = 'Não definido';
+    if (vencimento) {
+      const vencDate = new Date(String(vencimento).slice(0, 10) + 'T12:00:00');
+      if (!isNaN(vencDate.getTime())) {
+        vencimentoFmt = vencDate.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
+    }
 
     await db.query(
       `INSERT INTO dividas_receber (usuario_id, devedor, descricao, valor, data_vencimento, origem, mensagem_raw, id_curto)
@@ -1469,13 +1406,24 @@ class BotOficial {
     let msg = `*Dívidas a Receber*\n━━━━━━━━━━━━━━━━━━━━\nTotal pendente: *${fmt(totais[0].pendente)}*\n\n`;
     for (const d of rows) {
       let vencLabel = 'Sem data'; let alertEmoji = '';
+      // data_vencimento vem do PostgreSQL como objeto Date ou string 'YYYY-MM-DD'
+      // Usa conversão segura para evitar "Invalid Date"
       if (d.data_vencimento) {
-        const venc = new Date(d.data_vencimento + 'T12:00:00');
-        const diff = Math.round((venc - hoje) / 86400000);
-        const dataFmt = venc.toLocaleDateString('pt-BR');
-        if (diff < 0)        { vencLabel = `Venceu ${dataFmt}`; alertEmoji = '🔴 '; }
-        else if (diff === 0) { vencLabel = `Vence HOJE`; alertEmoji = '🟡 '; }
-        else                  { vencLabel = `${dataFmt}`; }
+        let venc;
+        if (d.data_vencimento instanceof Date) {
+          // PostgreSQL retornou objeto Date — converte para meio-dia BRT para evitar off-by-one
+          venc = new Date(d.data_vencimento.toISOString().split('T')[0] + 'T12:00:00');
+        } else {
+          // String 'YYYY-MM-DD'
+          venc = new Date(String(d.data_vencimento).slice(0, 10) + 'T12:00:00');
+        }
+        if (!isNaN(venc.getTime())) {
+          const diff    = Math.round((venc - hoje) / 86400000);
+          const dataFmt = venc.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
+          if (diff < 0)        { vencLabel = `Venceu ${dataFmt}`; alertEmoji = '🔴 '; }
+          else if (diff === 0) { vencLabel = `Vence HOJE`;         alertEmoji = '🟡 '; }
+          else                  { vencLabel = dataFmt; }
+        }
       }
       msg += `${alertEmoji}*${d.devedor}* — ${fmt(d.valor)}\n   ${vencLabel} | ID: *${d.id_curto}*\n\n`;
     }
@@ -2144,10 +2092,10 @@ class BotOficial {
   // Envia lembrete de cobrança para devedores pendentes
   async enviarLembreteDevedores(jid, usuarioId) {
     const { rows } = await db.query(
-      `SELECT id_curto, nome_devedor, valor, data_prevista
+      `SELECT id_curto, devedor, valor, data_vencimento
        FROM dividas_receber
-       WHERE usuario_id=$1 AND quitado=false
-       ORDER BY data_prevista ASC NULLS LAST
+       WHERE usuario_id=$1 AND status='pendente'
+       ORDER BY data_vencimento ASC NULLS LAST
        LIMIT 10`,
       [usuarioId]
     ).catch(() => ({ rows: [] }));
@@ -2160,10 +2108,16 @@ class BotOficial {
            `Digite: _"lembrar [ID]"_\n` +
            `Ou: _"lembrar todos"_ para cobrar todos\n\n`;
     for (const d of rows) {
-      const venc = d.data_prevista
-        ? new Date(d.data_prevista).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })
-        : 'sem data';
-      msg += `*${d.nome_devedor}* — ${this._fmt(d.valor)} | ${venc} | ID: *${d.id_curto}*\n`;
+      let venc = 'sem data';
+      if (d.data_vencimento) {
+        const dt = d.data_vencimento instanceof Date
+          ? new Date(d.data_vencimento.toISOString().split('T')[0] + 'T12:00:00')
+          : new Date(String(d.data_vencimento).slice(0, 10) + 'T12:00:00');
+        if (!isNaN(dt.getTime())) {
+          venc = dt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
+        }
+      }
+      msg += `*${d.devedor}* — ${this._fmt(d.valor)} | ${venc} | ID: *${d.id_curto}*\n`;
     }
     await this.enviar(jid, msg);
   }
@@ -2272,7 +2226,7 @@ class BotOficial {
     // Conta pendências para exibir no header
     const { rows } = await db.query(
       `SELECT COUNT(*) AS qtd, COALESCE(SUM(valor),0) AS total
-       FROM dividas_receber WHERE usuario_id=$1 AND quitado=false`,
+       FROM dividas_receber WHERE usuario_id=$1 AND status='pendente'`,
       [usuarioId]
     ).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
     const qtd   = parseInt(rows[0]?.qtd || 0);

@@ -47,8 +47,37 @@ router.get('/status', autenticarToken, (req, res) => {
 // ══════════════════════════════════════════════════════════════
 
 // ─── GET /api/admin/users ─────────────────────────────────────
+// Retorna usuários com campos adicionais para segmentação:
+//   cupom_codigo, acesso_expira_em, stripe_subscription_id, stripe_trial_end
 router.get('/users', autenticarAdmin, async (req, res) => {
   try {
+    // Garante que as colunas novas existam (migration segura)
+    await db.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='cupom_codigo'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN cupom_codigo VARCHAR(50);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='acesso_expira_em'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN acesso_expira_em TIMESTAMPTZ;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='stripe_trial_end'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN stripe_trial_end TIMESTAMPTZ;
+        END IF;
+      END$$;
+    `).catch(() => {});
+
     const { rows } = await db.query(`
       SELECT
         u.id,
@@ -60,8 +89,15 @@ router.get('/users', autenticarAdmin, async (req, res) => {
         u.whatsapp_ativo,
         u.stripe_customer_id,
         u.stripe_subscription_id,
+        u.cupom_codigo,
+        u.acesso_expira_em,
+        u.stripe_trial_end,
         u.criado_em,
         u.atualizado_em,
+        -- usa bot se tem sessão ativa
+        EXISTS(
+          SELECT 1 FROM sessoes_bot s WHERE s.usuario_id = u.id
+        ) AS usa_bot,
         (SELECT COUNT(*) FROM transacoes t WHERE t.usuario_id = u.id)::int  AS total_transacoes,
         (SELECT COALESCE(SUM(t.valor), 0)
            FROM transacoes t
@@ -182,12 +218,130 @@ router.delete('/users/:id', autenticarAdmin, async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════
+//  NOVA ROTA: Zerar todos os registros de um usuário
+//  DELETE /api/admin/users/:id/resetar
+//  Remove: transações, contas, categorias, sessões, lembretes, agenda
+//  Preserva: o cadastro do usuário (nome, email, senha, plano)
+// ══════════════════════════════════════════════════════════════
+router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { rows } = await db.query('SELECT email, nome FROM usuarios WHERE id = $1', [id]);
+    if (!rows.length)
+      return res.status(404).json({ erro: 'Usuário não encontrado' });
+
+    if (rows[0].email === ADMIN_EMAIL)
+      return res.status(403).json({ erro: 'Não é possível resetar a conta de administrador' });
+
+    const nome = rows[0].nome;
+
+    // Remove em ordem para respeitar foreign keys
+    await db.query('DELETE FROM lembretes    WHERE usuario_id = $1', [id]);
+    await db.query('DELETE FROM sessoes_bot  WHERE usuario_id = $1', [id]);
+
+    // Agenda (se a tabela existir)
+    await db.query(`
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='agenda') THEN
+          DELETE FROM agenda WHERE usuario_id = $1;
+        END IF;
+      END$$;
+    `, [id]).catch(() => {});
+
+    // Gastos fixos (se existir)
+    await db.query(`
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='gastos_fixos') THEN
+          DELETE FROM gastos_fixos WHERE usuario_id = $1;
+        END IF;
+      END$$;
+    `, [id]).catch(() => {});
+
+    // Limites (se existir)
+    await db.query(`
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='limites_gastos') THEN
+          DELETE FROM limites_gastos WHERE usuario_id = $1;
+        END IF;
+      END$$;
+    `, [id]).catch(() => {});
+
+    // Transações (depende de lembretes que já foi deletado)
+    await db.query('DELETE FROM transacoes WHERE usuario_id = $1', [id]);
+
+    // Categorias do usuário (não as globais com usuario_id = NULL)
+    await db.query('DELETE FROM categorias WHERE usuario_id = $1', [id]);
+
+    // Remove contas e recria conta padrão
+    await db.query('DELETE FROM contas WHERE usuario_id = $1', [id]);
+    await db.query(
+      `INSERT INTO contas (usuario_id, nome, padrao, saldo) VALUES ($1, 'Carteira', true, 0)`,
+      [id]
+    );
+
+    // Limpa cupom e sessão Stripe (mantém dados pessoais)
+    await db.query(`
+      UPDATE usuarios
+      SET cupom_codigo = NULL,
+          acesso_expira_em = NULL,
+          stripe_trial_end = NULL,
+          whatsapp_ativo = false,
+          atualizado_em = NOW()
+      WHERE id = $1
+    `, [id]);
+
+    console.log(`🗑️  Reset completo do usuário ${nome} (${id}) executado por admin`);
+    res.json({ ok: true, mensagem: `Todos os registros de "${nome}" foram apagados. Cadastro preservado.` });
+  } catch (err) {
+    console.error('❌ admin/users/resetar DELETE:', err);
+    res.status(500).json({ erro: 'Erro ao resetar usuário: ' + err.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  NOVA ROTA: Alternar acesso ao bot (bloquear/liberar)
+//  PATCH /api/admin/users/:id/bot
+//  Body: { ativo: true | false }
+// ══════════════════════════════════════════════════════════════
+router.patch('/users/:id/bot', autenticarAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { ativo } = req.body;
+
+  if (typeof ativo !== 'boolean')
+    return res.status(400).json({ erro: 'Campo "ativo" (boolean) é obrigatório' });
+
+  try {
+    const { rows } = await db.query('SELECT email, nome FROM usuarios WHERE id = $1', [id]);
+    if (!rows.length)
+      return res.status(404).json({ erro: 'Usuário não encontrado' });
+
+    await db.query(
+      'UPDATE usuarios SET whatsapp_ativo = $1, atualizado_em = NOW() WHERE id = $2',
+      [ativo, id]
+    );
+
+    // Se bloqueando, remove a sessão do bot para forçar desconexão imediata
+    if (!ativo) {
+      await db.query('DELETE FROM sessoes_bot WHERE usuario_id = $1', [id]);
+    }
+
+    const acao = ativo ? 'liberado' : 'bloqueado';
+    console.log(`🤖 Acesso ao bot ${acao} para ${rows[0].nome} (${id})`);
+    res.json({ ok: true, mensagem: `Acesso ao bot ${acao} para ${rows[0].nome}`, whatsapp_ativo: ativo });
+  } catch (err) {
+    console.error('❌ admin/users/bot PATCH:', err);
+    res.status(500).json({ erro: 'Erro ao alterar acesso ao bot: ' + err.message });
+  }
+});
+
 // ─── GET /api/admin/users/:id/sessao ─────────────────────────
 router.get('/users/:id/sessao', autenticarAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const { rows } = await db.query(
-      `SELECT s.telefone, s.estado
+      `SELECT s.telefone, s.estado, s.lid
        FROM sessoes_bot s
        WHERE s.usuario_id = $1`,
       [id]
@@ -199,7 +353,6 @@ router.get('/users/:id/sessao', autenticarAdmin, async (req, res) => {
 });
 
 // ─── POST /api/admin/users/:id/vincular ──────────────────────
-// Vincula telefone a um usuário
 router.post('/users/:id/vincular-lid', autenticarAdmin, async (req, res) => {
   const { id } = req.params;
   let { telefone } = req.body;
@@ -411,7 +564,6 @@ router.get('/categorias', autenticarAdmin, async (req, res) => {
 });
 
 // ─── POST /api/admin/users/:id/mensagem ──────────────────────
-// Envia mensagem via API Oficial (Meta) para um usuário
 router.post('/users/:id/mensagem', autenticarAdmin, async (req, res) => {
   const { id } = req.params;
   const { texto } = req.body;
@@ -435,7 +587,6 @@ router.post('/users/:id/mensagem', autenticarAdmin, async (req, res) => {
 });
 
 // ─── POST /api/admin/users/:id/boas-vindas ────────────────────
-// Re-envia boas-vindas via API Oficial (Meta)
 router.post('/users/:id/boas-vindas', autenticarAdmin, async (req, res) => {
   const { id } = req.params;
 

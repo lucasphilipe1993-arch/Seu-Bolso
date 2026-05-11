@@ -315,14 +315,32 @@ class BotOficial {
       // Padrões aceitos:
       // "gasto em gasolina", "gastos com combustível", "quanto de gasolina gastei"
       // "quanto gastei de gasolina", "quanto gastei esse mês gasolina"
-      // "ver gastos transporte", "relatório alimentação"
+      // "quanto gastei de gasolina esse mês ?", "ver gastos transporte", "relatório alimentação"
+
+      // Helper: remove sufixos temporais e pontuação que o usuário pode adicionar
+      // Ex: "gasolina esse mês ?" → "gasolina"
+      //     "uber no mês passado" → "uber"  (futuro: tratado como mês atual por enquanto)
+      const _limparTermoCategoria = (termo) => {
+        return termo
+          .replace(/\s*[?!.]+$/, '')                                                        // pontuação final
+          .replace(/\s+(?:esse|este|nesse|neste|no|do|na|da)\s+m[eê]s\b.*/i, '')           // "esse mês ..."
+          .replace(/\s+(?:essa|esta|nessa|nesta|na|da)\s+semana\b.*/i, '')                  // "essa semana ..."
+          .replace(/\s+(?:hoje|agora|recente|recentemente|até\s+agora)\b.*/i, '')           // "hoje", "agora"
+          .replace(/\s+(?:no\s+m[eê]s\s+passado|m[eê]s\s+passado)\b.*/i, '')              // "mês passado"
+          .replace(/\s+(?:essa|esta|nessa|nesta)\s+semana\b.*/i, '')                        // "esta semana"
+          .replace(/\s*[?!.]+$/, '')                                                        // segunda passagem (segurança)
+          .trim();
+      };
+
       const recat =
         texto.match(/^quanto\s+de\s+(.+?)\s+(?:gastei|eu\s+gastei)/i)     // "quanto de X gastei"
         || texto.match(/^quanto\s+(?:eu\s+)?gastei\s+(?:de|em|com|no|na)\s+(.+)/i) // "quanto gastei de X"
         || texto.match(/^(?:gastos?|ver\s+gastos?|mostrar\s+gastos?|relat[oó]rio)\s+(?:em|com|de|no|na)?\s*(.+)$/i) // "gasto em X"
         || texto.match(/^(?:quanto\s+gastei)\s+(.+)$/i);                    // "quanto gastei X"
-      if (recat)
-        return this.enviarRelatorioPorCategoria(jid, usuarioId, recat[1].trim());
+      if (recat) {
+        const termoLimpo = _limparTermoCategoria(recat[1]);
+        if (termoLimpo) return this.enviarRelatorioPorCategoria(jid, usuarioId, termoLimpo);
+      }
     }
 
     // ── Submenu quem me deve ───────────────────────────────────────────────

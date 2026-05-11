@@ -1,9 +1,7 @@
 // bot/handler-oficial.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Cérebro do Bot WhatsApp API Oficial (Meta)
-// Roda em PARALELO com o bot Baileys (bot/handler.js) sem conflito algum.
 // Toda a lógica de negócio (interpretarTransacao, registrarTransacao, etc.)
-// é importada do handler Baileys — sem duplicação de código.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const axios  = require('axios');
@@ -14,7 +12,8 @@ const { gerarRelatorio, limparPdfsAntigos } = require('./relatorio');
 // ── Constantes de ambiente ────────────────────────────────────────────────────
 const ACCESS_TOKEN    = process.env.WA_OFICIAL_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.WA_OFICIAL_PHONE_ID;
-const GRAPH_URL       = `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`;
+const GRAPH_URL       = `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`;
+const GRAPH_BASE      = `https://graph.facebook.com/v22.0`;
 
 // ── Helpers de formatação (espelhados do handler Baileys) ─────────────────────
 const EMOJI_CATEGORIA = {
@@ -152,12 +151,11 @@ class BotOficial {
       if (type === 'text') {
         texto = message.text?.body || '';
       } else if (type === 'audio') {
-        // Avisa imediatamente e transcreve em paralelo
+        // Avisa imediatamente e transcreve em seguida
         const mediaId = message.audio?.id;
-        const [, transcricao] = await Promise.all([
-          this.enviarDigitando(from).catch(() => {}),
-          this._transcreverAudioMeta(mediaId),
-        ]);
+        if (!mediaId) return this.enviar(from, '❌ Não consegui receber o áudio. Tente novamente.');
+        await this.enviarDigitando(from).catch(() => {});
+        const transcricao = await this._transcreverAudioMeta(mediaId);
         texto = transcricao;
         if (!texto) return this.enviar(from, '❌ Não consegui entender o áudio. Tente enviar texto.');
       } else if (type === 'image') {
@@ -315,32 +313,14 @@ class BotOficial {
       // Padrões aceitos:
       // "gasto em gasolina", "gastos com combustível", "quanto de gasolina gastei"
       // "quanto gastei de gasolina", "quanto gastei esse mês gasolina"
-      // "quanto gastei de gasolina esse mês ?", "ver gastos transporte", "relatório alimentação"
-
-      // Helper: remove sufixos temporais e pontuação que o usuário pode adicionar
-      // Ex: "gasolina esse mês ?" → "gasolina"
-      //     "uber no mês passado" → "uber"  (futuro: tratado como mês atual por enquanto)
-      const _limparTermoCategoria = (termo) => {
-        return termo
-          .replace(/\s*[?!.]+$/, '')                                                        // pontuação final
-          .replace(/\s+(?:esse|este|nesse|neste|no|do|na|da)\s+m[eê]s\b.*/i, '')           // "esse mês ..."
-          .replace(/\s+(?:essa|esta|nessa|nesta|na|da)\s+semana\b.*/i, '')                  // "essa semana ..."
-          .replace(/\s+(?:hoje|agora|recente|recentemente|até\s+agora)\b.*/i, '')           // "hoje", "agora"
-          .replace(/\s+(?:no\s+m[eê]s\s+passado|m[eê]s\s+passado)\b.*/i, '')              // "mês passado"
-          .replace(/\s+(?:essa|esta|nessa|nesta)\s+semana\b.*/i, '')                        // "esta semana"
-          .replace(/\s*[?!.]+$/, '')                                                        // segunda passagem (segurança)
-          .trim();
-      };
-
+      // "ver gastos transporte", "relatório alimentação"
       const recat =
         texto.match(/^quanto\s+de\s+(.+?)\s+(?:gastei|eu\s+gastei)/i)     // "quanto de X gastei"
         || texto.match(/^quanto\s+(?:eu\s+)?gastei\s+(?:de|em|com|no|na)\s+(.+)/i) // "quanto gastei de X"
         || texto.match(/^(?:gastos?|ver\s+gastos?|mostrar\s+gastos?|relat[oó]rio)\s+(?:em|com|de|no|na)?\s*(.+)$/i) // "gasto em X"
         || texto.match(/^(?:quanto\s+gastei)\s+(.+)$/i);                    // "quanto gastei X"
-      if (recat) {
-        const termoLimpo = _limparTermoCategoria(recat[1]);
-        if (termoLimpo) return this.enviarRelatorioPorCategoria(jid, usuarioId, termoLimpo);
-      }
+      if (recat)
+        return this.enviarRelatorioPorCategoria(jid, usuarioId, recat[1].trim());
     }
 
     // ── Submenu quem me deve ───────────────────────────────────────────────
@@ -458,6 +438,25 @@ class BotOficial {
       const msg = err.response?.data?.error?.message || err.message;
       console.error(`[META] Erro ao enviar para ${para}:`, msg);
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // enviarDigitando — sinaliza "digitando..." (best-effort, não crítico)
+  // ─────────────────────────────────────────────────────────────────────────
+  async enviarDigitando(para) {
+    if (!ACCESS_TOKEN || !PHONE_NUMBER_ID) return;
+    try {
+      await axios.post(GRAPH_URL, {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: para,
+        type: 'text',
+        text: { body: '⌛ Processando áudio...' },
+      }, {
+        headers: { Authorization: `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        timeout: 5000,
+      });
+    } catch (_) { /* best-effort — ignora falha */ }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1420,7 +1419,7 @@ class BotOficial {
     try {
       // 1. Obtém URL temporária do arquivo (timeout apertado — falha rápido)
       const infoRes = await axios.get(
-        `https://graph.facebook.com/v20.0/${mediaId}`,
+        `${GRAPH_BASE}/${mediaId}`,
         { headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }, timeout: 7000 }
       );
       const url = infoRes.data?.url;
@@ -1528,7 +1527,7 @@ class BotOficial {
       form.append('type', 'application/pdf');
 
       const uploadRes = await axios2.post(
-        `https://graph.facebook.com/v20.0/${process.env.WA_OFICIAL_PHONE_ID}/media`,
+        `${GRAPH_BASE}/${process.env.WA_OFICIAL_PHONE_ID}/media`,
         form,
         {
           headers: {
@@ -1549,7 +1548,7 @@ class BotOficial {
       const sinalSaldo = saldo >= 0 ? '+' : '';
 
       await axios2.post(
-        `https://graph.facebook.com/v20.0/${process.env.WA_OFICIAL_PHONE_ID}/messages`,
+        `${GRAPH_BASE}/${process.env.WA_OFICIAL_PHONE_ID}/messages`,
         {
           messaging_product: 'whatsapp',
           to: jid,

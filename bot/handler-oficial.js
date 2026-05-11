@@ -297,18 +297,35 @@ class BotOficial {
     }
 
     // NLP: detecta intenção de criar limite mesmo em frases naturais
-    // Ex: "criar limite para gasolina", "quero um limite de 200 em alimentação"
+    // Ex: "criar limite para gasolina 300", "limite transporte 500", "quero limite em alimentação de 200"
     const recriarLimite =
       textoClean.match(/(?:criar?|definir?|configurar?|add|adicionar?|novo|quero)\s+(?:um\s+)?limite\s+(?:de\s+)?(?:gastos?\s+)?(?:para\s+|em\s+|de\s+|no?\s+|na\s+)?(.+)/i)
-      || textoClean.match(/limite\s+(?:de\s+|para\s+|em\s+)?(.+?)\s*(?:de\s+R?\$?\s*\d|$)/i);
+      || textoClean.match(/^limite\s+(?:de\s+|para\s+|em\s+)?(.+)/i);
 
     if (recriarLimite) {
-      // Injeta como se o usuário tivesse digitado "limite [categoria]"
-      const termoLimite = recriarLimite[1].replace(/\s*R?\$?\s*\d.*$/, '').trim();
-      const textoInjetado = `limite ${termoLimite}`;
-      const limiteHandledNLP = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado);
-      if (limiteHandledNLP) return;
-      // Se não achou categoria, abre menu de limites com contexto
+      const parteRestante = recriarLimite[1].trim();
+
+      // Tenta extrair valor junto com a categoria: "gasolina 300" ou "gasolina de 300"
+      const matchComValor = parteRestante.match(/^(.+?)\s+(?:de\s+)?R?\$?\s*(\d+(?:[.,]\d{1,2})?)$/i);
+
+      if (matchComValor) {
+        const categoriaTermo = matchComValor[1].trim();
+        const valorNum = parseFloat(matchComValor[2].replace(',', '.'));
+        // Tenta via processarComandoLimite com formato "limite [categoria] [valor]"
+        const textoInjetado = `limite ${categoriaTermo} ${valorNum}`;
+        const handled = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado);
+        if (handled) return;
+      }
+
+      // Só categoria sem valor — tenta injetar "limite [categoria]" para disparar o fluxo
+      const categoriaSemValor = parteRestante.replace(/\s*R?\$?\s*\d.*$/, '').trim();
+      if (categoriaSemValor) {
+        const textoInjetado = `limite ${categoriaSemValor}`;
+        const handled = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado);
+        if (handled) return;
+      }
+
+      // Fallback: abre o menu de limites
       await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
       return;
     }
@@ -668,7 +685,7 @@ class BotOficial {
 
       case 'menu_receber_add':
         return this.enviar(jid,
-          `*Adicionar dívida*\n\nDiga quem te deve, quanto e quando recebe:\n` +
+          `➕ *Adicionar dívida*\n\nDiga quem te deve, quanto e quando recebe:\n` +
           `_"João me deve 200, recebo dia 20"_\n` +
           `_"Maria me deve 150"_`
         );
@@ -932,8 +949,8 @@ class BotOficial {
       await this.enviar(jid, msg);
       await this.enviarBotoes(jid, 'O que deseja fazer agora?', [
         { id: 'btn_resumo',    titulo: '📊 Ver resumo' },
-        { id: 'btn_historico', titulo: 'Histórico' },
-        { id: 'btn_painel',    titulo: 'Abrir painel' },
+        { id: 'btn_historico', titulo: '🕐 Histórico' },
+        { id: 'btn_painel',    titulo: '🌐 Abrir painel' },
       ]);
     } catch (err) {
       console.error('[META] Erro ao registrar transação:', err.message);
@@ -1668,15 +1685,15 @@ class BotOficial {
 
     if (rows.length === 0) {
       await this.enviarBotoes(jid, 'Adicione seu primeiro gasto fixo:', [
-        { id: 'fluxo_fixo_internet', titulo: 'Internet / Telefone' },
-        { id: 'fluxo_fixo_aluguel',  titulo: 'Aluguel / Moradia' },
-        { id: 'fluxo_fixo_outro',    titulo: 'Outro gasto fixo' },
+        { id: 'fluxo_fixo_internet', titulo: '🌐 Internet / Telefone' },
+        { id: 'fluxo_fixo_aluguel',  titulo: '🏠 Aluguel / Moradia' },
+        { id: 'fluxo_fixo_outro',    titulo: '➕ Outro gasto fixo' },
       ]);
     } else {
       await this.enviarBotoes(jid, 'O que deseja fazer?', [
-        { id: 'btn_gastos_fixos_add', titulo: 'Adicionar novo' },
+        { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar novo' },
         { id: 'btn_resumo',           titulo: '📊 Ver resumo' },
-        { id: 'btn_historico',        titulo: 'Histórico' },
+        { id: 'btn_historico',        titulo: '🕐 Histórico' },
       ]);
     }
   }
@@ -1905,11 +1922,11 @@ class BotOficial {
 
     await this.enviar(jid, msg);
 
-    // Botões de drill-down — igual ao exemplo do Pierre Finance
+    // Botões de drill-down após relatório de categoria
     await this.enviarBotoes(jid, 'Quer ver mais detalhes?', [
-      { id: `btn_resumo`,        titulo: '📊 Resumo geral' },
-      { id: `btn_historico`,     titulo: 'Histórico completo' },
-      { id: `btn_pdf`,           titulo: '📄 Relatório PDF' },
+      { id: 'btn_resumo',    titulo: '📊 Resumo geral' },
+      { id: 'btn_historico', titulo: '🕐 Histórico completo' },
+      { id: 'btn_pdf',       titulo: '📄 Relatório PDF' },
     ]);
   }
 
@@ -1959,79 +1976,79 @@ class BotOficial {
 
   msgAjuda() {
     return (
-      `*Comandos disponíveis:*\n\n` +
+      `🤖 *Comandos disponíveis:*\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `*Registrar transações:*\n` +
+      `💸 *Registrar transações:*\n` +
       `_Gastei 50 no mercado_\n_Recebi 3000 de salário_\n\n` +
-      `*Áudio:* Mande um áudio falando o gasto\n` +
-      `*Foto:* Tire foto de nota fiscal\n\n` +
+      `🎤 *Áudio:* Mande um áudio falando o gasto\n` +
+      `📸 *Foto:* Tire foto de nota fiscal\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `*Agenda:*\n` +
+      `📅 *Agenda:*\n` +
       `_"agendar reunião amanhã às 10h"_\n` +
       `_"agendar consulta médica dia 20 às 14h"_\n` +
       `_agenda_ — ver compromissos\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `*Dívidas a Receber:*\n` +
+      `💸 *Dívidas a Receber:*\n` +
       `_"Bruno me deve 40, paga dia 30"_ — registra\n` +
       `_a receber_ — lista devedores\n` +
       `_"recebido [ID]"_ — quita\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📊 *resumo* — Saldo e relatório\n` +
-      `*histórico* — Últimas transações\n` +
-      `*categorias* — Suas categorias\n` +
-      `*limite* — Definir limites de gastos\n` +
-      `*gastos fixos* — Configurar gastos mensais fixos\n` +
-      `_gasto em [categoria]_ — Ex: _gasto em gasolina_\n\n` +
+      `🕐 *histórico* — Últimas transações\n` +
+      `📂 *categorias* — Suas categorias\n` +
+      `🎯 *limite* — Definir limites de gastos\n` +
+      `🏠 *gastos fixos* — Configurar gastos mensais fixos\n` +
+      `🔍 _gasto em [categoria]_ — Ex: _gasto em gasolina_\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `Painel: *https://www.seusecretario.com.br/dashboard*`
+      `🌐 Painel: *https://www.seusecretario.com.br/dashboard*`
     );
   }
 
   // ── Menu Principal — 5 botões de acesso rápido ────────────────────────────
   async enviarAjudaComBotoes(jid) {
     const corpo =
-      `*Seu Secretário — Menu Principal*\n` +
+      `🤖 *Seu Secretário — Menu Principal*\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `Registre gastos e receitas por texto, áudio ou foto\n` +
-      `Agende compromissos e receba lembretes\n` +
-      `Veja resumos, relatórios e histórico\n` +
-      `Gerencie quem te deve dinheiro\n` +
-      `Configure gastos fixos mensais\n` +
+      `💸 Registre gastos e receitas por texto, áudio ou foto\n` +
+      `📅 Agende compromissos e receba lembretes\n` +
+      `📊 Veja resumos, relatórios e histórico\n` +
+      `👥 Gerencie quem te deve dinheiro\n` +
+      `🏠 Configure gastos fixos mensais\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `Escolha uma seção abaixo:`;
 
     await this.enviarLista(jid, corpo, '📋 Abrir menu', [
       {
-        titulo: 'Financeiro',
+        titulo: '💸 Financeiro',
         itens: [
           { id: 'btn_resumo',    titulo: '📊 Resumo do mês',     descricao: 'Saldo, receitas e despesas' },
-          { id: 'btn_historico', titulo: 'Histórico',            descricao: 'Últimas 5 transações' },
-          { id: 'btn_limite',    titulo: 'Limites de gastos',    descricao: 'Alertas por categoria' },
-          { id: 'btn_pdf',       titulo: '📄 Relatório PDF',     descricao: 'Relatório completo do mês' },
+          { id: 'btn_historico', titulo: '🕐 Histórico',          descricao: 'Últimas 5 transações' },
+          { id: 'btn_limite',    titulo: '🎯 Limites de gastos',  descricao: 'Alertas por categoria' },
+          { id: 'btn_pdf',       titulo: '📄 Relatório PDF',      descricao: 'Relatório completo do mês' },
         ],
       },
       {
-        titulo: 'Agenda',
+        titulo: '📅 Agenda',
         itens: [
           { id: 'btn_agenda', titulo: '📅 Minha agenda', descricao: 'Próximos compromissos' },
         ],
       },
       {
-        titulo: 'Quem me deve',
+        titulo: '👥 Quem me deve',
         itens: [
-          { id: 'menu_receber_ver', titulo: 'Ver devedores',    descricao: 'Quem ainda te deve' },
-          { id: 'menu_receber_add', titulo: 'Adicionar dívida', descricao: 'Registrar novo devedor' },
+          { id: 'menu_receber_ver', titulo: '📋 Ver devedores',    descricao: 'Quem ainda te deve' },
+          { id: 'menu_receber_add', titulo: '➕ Adicionar dívida', descricao: 'Registrar novo devedor' },
         ],
       },
       {
-        titulo: 'Gastos Fixos',
+        titulo: '🏠 Gastos Fixos',
         itens: [
-          { id: 'btn_gastos_fixos',     titulo: 'Ver gastos fixos', descricao: 'Suas contas mensais' },
-          { id: 'btn_gastos_fixos_add', titulo: 'Novo gasto fixo',  descricao: 'Nova conta mensal' },
+          { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos', descricao: 'Suas contas mensais' },
+          { id: 'btn_gastos_fixos_add', titulo: '➕ Novo gasto fixo',  descricao: 'Nova conta mensal' },
         ],
       },
       {
-        titulo: 'Outros',
+        titulo: '🌐 Outros',
         itens: [
           { id: 'btn_painel', titulo: '🌐 Painel web', descricao: 'Gráficos e relatórios completos' },
         ],
@@ -2051,21 +2068,21 @@ class BotOficial {
     const total = parseFloat(rows[0]?.total || 0);
 
     const corpo = qtd > 0
-      ? `*Quem me deve*\n` +
+      ? `👥 *Quem me deve*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `*${qtd}* pessoa(s) te devem | Total: *${this._fmt(total)}*\n` +
+        `📌 *${qtd}* pessoa(s) te devem | Total: *${this._fmt(total)}*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Gerencie as pessoas que te devem dinheiro.`
-      : `*Quem me deve*\n` +
+      : `👥 *Quem me deve*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Nenhuma dívida pendente no momento.\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Gerencie as pessoas que te devem dinheiro.`;
 
     await this.enviarBotoes(jid, corpo, [
-      { id: 'menu_receber_ver',     titulo: 'Ver devedores' },
-      { id: 'menu_receber_add',     titulo: 'Adicionar dívida' },
-      { id: 'menu_receber_lembrete',titulo: 'Enviar lembrete' },
+      { id: 'menu_receber_ver',      titulo: '📋 Ver devedores' },
+      { id: 'menu_receber_add',      titulo: '➕ Adicionar dívida' },
+      { id: 'menu_receber_lembrete', titulo: '🔔 Enviar lembrete' },
     ]);
   }
 
@@ -2081,21 +2098,21 @@ class BotOficial {
     const total = parseFloat(rows[0]?.total || 0);
 
     const corpo = qtd > 0
-      ? `*Gastos Fixos*\n` +
+      ? `🏠 *Gastos Fixos*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `*${qtd}* gasto(s) fixo(s) | Total: *${this._fmt(total)}/mês*\n` +
+        `📌 *${qtd}* gasto(s) fixo(s) | Total: *${this._fmt(total)}/mês*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Configure suas contas mensais fixas.`
-      : `*Gastos Fixos*\n` +
+      : `🏠 *Gastos Fixos*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Nenhum gasto fixo cadastrado.\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Configure suas contas mensais fixas.`;
 
     await this.enviarBotoes(jid, corpo, [
-      { id: 'btn_gastos_fixos',     titulo: 'Ver gastos fixos' },
-      { id: 'btn_gastos_fixos_add', titulo: 'Adicionar novo' },
-      { id: 'btn_menu_principal',   titulo: 'Menu principal' },
+      { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos' },
+      { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar novo' },
+      { id: 'btn_menu_principal',   titulo: '🔙 Menu principal' },
     ]);
   }
 }

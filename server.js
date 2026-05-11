@@ -19,6 +19,8 @@ const cuponsRoute          = require('./routes/cupons');
 const agendaRouter         = require('./routes/agenda');
 const configRoute          = require('./routes/config');
 const whatsappOficialRoute = require('./routes/whatsapp-oficial'); // ← META API OFICIAL
+const gastosFixosRoute     = require('./routes/gastos-fixos');     // ← GASTOS FIXOS
+const limitesRoute         = require('./routes/limites');           // ← LIMITES DE GASTOS
 
 const app    = express();
 const server = http.createServer(app);
@@ -75,6 +77,8 @@ app.use('/api/cupons',       cuponsRoute);
 app.use('/api/agenda',       agendaRouter);
 app.use('/api/config',       configRoute);
 app.use('/api/gcal',         configRoute);
+app.use('/api/gastos-fixos', gastosFixosRoute);
+app.use('/api/limites',      limitesRoute);
 
 // ─── Webhook API Oficial WhatsApp (Meta) ──────────────────────
 app.use('/webhook/whatsapp', whatsappOficialRoute);
@@ -132,9 +136,9 @@ process.on('SIGINT',  () => encerrarLimpo('SIGINT'));
 server.listen(PORT, async () => {
   console.log(`
 ╔═══════════════════════════════════════╗
-║   💰 Seu Secretário — Iniciado!       ║
-║   Porta: ${PORT}                      ║
-║   Dashboard: http://localhost:${PORT} ║
+║   💰 Seu Secretário — Iniciado!        ║
+║   Porta: ${PORT}                         ║
+║   Dashboard: http://localhost:${PORT}    ║
 ╚═══════════════════════════════════════╝
   `);
 });

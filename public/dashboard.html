@@ -246,7 +246,7 @@
                 <div class="nav-section-title">Gestão</div>
                 <div class="nav-item" data-page="contas"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><span>Contas bancárias</span></div>
                 <div class="nav-item" data-page="cartoes"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span>Gastos Fixos</span></div>
-                <div class="nav-item" data-page="metas"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><span>Metas</span></div>
+                <div class="nav-item" data-page="metas"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><span>Limites de Gastos</span></div>
                 <div class="nav-item" data-page="areceber"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span>A Receber</span></div>
                 <div class="nav-item" data-page="agenda"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span>Agenda</span></div>
             </div>
@@ -449,7 +449,6 @@
             </div>
             <!-- ── GASTOS FIXOS ─────────────────────────────────────────────── -->
             <div id="cartoes" class="page">
-                <!-- KPIs -->
                 <div class="grid grid-3" style="margin-bottom:22px">
                     <div class="stat-box" style="border-left:4px solid var(--navy)">
                         <div class="stat-label">Total Mensal</div>
@@ -467,16 +466,12 @@
                         <div class="stat-meta" id="gf-kpi-maior-desc">—</div>
                     </div>
                 </div>
-
-                <!-- Ações -->
-                <div class="btn-row" style="margin-bottom:18px">
+                <div style="margin-bottom:18px">
                     <button class="btn btn-primary" onclick="openModal('modalNovoGastoFixo')">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Novo Gasto Fixo
                     </button>
                 </div>
-
-                <!-- Tabela -->
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
                         <h3 class="card-title" style="margin:0">Gastos Fixos Mensais</h3>
@@ -492,7 +487,6 @@
             </div>
             <!-- ── LIMITES DE GASTOS ──────────────────────────────────────── -->
             <div id="metas" class="page">
-                <!-- KPIs -->
                 <div class="grid grid-3" style="margin-bottom:22px">
                     <div class="stat-box" style="border-left:4px solid var(--navy)">
                         <div class="stat-label">Limites Ativos</div>
@@ -505,14 +499,12 @@
                         <div class="stat-meta">Acima do limite este mês</div>
                     </div>
                     <div class="stat-box" style="border-left:4px solid var(--gold)">
-                        <div class="stat-label">No Limite</div>
+                        <div class="stat-label">Em Atenção</div>
                         <div class="stat-value" id="lim-kpi-alerta" style="color:var(--gold)">0</div>
                         <div class="stat-meta">Acima de 80% do limite</div>
                     </div>
                 </div>
-
-                <!-- Ações -->
-                <div class="btn-row" style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap">
+                <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap">
                     <button class="btn btn-primary" onclick="openModal('modalNovoLimite')">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Novo Limite
@@ -522,11 +514,7 @@
                         Editar Categorias
                     </button>
                 </div>
-
-                <!-- Cards de limites por categoria com gráfico -->
                 <div id="lim-cards-grid" class="grid grid-2" style="margin-bottom:22px"></div>
-
-                <!-- Tabela de todos os limites -->
                 <div class="card">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
                         <h3 class="card-title" style="margin:0">Todos os Limites</h3>
@@ -539,8 +527,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Gráfico geral de gastos vs limites -->
                 <div class="card">
                     <h3 class="card-title">Gastos vs Limites — Mês Atual</h3>
                     <canvas id="lim-chart" height="120"></canvas>
@@ -1251,7 +1237,7 @@
     </div>
 </div>
 
-<!-- ── MODAL: Novo Gasto Fixo ─────────────────────────────────────────────── -->
+<!-- ── MODAL: Novo / Editar Gasto Fixo ───────────────────────────────────── -->
 <div class="modal-overlay" id="modalNovoGastoFixo">
     <div class="modal" style="max-width:460px">
         <div class="modal-title" id="gfModalTitle">Novo Gasto Fixo</div>
@@ -1290,7 +1276,7 @@
     </div>
 </div>
 
-<!-- ── MODAL: Novo Limite de Gasto ───────────────────────────────────────── -->
+<!-- ── MODAL: Novo / Editar Limite ───────────────────────────────────────── -->
 <div class="modal-overlay" id="modalNovoLimite">
     <div class="modal" style="max-width:460px">
         <div class="modal-title" id="limModalTitle">Novo Limite de Gasto</div>
@@ -1321,13 +1307,13 @@
     </div>
 </div>
 
-<!-- ── MODAL: Editar Categoria ───────────────────────────────────────────── -->
+<!-- ── MODAL: Editar Categorias ──────────────────────────────────────────── -->
 <div class="modal-overlay" id="modalEditarCategoria">
     <div class="modal" style="max-width:500px">
         <div class="modal-title">Gerenciar Categorias</div>
         <div class="modal-desc">Edite os nomes das suas categorias de gastos.</div>
         <div id="catListaEditar" style="max-height:340px;overflow-y:auto;margin-bottom:16px"></div>
-        <div style="border-top:1px solid var(--gray-200);padding-top:16px;margin-top:4px">
+        <div style="border-top:1px solid var(--gray-200);padding-top:16px">
             <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Nova Categoria</div>
             <div style="display:flex;gap:8px">
                 <input class="form-input" type="text" id="catNovoNome" placeholder="Nome da nova categoria" style="flex:1">
@@ -1876,7 +1862,7 @@ function navigateTo(pageId) {
     if (pageId === 'agenda') { carregarAgenda(); agGcalCarregarStatus(); }
     if (pageId === 'whatsapp') { carregarTransacoesWA(); waVerificarStatus(); }
     if (pageId === 'cartoes') carregarGastosFixos();
-    if (pageId === 'metas') carregarLimites();
+    if (pageId === 'metas')   carregarLimites();
     if (pageId === 'admin-faturamento') adminCarregarFaturamento();
     if (pageId === 'admin-calendario') adminCarregarCalendario();
     if (pageId === 'admin-usuarios') adminCarregarUsuarios();
@@ -2672,7 +2658,7 @@ async function adminEnviarBoasVindas() {
     }
 }
 
-// ─── GASTOS FIXOS ─────────────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const EMOJI_CAT = {
     'Alimentação':'🍔','Saúde':'🏥','Assinatura':'📱','Transporte':'🚗',
     'Viagem':'✈️','Doações':'🤝','Impostos':'🧾','Mercado':'🛒','Educação':'📚',
@@ -2681,25 +2667,22 @@ const EMOJI_CAT = {
 };
 function emojiCat(nome) { return EMOJI_CAT[nome] || '📦'; }
 
+// ─── GASTOS FIXOS ─────────────────────────────────────────────────────────────
 async function carregarGastosFixos() {
     const token = localStorage.getItem('gz_token');
     const el = document.getElementById('gf-lista-conteudo');
     el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--gray-400)">Carregando...</div>';
     try {
-        const res = await fetch('/api/gastos-fixos', {
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.json());
+        const res   = await fetch('/api/gastos-fixos', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
         const lista = Array.isArray(res) ? res : (res.gastos || []);
 
-        // KPIs
         const total = lista.reduce((s, g) => s + parseFloat(g.valor || 0), 0);
-        const ativo = lista.filter(g => g.ativo !== false);
         document.getElementById('gf-kpi-total').textContent = Fmt.moeda(total);
-        document.getElementById('gf-kpi-qtd').textContent   = `${ativo.length} gasto(s) fixo(s) ativo(s)`;
+        document.getElementById('gf-kpi-qtd').textContent   = `${lista.length} gasto(s) fixo(s) ativo(s)`;
+        document.getElementById('gf-total-label').textContent = `${lista.length} item(s)`;
 
-        // Próximo vencimento
-        const hoje = new Date().getDate();
-        const comDia = lista.filter(g => g.dia_vencimento).sort((a,b) => {
+        const hoje   = new Date().getDate();
+        const comDia = lista.filter(g => g.dia_vencimento).sort((a, b) => {
             const da = a.dia_vencimento >= hoje ? a.dia_vencimento : a.dia_vencimento + 31;
             const db = b.dia_vencimento >= hoje ? b.dia_vencimento : b.dia_vencimento + 31;
             return da - db;
@@ -2708,15 +2691,11 @@ async function carregarGastosFixos() {
             document.getElementById('gf-kpi-prox').textContent      = `Dia ${comDia[0].dia_vencimento}`;
             document.getElementById('gf-kpi-prox-desc').textContent = comDia[0].descricao;
         }
-
-        // Maior gasto
-        const maior = [...lista].sort((a,b) => b.valor - a.valor)[0];
+        const maior = [...lista].sort((a, b) => b.valor - a.valor)[0];
         if (maior) {
             document.getElementById('gf-kpi-maior').textContent      = Fmt.moeda(maior.valor);
             document.getElementById('gf-kpi-maior-desc').textContent = maior.descricao;
         }
-
-        document.getElementById('gf-total-label').textContent = `${lista.length} item(s)`;
 
         if (!lista.length) {
             el.innerHTML = `<div style="text-align:center;padding:50px;color:var(--gray-400)">
@@ -2727,32 +2706,20 @@ async function carregarGastosFixos() {
             return;
         }
 
-        el.innerHTML = `
-        <table class="table">
-            <thead><tr>
-                <th>Descrição</th><th>Categoria</th><th>Valor/mês</th>
-                <th>Vencimento</th><th></th>
-            </tr></thead>
-            <tbody>
-            ${lista.map(g => `
-                <tr>
-                    <td class="td-strong">${emojiCat(g.categoria)} ${g.descricao}</td>
-                    <td><span class="badge badge-navy">${g.categoria || 'Outros'}</span></td>
-                    <td style="font-weight:700;color:var(--red)">${Fmt.moeda(g.valor)}</td>
-                    <td>${g.dia_vencimento ? `Dia ${g.dia_vencimento}` : '<span style="color:var(--gray-400)">—</span>'}</td>
-                    <td style="text-align:right;white-space:nowrap">
-                        <button class="btn btn-secondary" style="padding:5px 12px;font-size:12px;margin-right:6px"
-                            onclick="gfEditar('${g.id}','${(g.descricao||'').replace(/'/g,"\\'")}',${g.valor},'${g.categoria||'Outros'}',${g.dia_vencimento||''})">
-                            ✏️ Editar
-                        </button>
-                        <button class="btn btn-danger" style="padding:5px 12px;font-size:12px"
-                            onclick="gfExcluir('${g.id}','${(g.descricao||'').replace(/'/g,"\\'")}')">
-                            🗑 Excluir
-                        </button>
-                    </td>
-                </tr>
-            `).join('')}
-            </tbody>
+        el.innerHTML = `<table class="table">
+            <thead><tr><th>Descrição</th><th>Categoria</th><th>Valor/mês</th><th>Vencimento</th><th></th></tr></thead>
+            <tbody>${lista.map(g => `<tr>
+                <td class="td-strong">${emojiCat(g.categoria)} ${g.descricao}</td>
+                <td><span class="badge badge-navy">${g.categoria || 'Outros'}</span></td>
+                <td style="font-weight:700;color:var(--red)">${Fmt.moeda(g.valor)}</td>
+                <td>${g.dia_vencimento ? `Dia ${g.dia_vencimento}` : '<span style="color:var(--gray-400)">—</span>'}</td>
+                <td style="text-align:right;white-space:nowrap">
+                    <button class="btn btn-secondary" style="padding:5px 12px;font-size:12px;margin-right:6px"
+                        onclick="gfEditar('${g.id}','${(g.descricao||'').replace(/'/g,"\\'")}',${g.valor},'${g.categoria||'Outros'}',${g.dia_vencimento||0})">✏️ Editar</button>
+                    <button class="btn btn-danger" style="padding:5px 12px;font-size:12px"
+                        onclick="gfExcluir('${g.id}','${(g.descricao||'').replace(/'/g,"\\'")}')">🗑 Excluir</button>
+                </td>
+            </tr>`).join('')}</tbody>
         </table>`;
     } catch(e) {
         el.innerHTML = '<div style="color:var(--red);padding:20px">Erro ao carregar gastos fixos.</div>';
@@ -2777,25 +2744,19 @@ async function gfSalvar() {
         valor:          parseFloat(document.getElementById('gfValor').value),
         categoria:      document.getElementById('gfCategoria').value,
         dia_vencimento: parseInt(document.getElementById('gfDia').value) || null,
-        ativo:          true,
+        ativo: true,
     };
     if (!body.descricao || !body.valor) { showToast('Preencha descrição e valor', 'error'); return; }
-    const method = id ? 'PUT' : 'POST';
     const url    = id ? `/api/gastos-fixos/${id}` : '/api/gastos-fixos';
+    const method = id ? 'PUT' : 'POST';
     try {
-        const res = await fetch(url, {
-            method,
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        }).then(r => r.json());
+        const res = await fetch(url, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
         if (res.id || res.ok || res.gasto) {
             showToast(id ? 'Gasto fixo atualizado! ✅' : 'Gasto fixo criado! ✅', 'success');
             closeModal('modalNovoGastoFixo');
             document.getElementById('gfEditId').value = '';
             document.getElementById('gfModalTitle').textContent = 'Novo Gasto Fixo';
-            document.getElementById('gfDescricao').value = '';
-            document.getElementById('gfValor').value = '';
-            document.getElementById('gfDia').value = '';
+            ['gfDescricao','gfValor','gfDia'].forEach(i => document.getElementById(i).value = '');
             carregarGastosFixos();
         } else showToast(res.erro || 'Erro ao salvar', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
@@ -2805,10 +2766,7 @@ async function gfExcluir(id, descricao) {
     if (!confirm(`Excluir o gasto fixo "${descricao}"?`)) return;
     const token = localStorage.getItem('gz_token');
     try {
-        const res = await fetch(`/api/gastos-fixos/${id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.json());
+        const res = await fetch(`/api/gastos-fixos/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
         if (res.ok || res.mensagem) { showToast('Gasto fixo removido.', 'success'); carregarGastosFixos(); }
         else showToast(res.erro || 'Erro ao excluir', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
@@ -2822,26 +2780,22 @@ async function carregarLimites() {
     const elTab  = document.getElementById('lim-tabela-conteudo');
     const elGrid = document.getElementById('lim-cards-grid');
     elTab.innerHTML = elGrid.innerHTML = '<div style="padding:20px;color:var(--gray-400)">Carregando...</div>';
-
     const m = Fmt.mesAtual(), y = Fmt.anoAtual();
     try {
         const [limRes, catGastosRes] = await Promise.all([
             fetch('/api/limites', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-            fetch(`/api/transactions/por-categoria?mes=${m}&ano=${y}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])
+            API.porCategoria(m, y).catch(() => [])
         ]);
-
         const limites   = Array.isArray(limRes) ? limRes : (limRes.limites || []);
         const gastosCat = Array.isArray(catGastosRes) ? catGastosRes : (catGastosRes.categorias || []);
 
-        // Enriquece limites com gasto atual
         const limitesRicos = limites.map(l => {
-            const g    = gastosCat.find(c => c.nome?.toLowerCase() === l.categoria?.toLowerCase());
+            const g     = gastosCat.find(c => (c.nome||c.categoria||'').toLowerCase() === (l.categoria||'').toLowerCase());
             const gasto = parseFloat(g?.total || 0);
             const pct   = l.valor_limite > 0 ? Math.min((gasto / l.valor_limite) * 100, 100) : 0;
             return { ...l, gasto, pct };
         });
 
-        // KPIs
         const estourados = limitesRicos.filter(l => l.pct >= 100).length;
         const alertas    = limitesRicos.filter(l => l.pct >= 80 && l.pct < 100).length;
         document.getElementById('lim-kpi-total').textContent      = limitesRicos.length;
@@ -2849,12 +2803,10 @@ async function carregarLimites() {
         document.getElementById('lim-kpi-alerta').textContent     = alertas;
         document.getElementById('lim-total-label').textContent    = `${limitesRicos.length} limite(s)`;
 
-        // Cards com barra de progresso
-        elGrid.innerHTML = limitesRicos.length === 0 ? '' : limitesRicos.map(l => {
+        elGrid.innerHTML = !limitesRicos.length ? '' : limitesRicos.map(l => {
             const cor   = l.pct >= 100 ? 'var(--red)' : l.pct >= 80 ? '#d97706' : 'var(--green)';
             const bgCor = l.pct >= 100 ? 'var(--red-bg)' : l.pct >= 80 ? '#fef3c7' : 'var(--green-bg)';
-            return `
-            <div class="card" style="margin-bottom:0;border-left:4px solid ${cor}">
+            return `<div class="card" style="margin-bottom:0;border-left:4px solid ${cor}">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
                     <div style="font-weight:700;font-size:15px;color:var(--navy)">${emojiCat(l.categoria)} ${l.categoria}</div>
                     <span class="badge" style="background:${bgCor};color:${cor}">${Math.round(l.pct)}%</span>
@@ -2875,14 +2827,13 @@ async function carregarLimites() {
             </div>`;
         }).join('');
 
-        // Tabela completa
-        elTab.innerHTML = !limitesRicos.length ? `
-            <div style="text-align:center;padding:50px;color:var(--gray-400)">
+        elTab.innerHTML = !limitesRicos.length
+            ? `<div style="text-align:center;padding:50px;color:var(--gray-400)">
                 <div style="font-size:36px;margin-bottom:12px">🎯</div>
                 <p style="margin-bottom:16px">Nenhum limite definido ainda.</p>
                 <button class="btn btn-primary" onclick="openModal('modalNovoLimite')">+ Criar Primeiro Limite</button>
-            </div>` : `
-            <table class="table">
+               </div>`
+            : `<table class="table">
                 <thead><tr><th>Categoria</th><th>Limite</th><th>Período</th><th>Gasto Atual</th><th>Status</th><th></th></tr></thead>
                 <tbody>${limitesRicos.map(l => {
                     const cor    = l.pct>=100?'var(--red)':l.pct>=80?'#d97706':'var(--green)';
@@ -2901,7 +2852,7 @@ async function carregarLimites() {
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
-            </table>`;
+               </table>`;
 
         // Gráfico
         const labels    = limitesRicos.map(l => l.categoria);
@@ -2914,8 +2865,8 @@ async function carregarLimites() {
             data: {
                 labels,
                 datasets: [
-                    { label: 'Gasto atual', data: gastos,    backgroundColor: 'rgba(192,57,43,0.75)',  borderRadius: 6 },
-                    { label: 'Limite',      data: limValues, backgroundColor: 'rgba(15,34,55,0.18)',   borderRadius: 6 }
+                    { label: 'Gasto atual', data: gastos,    backgroundColor: 'rgba(192,57,43,0.75)', borderRadius: 6 },
+                    { label: 'Limite',      data: limValues, backgroundColor: 'rgba(15,34,55,0.18)',  borderRadius: 6 }
                 ]
             },
             options: {
@@ -2925,24 +2876,43 @@ async function carregarLimites() {
             }
         });
 
+        // Popula o select do modal usando API.categorias() — sem duplicatas
         await limPopularCategorias();
 
     } catch(e) {
-        console.error(e);
+        console.error('[limites]', e);
         elTab.innerHTML = '<div style="color:var(--red);padding:20px">Erro ao carregar limites.</div>';
     }
 }
 
 async function limPopularCategorias() {
-    const token = localStorage.getItem('gz_token');
-    const sel   = document.getElementById('limCategoria');
+    const sel = document.getElementById('limCategoria');
+    if (!sel) return;
     try {
-        const res  = await fetch('/api/transactions/categorias', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
-        const cats = Array.isArray(res) ? res : (res.categorias || []);
-        sel.innerHTML = cats.map(c => `<option value="${c.nome}">${emojiCat(c.nome)} ${c.nome}</option>`).join('');
+        // API.categorias() retorna as categorias cadastradas, sem duplicatas
+        const res  = await API.categorias();
+        const raw  = Array.isArray(res) ? res : (res?.categorias || []);
+        // Deduplicação extra por nome (case-insensitive), só por segurança
+        const seen = new Set();
+        const cats = raw.filter(c => {
+            const key = (c.nome || c.name || '').toLowerCase().trim();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        if (cats.length) {
+            sel.innerHTML = cats.map(c => {
+                const nome = c.nome || c.name || '';
+                return `<option value="${nome}">${emojiCat(nome)} ${nome}</option>`;
+            }).join('');
+        } else {
+            // fallback com categorias padrão
+            const padrao = ['Alimentação','Saúde','Transporte','Casa','Mercado','Educação','Assinatura','Lazer e Entretenimento','Cuidados pessoais','Pets','Vestuário','Outros'];
+            sel.innerHTML = padrao.map(n => `<option value="${n}">${emojiCat(n)} ${n}</option>`).join('');
+        }
     } catch {
-        sel.innerHTML = ['Alimentação','Saúde','Transporte','Casa','Mercado','Educação','Assinatura','Outros']
-            .map(c => `<option value="${c}">${emojiCat(c)} ${c}</option>`).join('');
+        sel.innerHTML = ['Alimentação','Saúde','Transporte','Casa','Outros']
+            .map(n => `<option value="${n}">${emojiCat(n)} ${n}</option>`).join('');
     }
 }
 
@@ -2951,8 +2921,10 @@ function limEditar(id, categoria, valor, periodo) {
     document.getElementById('limEditId').value  = id;
     document.getElementById('limValor').value   = valor;
     document.getElementById('limPeriodo').value = periodo;
-    const sel = document.getElementById('limCategoria');
-    for (const opt of sel.options) { if (opt.value === categoria) { opt.selected = true; break; } }
+    limPopularCategorias().then(() => {
+        const sel = document.getElementById('limCategoria');
+        for (const opt of sel.options) { if (opt.value === categoria) { opt.selected = true; break; } }
+    });
     openModal('modalNovoLimite');
 }
 
@@ -2965,14 +2937,10 @@ async function limSalvar() {
         periodo:      document.getElementById('limPeriodo').value,
     };
     if (!body.categoria || !body.valor_limite) { showToast('Preencha categoria e valor', 'error'); return; }
-    const method = id ? 'PUT' : 'POST';
     const url    = id ? `/api/limites/${id}` : '/api/limites';
+    const method = id ? 'PUT' : 'POST';
     try {
-        const res = await fetch(url, {
-            method,
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        }).then(r => r.json());
+        const res = await fetch(url, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json());
         if (res.id || res.ok || res.limite) {
             showToast(id ? 'Limite atualizado! ✅' : 'Limite criado! ✅', 'success');
             closeModal('modalNovoLimite');
@@ -2988,10 +2956,7 @@ async function limExcluir(id, categoria) {
     if (!confirm(`Remover o limite de "${categoria}"?`)) return;
     const token = localStorage.getItem('gz_token');
     try {
-        const res = await fetch(`/api/limites/${id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(r => r.json());
+        const res = await fetch(`/api/limites/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
         if (res.ok || res.mensagem) { showToast('Limite removido.', 'success'); carregarLimites(); }
         else showToast(res.erro || 'Erro ao remover', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
@@ -2999,12 +2964,18 @@ async function limExcluir(id, categoria) {
 
 // ─── GERENCIAR CATEGORIAS ─────────────────────────────────────────────────────
 async function carregarCategoriasEditar() {
-    const token = localStorage.getItem('gz_token');
-    const el    = document.getElementById('catListaEditar');
+    const el = document.getElementById('catListaEditar');
     el.innerHTML = '<div style="color:var(--gray-400);padding:10px">Carregando...</div>';
     try {
-        const res  = await fetch('/api/transactions/categorias', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());
-        const cats = Array.isArray(res) ? res : (res.categorias || []);
+        const res  = await API.categorias();
+        const raw  = Array.isArray(res) ? res : (res?.categorias || []);
+        // Deduplicação por nome
+        const seen = new Set();
+        const cats = raw.filter(c => {
+            const key = (c.nome||'').toLowerCase().trim();
+            if (!key || seen.has(key)) return false;
+            seen.add(key); return true;
+        });
         if (!cats.length) { el.innerHTML = '<div style="color:var(--gray-400);padding:10px">Nenhuma categoria cadastrada.</div>'; return; }
         el.innerHTML = cats.map(c => `
             <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-100)">
@@ -3027,10 +2998,8 @@ async function catRenomear(id) {
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome: novoNome })
         }).then(r => r.json());
-        if (res.ok || res.id || res.categoria) {
-            showToast('Categoria renomeada! ✅', 'success');
-            carregarCategoriasEditar();
-        } else showToast(res.erro || 'Erro ao renomear', 'error');
+        if (res.ok || res.id || res.categoria) { showToast('Categoria renomeada! ✅', 'success'); carregarCategoriasEditar(); }
+        else showToast(res.erro || 'Erro ao renomear', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
 }
 
@@ -3044,21 +3013,17 @@ async function catCriarNova() {
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome, tipo: 'despesa' })
         }).then(r => r.json());
-        if (res.ok || res.id || res.categoria) {
-            showToast('Categoria criada! ✅', 'success');
-            document.getElementById('catNovoNome').value = '';
-            carregarCategoriasEditar();
-        } else showToast(res.erro || 'Erro ao criar', 'error');
+        if (res.ok || res.id || res.categoria) { showToast('Categoria criada! ✅', 'success'); document.getElementById('catNovoNome').value = ''; carregarCategoriasEditar(); }
+        else showToast(res.erro || 'Erro ao criar', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
 }
 
-// Intercepta openModal para carregar dados quando necessário
+// Carrega dados ao abrir modais que precisam deles
 const _origOpenModal = window.openModal;
 window.openModal = function(id) {
     _origOpenModal(id);
     if (id === 'modalEditarCategoria') carregarCategoriasEditar();
     if (id === 'modalNovoLimite') limPopularCategorias();
 };
-</script>
 </body>
 </html>

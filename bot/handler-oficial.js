@@ -1125,9 +1125,9 @@ class BotOficial {
 
       // Botões de ação rápida
       await this.enviarBotoes(jid, 'O que deseja ver agora?', [
-        { id: 'btn_agenda',       titulo: '📅 Ver agenda' },
-        { id: 'menu_receber_ver', titulo: '👥 Ver devedores' },
-        { id: 'btn_pdf',          titulo: '📄 Relatório PDF' },
+        { id: 'btn_agenda',  titulo: '📅 Ver agenda' },
+        { id: 'btn_limite',  titulo: '🎯 Limites de gastos' },
+        { id: 'btn_pdf',     titulo: '📄 Relatório PDF' },
       ]);
 
       await this.enviarBotaoLink(
@@ -2296,7 +2296,13 @@ class BotOficial {
           { id: 'btn_resumo',    titulo: '📊 Resumo do mês',     descricao: 'Saldo, receitas e despesas' },
           { id: 'btn_historico', titulo: '🕐 Histórico',          descricao: 'Últimas 5 transações' },
           { id: 'btn_limite',    titulo: '🎯 Limites de gastos',  descricao: 'Alertas por categoria' },
-          { id: 'btn_pdf',       titulo: '📄 Relatório PDF',      descricao: 'Relatório completo do mês' },
+        ],
+      },
+      {
+        titulo: '📄 Relatórios',
+        itens: [
+          { id: 'btn_pdf',   titulo: '📄 Relatório PDF',  descricao: 'Relatório completo do mês' },
+          { id: 'btn_painel', titulo: '🌐 Painel web',    descricao: 'Gráficos e relatórios completos' },
         ],
       },
       {
@@ -2317,12 +2323,6 @@ class BotOficial {
         itens: [
           { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos', descricao: 'Suas contas mensais' },
           { id: 'btn_gastos_fixos_add', titulo: '➕ Novo gasto fixo',  descricao: 'Nova conta mensal' },
-        ],
-      },
-      {
-        titulo: '🌐 Outros',
-        itens: [
-          { id: 'btn_painel', titulo: '🌐 Painel web', descricao: 'Gráficos e relatórios completos' },
         ],
       },
     ]);

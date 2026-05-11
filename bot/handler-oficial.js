@@ -10,6 +10,7 @@ const axios  = require('axios');
 const db     = require('../database/db');
 const { LimitesAlertas } = require('./limites_alertas');
 const { gerarRelatorio, limparPdfsAntigos } = require('./relatorio');
+const gcal   = require('../utils/gcal');
 
 // ── Constantes de ambiente ────────────────────────────────────────────────────
 const ACCESS_TOKEN    = process.env.WA_OFICIAL_ACCESS_TOKEN;
@@ -1558,12 +1559,35 @@ class BotOficial {
     } while (++tentativas < 20);
 
     const dataHora = new Date(compromisso.data_hora.replace(' ', 'T') + ':00-03:00');
-    await db.query(
+
+    // 1. Salva no banco e recupera o id UUID gerado
+    const { rows: inserted } = await db.query(
       `INSERT INTO agenda (usuario_id, titulo, data_hora, lembrar_antes, local, notas, id_curto, origem)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'whatsapp-oficial')`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'whatsapp-oficial')
+       RETURNING id`,
       [usuarioId, compromisso.titulo, dataHora.toISOString(), compromisso.lembrar_antes || 30,
        compromisso.local || null, compromisso.notas || null, idCurto]
     );
+    const agendaId = inserted[0].id;
+
+    // 2. Sincroniza com Google Calendar (não bloqueia em caso de erro)
+    try {
+      const googleEventId = await gcal.criarEvento(usuarioId, {
+        titulo:       compromisso.titulo,
+        dataHora:     dataHora.toISOString(),
+        lembrarAntes: compromisso.lembrar_antes || 30,
+        local:        compromisso.local || null,
+        notas:        compromisso.notas || null,
+      });
+      if (googleEventId) {
+        await db.query(
+          `UPDATE agenda SET google_event_id = $1 WHERE id = $2`,
+          [googleEventId, agendaId]
+        );
+      }
+    } catch (err) {
+      console.warn(`⚠️ [META] GCal criarEvento falhou para usuario ${usuarioId}:`, err.message);
+    }
 
     const dataFmt = dataHora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     const horaFmt = dataHora.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
@@ -1616,11 +1640,19 @@ class BotOficial {
 
   async cancelarCompromisso(jid, usuarioId, idCurto) {
     const { rows } = await db.query(
-      `UPDATE agenda SET cancelado=true WHERE usuario_id=$1 AND UPPER(id_curto)=$2 AND cancelado=false RETURNING titulo, data_hora`,
+      `UPDATE agenda SET cancelado=true WHERE usuario_id=$1 AND UPPER(id_curto)=$2 AND cancelado=false RETURNING titulo, data_hora, google_event_id`,
       [usuarioId, idCurto]
     );
     if (rows.length === 0)
       return this.enviar(jid, `Compromisso *${idCurto}* não encontrado ou já cancelado.`);
+
+    // Remove do Google Calendar também
+    if (rows[0].google_event_id) {
+      gcal.cancelarEvento(usuarioId, rows[0].google_event_id).catch(err =>
+        console.warn(`⚠️ [META] GCal cancelarEvento falhou:`, err.message)
+      );
+    }
+
     const dh = new Date(rows[0].data_hora);
     await this.enviar(jid,
       `*Compromisso cancelado*\n\n${rows[0].titulo}\n` +

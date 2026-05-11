@@ -1,7 +1,9 @@
 // bot/handler-oficial.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Cérebro do Bot WhatsApp API Oficial (Meta)
+// Roda em PARALELO com o bot Baileys (bot/handler.js) sem conflito algum.
 // Toda a lógica de negócio (interpretarTransacao, registrarTransacao, etc.)
+// é importada do handler Baileys — sem duplicação de código.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const axios  = require('axios');
@@ -310,17 +312,26 @@ class BotOficial {
 
     // ── Relatório por categoria ────────────────────────────────────────────
     {
-      // Padrões aceitos:
-      // "gasto em gasolina", "gastos com combustível", "quanto de gasolina gastei"
-      // "quanto gastei de gasolina", "quanto gastei esse mês gasolina"
-      // "ver gastos transporte", "relatório alimentação"
+      // Usa textoClean (lowercase, sem pontuação final) para evitar falhas
+      // em transcrições de áudio que podem trazer "?" no meio da frase.
+      const _limparTermo = (t) => t
+        .replace(/\s+(?:esse|este|nesse|neste|no|do|na|da)\s+m[eê]s\b.*/i, '')
+        .replace(/\s+(?:essa|esta|nessa|nesta|na|da)\s+semana\b.*/i, '')
+        .replace(/\s+(?:hoje|agora|recente|recentemente)\b.*/i, '')
+        .replace(/\s+(?:no\s+m[eê]s\s+passado|m[eê]s\s+passado)\b.*/i, '')
+        .replace(/[?!.,;:]+$/, '')
+        .trim();
+
       const recat =
-        texto.match(/^quanto\s+de\s+(.+?)\s+(?:gastei|eu\s+gastei)/i)     // "quanto de X gastei"
-        || texto.match(/^quanto\s+(?:eu\s+)?gastei\s+(?:de|em|com|no|na)\s+(.+)/i) // "quanto gastei de X"
-        || texto.match(/^(?:gastos?|ver\s+gastos?|mostrar\s+gastos?|relat[oó]rio)\s+(?:em|com|de|no|na)?\s*(.+)$/i) // "gasto em X"
-        || texto.match(/^(?:quanto\s+gastei)\s+(.+)$/i);                    // "quanto gastei X"
-      if (recat)
-        return this.enviarRelatorioPorCategoria(jid, usuarioId, recat[1].trim());
+        textoClean.match(/^quanto\s+de\s+(.+?)\s+(?:gastei|eu\s+gastei)/)
+        || textoClean.match(/^quanto\s+(?:eu\s+)?gastei\s+(?:de|em|com|no|na)\s+(.+)/)
+        || textoClean.match(/^(?:gastos?|ver\s+gastos?|mostrar\s+gastos?|relat[oó]rio)\s+(?:em|com|de|no|na)?\s*(.+)$/)
+        || textoClean.match(/^quanto\s+gastei\s+(.+)$/);
+
+      if (recat) {
+        const termoLimpo = _limparTermo(recat[1]);
+        if (termoLimpo) return this.enviarRelatorioPorCategoria(jid, usuarioId, termoLimpo);
+      }
     }
 
     // ── Submenu quem me deve ───────────────────────────────────────────────

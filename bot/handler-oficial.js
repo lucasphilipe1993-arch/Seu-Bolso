@@ -394,11 +394,6 @@ class BotOficial {
     if (['menu gastos fixos','configurar gastos fixos','gastos fixos menu'].includes(textoClean))
       return this.enviarMenuGastosFixos(jid, usuarioId);
 
-    // ── IA: dívida a receber ───────────────────────────────────────────────
-    const divida = await this.interpretarDivida(texto);
-    if (divida)
-      return this.registrarDividaReceber(jid, usuarioId, divida, texto);
-
     // ── Agenda — comando explícito "agendar ..." ───────────────────────────
     const matchAgendar = texto.match(/^agendar\s+(.+)$/i);
     if (matchAgendar) {
@@ -417,15 +412,21 @@ class BotOficial {
       );
     }
 
-    // ── IA: compromisso (forma livre) ─────────────────────────────────────
-    const compromisso = await this.interpretarCompromisso(texto);
+    // ── IA: dívida + compromisso + transação em PARALELO ──────────────────
+    // Executa as 3 chamadas ao mesmo tempo — reduz ~67% do tempo de resposta
+    console.log(`🧠 [META] Interpretando em paralelo: "${texto}"`);
+    const [divida, compromisso, transacoes] = await Promise.all([
+      this.interpretarDivida(texto).catch(() => null),
+      this.interpretarCompromisso(texto).catch(() => null),
+      this.interpretarTransacao(texto).catch(() => null),
+    ]);
+    console.log(`🧠 [META] Resultado — divida:${!!divida} compromisso:${!!compromisso} transacoes:${Array.isArray(transacoes) ? transacoes.length : 0}`);
+
+    if (divida)
+      return this.registrarDividaReceber(jid, usuarioId, divida, texto);
+
     if (compromisso)
       return this.registrarCompromisso(jid, usuarioId, compromisso, texto);
-
-    // ── IA: transação financeira ───────────────────────────────────────────
-    console.log(`🧠 [META] Interpretando: "${texto}"`);
-    const transacoes = await this.interpretarTransacao(texto);
-    console.log(`🧠 [META] Resultado:`, JSON.stringify(transacoes));
 
     if (transacoes && transacoes.length > 0) {
       if (transacoes.length === 1) {
@@ -1036,24 +1037,91 @@ class BotOficial {
       const liquido  = receitas - despesas;
       const sinalLiq = liquido >= 0 ? '+' : '';
 
+      // ── Bloco 1: Financeiro do mês ──────────────────────────────────────
       let msg = `📊 *Resumo de ${meses[mes - 1]}/${ano}*\n`;
       msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `💰 *Financeiro do mês*\n`;
       msg += `Receitas: *${fmt(receitas)}*\n`;
       msg += `Despesas: *${fmt(despesas)}*\n`;
       msg += `Resultado: *${sinalLiq}${fmt(liquido)}*\n`;
       msg += `Saldo geral: *${fmt(saldo)}*\n`;
 
+      // ── Bloco 2: Top categorias ──────────────────────────────────────────
       if (cats.length > 0) {
         msg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `*Top categorias (despesas):*\n`;
+        msg += `🏷️ *Top categorias (despesas)*\n`;
         for (const cat of cats) {
-          const emoji = EMOJI_CATEGORIA[cat.categoria] || '';
+          const emoji = EMOJI_CATEGORIA[cat.categoria] || '📦';
           msg += `${emoji} ${cat.categoria || 'Outros'}: *${fmt(cat.total)}*\n`;
         }
+        msg += `_"gasto em [categoria]" para detalhar_`;
       }
 
-      msg += `\n━━━━━━━━━━━━━━━━━━━━`;
+      // ── Bloco 3: Gastos fixos mensais ────────────────────────────────────
+      const { rows: fixosRows } = await db.query(`
+        SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
+        FROM gastos_fixos WHERE usuario_id=$1 AND ativo=true
+      `, [usuarioId]).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
+      const fixoQtd   = parseInt(fixosRows[0]?.qtd || 0);
+      const fixoTotal = parseFloat(fixosRows[0]?.total || 0);
+      if (fixoQtd > 0) {
+        msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `🏠 *Gastos Fixos Mensais*\n`;
+        msg += `${fixoQtd} conta(s) | Total: *${fmt(fixoTotal)}/mês*\n`;
+        msg += `_Digite "gastos fixos" para ver a lista_`;
+      }
+
+      // ── Bloco 4: Próximos compromissos ───────────────────────────────────
+      const { rows: agendaRows } = await db.query(`
+        SELECT titulo, data_hora, local FROM agenda
+        WHERE usuario_id=$1 AND cancelado=false AND data_hora >= NOW()
+        ORDER BY data_hora ASC LIMIT 3
+      `, [usuarioId]).catch(() => ({ rows: [] }));
+      msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `📅 *Próximos Compromissos*\n`;
+      if (agendaRows.length === 0) {
+        msg += `Nenhum compromisso agendado.\n`;
+        msg += `_"agendar reunião amanhã às 10h" para criar_`;
+      } else {
+        for (const comp of agendaRows) {
+          const dh      = new Date(comp.data_hora);
+          const dataFmt = dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
+          const horaFmt = dh.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+          msg += `• *${comp.titulo}* — ${dataFmt} às ${horaFmt}`;
+          if (comp.local) msg += ` | ${comp.local}`;
+          msg += `\n`;
+        }
+        msg += `_Digite "agenda" para ver todos_`;
+      }
+
+      // ── Bloco 5: Devedores ───────────────────────────────────────────────
+      const { rows: devRows } = await db.query(`
+        SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
+        FROM dividas_receber WHERE usuario_id=$1 AND status='pendente'
+      `, [usuarioId]).catch(() => ({ rows: [{ qtd: 0, total: 0 }] }));
+      const devQtd   = parseInt(devRows[0]?.qtd || 0);
+      const devTotal = parseFloat(devRows[0]?.total || 0);
+      msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `👥 *Quem me deve*\n`;
+      if (devQtd === 0) {
+        msg += `Nenhuma dívida pendente.\n`;
+        msg += `_"João me deve 50" para registrar_`;
+      } else {
+        msg += `${devQtd} devedor(es) | Total: *${fmt(devTotal)}*\n`;
+        msg += `_Digite "a receber" para ver a lista_`;
+      }
+
+      msg += `\n\n━━━━━━━━━━━━━━━━━━━━`;
+
       await this.enviar(jid, msg);
+
+      // Botões de ação rápida
+      await this.enviarBotoes(jid, 'O que deseja ver agora?', [
+        { id: 'btn_agenda',       titulo: '📅 Ver agenda' },
+        { id: 'menu_receber_ver', titulo: '👥 Ver devedores' },
+        { id: 'btn_pdf',          titulo: '📄 Relatório PDF' },
+      ]);
+
       await this.enviarBotaoLink(
         jid,
         'Veja gráficos e relatórios completos no painel:',

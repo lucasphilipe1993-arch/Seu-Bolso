@@ -1273,8 +1273,9 @@
         <div class="modal-desc">Defina um teto de gastos por categoria. O bot avisa pelo WhatsApp ao se aproximar.</div>
         <input type="hidden" id="limEditId">
         <div class="form-group">
-            <label class="form-label">Categoria</label>
-            <select class="form-select" id="limCategoria"></select>
+            <label class="form-label">Nome do Limite / Categoria</label>
+            <input class="form-input" type="text" id="limCategoria" placeholder="Ex: Alimentação, Mercado, Lazer...">
+            <div style="font-size:11px;color:var(--gray-400);margin-top:5px">Digite o nome exato que aparece no bot do WhatsApp.</div>
         </div>
         <div class="form-row">
             <div class="form-group">
@@ -2864,44 +2865,18 @@ async function carregarLimites() {
             }
         });
 
-        await limPopularCategorias();
     } catch(e) {
         console.error('[limites]', e);
         elTab.innerHTML = '<div style="color:var(--red);padding:20px">Erro ao carregar limites.</div>';
     }
 }
 
-async function limPopularCategorias() {
-    const sel = document.getElementById('limCategoria');
-    if (!sel) return;
-    try {
-        const res  = await API.categorias();
-        const raw  = Array.isArray(res) ? res : (res?.categorias || []);
-        const seen = new Set();
-        const cats = raw.filter(c => {
-            const key = (c.nome||'').toLowerCase().trim();
-            if (!key || seen.has(key)) return false;
-            seen.add(key); return true;
-        });
-        sel.innerHTML = cats.length
-            ? cats.map(c => `<option value="${c.nome}">${emojiCat(c.nome)} ${c.nome}</option>`).join('')
-            : ['Alimentação','Saúde','Transporte','Casa','Mercado','Educação','Assinatura','Outros']
-                .map(n => `<option value="${n}">${emojiCat(n)} ${n}</option>`).join('');
-    } catch {
-        sel.innerHTML = ['Alimentação','Saúde','Transporte','Casa','Outros']
-            .map(n => `<option value="${n}">${emojiCat(n)} ${n}</option>`).join('');
-    }
-}
-
 function limEditar(id, categoria, valor, periodo) {
     document.getElementById('limModalTitle').textContent = 'Editar Limite';
-    document.getElementById('limEditId').value  = id;
-    document.getElementById('limValor').value   = valor;
-    document.getElementById('limPeriodo').value = periodo;
-    limPopularCategorias().then(() => {
-        const sel = document.getElementById('limCategoria');
-        for (const opt of sel.options) { if (opt.value === categoria) { opt.selected = true; break; } }
-    });
+    document.getElementById('limEditId').value   = id;
+    document.getElementById('limCategoria').value = categoria;
+    document.getElementById('limValor').value    = valor;
+    document.getElementById('limPeriodo').value  = periodo;
     openModal('modalNovoLimite');
 }
 
@@ -2909,11 +2884,11 @@ async function limSalvar() {
     const token = localStorage.getItem('gz_token');
     const id    = document.getElementById('limEditId').value;
     const body  = {
-        categoria:    document.getElementById('limCategoria').value,
+        categoria:    document.getElementById('limCategoria').value.trim(),
         valor_limite: parseFloat(document.getElementById('limValor').value),
         periodo:      document.getElementById('limPeriodo').value,
     };
-    if (!body.categoria || !body.valor_limite) { showToast('Preencha categoria e valor', 'error'); return; }
+    if (!body.categoria || !body.valor_limite) { showToast('Preencha o nome e o valor', 'error'); return; }
     const url = id ? `/api/limites/${id}` : '/api/limites';
     try {
         const res = await fetch(url, {
@@ -2924,9 +2899,10 @@ async function limSalvar() {
         if (res.id || res.ok || res.limite) {
             showToast(id ? 'Limite atualizado! ✅' : 'Limite criado! ✅', 'success');
             closeModal('modalNovoLimite');
-            document.getElementById('limEditId').value = '';
+            document.getElementById('limEditId').value    = '';
+            document.getElementById('limCategoria').value = '';
+            document.getElementById('limValor').value     = '';
             document.getElementById('limModalTitle').textContent = 'Novo Limite de Gasto';
-            document.getElementById('limValor').value = '';
             carregarLimites();
         } else showToast(res.erro || 'Erro ao salvar', 'error');
     } catch { showToast('Erro de conexão', 'error'); }
@@ -3008,7 +2984,6 @@ const _origOpenModal = window.openModal;
 window.openModal = function(id) {
     _origOpenModal(id);
     if (id === 'modalEditarCategoria') carregarCategoriasEditar();
-    if (id === 'modalNovoLimite') limPopularCategorias();
 };
 </script>
 </body>

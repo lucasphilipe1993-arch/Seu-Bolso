@@ -718,6 +718,8 @@
 
             <!-- ── ADMIN: USUÁRIOS DO SITE ────────────────────────────────────── -->
             <div id="admin-usuarios" class="page">
+
+                <!-- Cabeçalho + busca -->
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
                     <div>
                         <div style="display:flex;align-items:center;gap:12px">
@@ -726,8 +728,10 @@
                         </div>
                         <p style="font-size:13px;color:var(--gray-400);margin-top:2px">Todos os usuários registrados na plataforma</p>
                     </div>
-                    <div style="display:flex;gap:10px">
-                        <input class="form-input" type="text" id="adm-usr-busca" placeholder="🔍 Buscar por nome ou email..." style="width:260px" oninput="adminFiltrarUsuarios()">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <input class="form-input" type="text" id="adm-usr-busca"
+                            placeholder="🔍 Buscar por nome ou email..." style="width:260px"
+                            oninput="adminFiltrarUsuarios()">
                         <button class="btn btn-primary" onclick="adminAbrirModalUsuario()">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             Novo Usuário
@@ -735,40 +739,94 @@
                     </div>
                 </div>
 
-                <!-- KPIs rápidos -->
-                <div class="grid grid-3" style="margin-bottom:18px">
+                <!-- KPIs linha 1 -->
+                <div class="grid grid-3" style="margin-bottom:14px">
                     <div class="stat-box" style="border-left:4px solid var(--navy)">
                         <div class="stat-label">Total de Usuários</div>
                         <div class="stat-value" id="adm-usr-total" style="color:var(--navy)">—</div>
                         <div class="stat-meta">Contas na plataforma</div>
                     </div>
                     <div class="stat-box" style="border-left:4px solid var(--green)">
-                        <div class="stat-label">Plano Premium</div>
+                        <div class="stat-label">Plano Pago (Stripe)</div>
                         <div class="stat-value" id="adm-usr-premium" style="color:var(--green)">—</div>
                         <div class="stat-meta">Assinaturas ativas</div>
                     </div>
                     <div class="stat-box" style="border-left:4px solid var(--gold)">
                         <div class="stat-label">Plano Gratuito</div>
                         <div class="stat-value" id="adm-usr-gratis" style="color:var(--gold)">—</div>
-                        <div class="stat-meta">Usuários free</div>
+                        <div class="stat-meta">Sem assinatura paga</div>
                     </div>
                 </div>
 
+                <!-- KPIs linha 2 -->
+                <div class="grid grid-3" style="margin-bottom:18px">
+                    <div class="stat-box" style="border-left:4px solid #7c3aed">
+                        <div class="stat-label">🎟️ Cupom Grátis Ativo</div>
+                        <div class="stat-value" id="adm-usr-cupom" style="color:#7c3aed">—</div>
+                        <div class="stat-meta">Usaram cupom GRATUITO</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid #0891b2">
+                        <div class="stat-label">⏳ Trial Stripe (7 dias)</div>
+                        <div class="stat-value" id="adm-usr-trial" style="color:#0891b2">—</div>
+                        <div class="stat-meta">Testando plano pago</div>
+                    </div>
+                    <div class="stat-box" style="border-left:4px solid var(--green)">
+                        <div class="stat-label">🤖 Usando o Bot</div>
+                        <div class="stat-value" id="adm-usr-bot-ativo" style="color:var(--green)">—</div>
+                        <div class="stat-meta">Com sessão WhatsApp ativa</div>
+                    </div>
+                </div>
+
+                <!-- Filtros de segmento -->
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+                    <span style="font-size:12px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.08em">Filtrar:</span>
+                    <button class="btn btn-secondary adm-filtro-btn active" data-filtro="todos"
+                        onclick="adminSetFiltro('todos',this)" style="font-size:12px;padding:5px 13px">
+                        Todos
+                    </button>
+                    <button class="btn btn-secondary adm-filtro-btn" data-filtro="cupom"
+                        onclick="adminSetFiltro('cupom',this)" style="font-size:12px;padding:5px 13px;border-color:#7c3aed;color:#7c3aed">
+                        🎟️ Cupom Grátis
+                    </button>
+                    <button class="btn btn-secondary adm-filtro-btn" data-filtro="trial"
+                        onclick="adminSetFiltro('trial',this)" style="font-size:12px;padding:5px 13px;border-color:#0891b2;color:#0891b2">
+                        ⏳ Trial Stripe
+                    </button>
+                    <button class="btn btn-secondary adm-filtro-btn" data-filtro="pago"
+                        onclick="adminSetFiltro('pago',this)" style="font-size:12px;padding:5px 13px;border-color:var(--green);color:var(--green)">
+                        ✅ Pago
+                    </button>
+                    <button class="btn btn-secondary adm-filtro-btn" data-filtro="gratuito"
+                        onclick="adminSetFiltro('gratuito',this)" style="font-size:12px;padding:5px 13px">
+                        🆓 Gratuito
+                    </button>
+                    <button class="btn btn-secondary adm-filtro-btn" data-filtro="bot_ativo"
+                        onclick="adminSetFiltro('bot_ativo',this)" style="font-size:12px;padding:5px 13px;border-color:var(--green);color:var(--green)">
+                        🤖 Usa bot
+                    </button>
+                    <button class="btn btn-secondary adm-filtro-btn" data-filtro="bot_inativo"
+                        onclick="adminSetFiltro('bot_inativo',this)" style="font-size:12px;padding:5px 13px;border-color:var(--red);color:var(--red)">
+                        🚫 Sem bot
+                    </button>
+                </div>
+
+                <!-- Tabela -->
                 <div class="card" style="padding:0;overflow-x:auto">
                     <table class="table">
                         <thead>
                             <tr>
                                 <th>Nome</th>
                                 <th>Email</th>
-                                <th>Plano</th>
+                                <th>Plano / Origem</th>
+                                <th>Bot</th>
                                 <th>Telefone</th>
                                 <th>Cadastrado em</th>
-                                <th>ID do Usuário</th>
+                                <th>ID</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody id="adm-usr-tbody">
-                            <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
+                            <tr><td colspan="8" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -2407,62 +2465,171 @@ async function adminTestarCalendario() {
 }
 
 // ─── ADMIN: USUÁRIOS ──────────────────────────────────────────────────────────
-let _admUsuarios = [];
+let _admUsuarios    = [];
 let _admUsrEditando = null;
+let _admFiltroAtual = 'todos';
+
+// Classifica o usuário para exibição segmentada
+function _admClassificar(u) {
+    const agora  = new Date();
+    const expira = u.acesso_expira_em ? new Date(u.acesso_expira_em) : null;
+    const trial  = u.stripe_trial_end ? new Date(u.stripe_trial_end) : null;
+
+    const temCupom = !!u.cupom_codigo && expira && expira > agora;
+    const emTrial  = !!u.stripe_subscription_id && trial && trial > agora && u.plano !== 'gratuito';
+    const pago     = (u.plano === 'basico' || u.plano === 'premium' || u.plano === 'pro') && !emTrial && !temCupom;
+    const gratuito = u.plano === 'gratuito' && !temCupom;
+    const usaBot   = !!u.usa_bot || u.whatsapp_ativo;
+
+    return { temCupom, emTrial, pago, gratuito, usaBot };
+}
+
+function _admPlanoLabel(u) {
+    const c = _admClassificar(u);
+
+    if (c.temCupom) {
+        const exp  = new Date(u.acesso_expira_em);
+        const dias = Math.max(0, Math.ceil((exp - new Date()) / 86400000));
+        return `
+            <div style="display:flex;flex-direction:column;gap:3px">
+                <span class="badge" style="background:#f3e8ff;color:#7c3aed;font-size:10px">🎟️ Cupom Grátis</span>
+                <span style="font-size:10px;color:#7c3aed">${u.cupom_codigo} · ${dias}d restantes</span>
+            </div>`;
+    }
+    if (c.emTrial) {
+        const exp  = new Date(u.stripe_trial_end);
+        const dias = Math.max(0, Math.ceil((exp - new Date()) / 86400000));
+        return `
+            <div style="display:flex;flex-direction:column;gap:3px">
+                <span class="badge" style="background:#e0f2fe;color:#0891b2;font-size:10px">⏳ Trial Stripe</span>
+                <span style="font-size:10px;color:#0891b2">Plano ${u.plano} · ${dias}d restantes</span>
+            </div>`;
+    }
+    if (c.pago) {
+        const label = { basico: 'Básico', premium: 'Premium', pro: 'Pro' }[u.plano] || u.plano;
+        return `<span class="badge badge-green" style="font-size:10px">✅ ${label} (Pago)</span>`;
+    }
+    return `<span class="badge badge-navy" style="font-size:10px">🆓 Gratuito</span>`;
+}
+
+function _admBotBadge(u) {
+    if (!u.whatsapp_ativo)
+        return `<span class="badge badge-red" style="font-size:10px" title="Bot bloqueado">🚫 Bloqueado</span>`;
+    if (u.usa_bot)
+        return `<span class="badge badge-green" style="font-size:10px" title="Sessão ativa">🤖 Ativo</span>`;
+    return `<span class="badge" style="background:var(--gray-100);color:var(--gray-400);font-size:10px" title="Sem sessão ativa">📵 Sem sessão</span>`;
+}
 
 async function adminCarregarUsuarios() {
     const token = localStorage.getItem('gz_token');
     const tbody = document.getElementById('adm-usr-tbody');
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+
     try {
         const res = await fetch('/api/admin/users', {
             headers: { Authorization: `Bearer ${token}` }
         }).then(r => r.json());
+
         _admUsuarios = Array.isArray(res) ? res : (res?.usuarios || res?.users || []);
+
         const total = _admUsuarios.length;
-        const premium = _admUsuarios.filter(u => u.plano === 'premium').length;
-        const gratis = total - premium;
-        document.getElementById('adm-usr-badge').textContent = `${total} usuário${total !== 1 ? 's' : ''}`;
-        document.getElementById('adm-usr-total').textContent = total;
-        document.getElementById('adm-usr-premium').textContent = premium;
-        document.getElementById('adm-usr-gratis').textContent = gratis;
+        let premium = 0, gratis = 0, cupom = 0, trial = 0, botAtivo = 0;
+
+        _admUsuarios.forEach(u => {
+            const c = _admClassificar(u);
+            if (c.pago)    premium++;
+            if (c.gratuito) gratis++;
+            if (c.temCupom) cupom++;
+            if (c.emTrial)  trial++;
+            if (c.usaBot)   botAtivo++;
+        });
+
+        document.getElementById('adm-usr-badge').textContent     = `${total} usuário${total !== 1 ? 's' : ''}`;
+        document.getElementById('adm-usr-total').textContent      = total;
+        document.getElementById('adm-usr-premium').textContent    = premium;
+        document.getElementById('adm-usr-gratis').textContent     = total - premium;
+        document.getElementById('adm-usr-cupom').textContent      = cupom;
+        document.getElementById('adm-usr-trial').textContent      = trial;
+        document.getElementById('adm-usr-bot-ativo').textContent  = botAtivo;
+
         adminFiltrarUsuarios();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--red)">Erro ao carregar usuários.<br><small style="color:var(--gray-400)">Verifique se a rota /api/admin/users existe e aceita JWT Bearer.</small></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--red)">
+            Erro ao carregar usuários.<br>
+            <small style="color:var(--gray-400)">Verifique se a rota /api/admin/users retorna os campos cupom_codigo, acesso_expira_em, stripe_trial_end e usa_bot.</small>
+        </td></tr>`;
     }
+}
+
+function adminSetFiltro(filtro, el) {
+    _admFiltroAtual = filtro;
+    document.querySelectorAll('.adm-filtro-btn').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    adminFiltrarUsuarios();
 }
 
 function adminFiltrarUsuarios() {
     const q = (document.getElementById('adm-usr-busca')?.value || '').toLowerCase();
-    const lista = q ? _admUsuarios.filter(u =>
-        (u.nome || '').toLowerCase().includes(q) ||
-        (u.sobrenome || '').toLowerCase().includes(q) ||
-        (u.email || '').toLowerCase().includes(q)
-    ) : _admUsuarios;
+
+    let lista = _admUsuarios.filter(u => {
+        const c = _admClassificar(u);
+        switch (_admFiltroAtual) {
+            case 'cupom':       return c.temCupom;
+            case 'trial':       return c.emTrial;
+            case 'pago':        return c.pago;
+            case 'gratuito':    return c.gratuito && !c.temCupom;
+            case 'bot_ativo':   return c.usaBot;
+            case 'bot_inativo': return !c.usaBot;
+            default:            return true;
+        }
+    });
+
+    if (q) {
+        lista = lista.filter(u =>
+            (u.nome || '').toLowerCase().includes(q) ||
+            (u.sobrenome || '').toLowerCase().includes(q) ||
+            (u.email || '').toLowerCase().includes(q)
+        );
+    }
+
     const tbody = document.getElementById('adm-usr-tbody');
+    const isAdmin = _usuario?.email === 'matheus10201971@gmail.com';
+
     if (!lista.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum usuário encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum usuário encontrado.</td></tr>`;
         return;
     }
+
     tbody.innerHTML = lista.map(u => {
-        const nome = [u.nome, u.sobrenome].filter(Boolean).join(' ') || '—';
-        const inicial = nome[0]?.toUpperCase() || '?';
-        const planoBadge = u.plano === 'premium'
-            ? '<span class="badge badge-gold">Premium ✨</span>'
-            : u.plano === 'basico'
-            ? '<span class="badge" style="background:#dde8f2;color:var(--navy)">Básico</span>'
-            : '<span class="badge badge-navy">Gratuito</span>';
-        const criado = u.criado_em || u.created_at || '';
-        const criadoFmt = criado ? new Date(criado).toLocaleDateString('pt-BR') : '—';
-        const uid = u.id || '';
-        const uidCurto = uid ? uid.split('-')[0] : '—';
+        const nome         = [u.nome, u.sobrenome].filter(Boolean).join(' ') || '—';
+        const inicial      = nome[0]?.toUpperCase() || '?';
+        const uid          = u.id || '';
+        const uidCurto     = uid ? uid.split('-')[0] : '—';
         const nomeEscapado = nome.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const tel = u.telefone || '';
+        const criado       = u.criado_em || u.created_at || '';
+        const criadoFmt    = criado ? new Date(criado).toLocaleDateString('pt-BR') : '—';
+        const tel          = u.telefone || '';
         const telFormatado = tel
-            ? `<a href="https://wa.me/55${tel.replace(/\D/g,'')}" target="_blank" title="Abrir WhatsApp" style="color:var(--green);text-decoration:none;font-weight:500;display:flex;align-items:center;gap:4px">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--green)" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.558 4.126 1.529 5.868L.057 23.925l6.235-1.635A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.002-1.368l-.36-.214-3.7.97.988-3.608-.235-.371A9.818 9.818 0 1112 21.818z"/></svg>
+            ? `<a href="https://wa.me/55${tel.replace(/\D/g,'')}" target="_blank"
+                    title="Abrir WhatsApp" style="color:var(--green);text-decoration:none;font-weight:500;display:flex;align-items:center;gap:4px">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--green)"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.558 4.126 1.529 5.868L.057 23.925l6.235-1.635A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.002-1.368l-.36-.214-3.7.97.988-3.608-.235-.371A9.818 9.818 0 1112 21.818z"/></svg>
                 ${tel}</a>`
             : '<span style="color:var(--gray-300)">—</span>';
+
+        const botBotao = u.whatsapp_ativo
+            ? `<button class="btn btn-danger" style="padding:4px 9px;font-size:11px"
+                    title="Bloquear acesso ao bot"
+                    onclick="adminAlternarBot('${uid}','${nomeEscapado}',false)">🚫 Bloquear</button>`
+            : `<button class="btn btn-secondary" style="padding:4px 9px;font-size:11px;border-color:var(--green);color:var(--green)"
+                    title="Liberar acesso ao bot"
+                    onclick="adminAlternarBot('${uid}','${nomeEscapado}',true)">✅ Liberar</button>`;
+
+        const resetBotao = isAdmin
+            ? `<button class="btn btn-danger" style="padding:4px 9px;font-size:11px;background:#fff1f0;color:#c0392b;border-color:#f5a5a0"
+                    title="Zerar todos os registros deste usuário"
+                    onclick="adminResetarUsuario('${uid}','${nomeEscapado}')">🗑️ Zerar</button>`
+            : '';
+
         return `<tr>
             <td>
                 <div style="display:flex;align-items:center;gap:10px">
@@ -2470,23 +2637,74 @@ function adminFiltrarUsuarios() {
                     <span class="td-strong">${nome}</span>
                 </div>
             </td>
-            <td style="color:var(--gray-500)">${u.email || '—'}</td>
-            <td>${planoBadge}</td>
+            <td style="color:var(--gray-500);font-size:12px">${u.email || '—'}</td>
+            <td>${_admPlanoLabel(u)}</td>
+            <td>${_admBotBadge(u)}</td>
             <td>${telFormatado}</td>
             <td style="font-size:12px;color:var(--gray-400)">${criadoFmt}</td>
             <td>
-                <div style="display:flex;align-items:center;gap:6px">
-                    <code style="font-size:11px;background:var(--gray-100);padding:2px 7px;border-radius:5px;color:var(--navy);letter-spacing:.03em;cursor:pointer;user-select:all" title="Clique para copiar o ID completo: ${uid}" onclick="navigator.clipboard.writeText('${uid}').then(()=>showToast('ID copiado! ✅','success'))">${uidCurto}…</code>
-                </div>
+                <code style="font-size:11px;background:var(--gray-100);padding:2px 7px;border-radius:5px;color:var(--navy);cursor:pointer;user-select:all"
+                    title="Clique para copiar o ID completo: ${uid}"
+                    onclick="navigator.clipboard.writeText('${uid}').then(()=>showToast('ID copiado! ✅','success'))">${uidCurto}…</code>
             </td>
             <td>
-                <div style="display:flex;gap:6px">
-                    <button class="btn btn-secondary" style="padding:5px 11px;font-size:12px" onclick="adminAbrirModalUsuario('${uid}')">✏️ Editar</button>
-                    <button class="btn btn-danger" style="padding:5px 11px;font-size:12px" onclick="adminExcluirUsuario('${uid}','${nomeEscapado}')">🗑</button>
+                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                    <button class="btn btn-secondary" style="padding:4px 9px;font-size:11px"
+                        onclick="adminAbrirModalUsuario('${uid}')">✏️ Editar</button>
+                    ${botBotao}
+                    ${resetBotao}
+                    <button class="btn btn-danger" style="padding:4px 9px;font-size:11px"
+                        onclick="adminExcluirUsuario('${uid}','${nomeEscapado}')">🗑</button>
                 </div>
             </td>
         </tr>`;
     }).join('');
+}
+
+// ─── Alternar acesso ao bot (bloquear / liberar) ──────────────
+async function adminAlternarBot(id, nome, ativar) {
+    const acao = ativar ? 'liberar' : 'BLOQUEAR';
+    if (!confirm(`Deseja ${acao} o acesso ao bot para "${nome}"?`)) return;
+
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch(`/api/admin/users/${id}/bot`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ativo: ativar })
+        }).then(r => r.json());
+
+        if (res.ok) {
+            showToast(ativar ? `✅ Bot liberado para ${nome}` : `🚫 Bot bloqueado para ${nome}`, 'success');
+            adminCarregarUsuarios();
+        } else {
+            showToast(res.erro || 'Erro ao alterar acesso', 'error');
+        }
+    } catch { showToast('Erro de conexão', 'error'); }
+}
+
+// ─── Zerar todos os registros de um usuário ───────────────────
+async function adminResetarUsuario(id, nome) {
+    const input = prompt(`⚠️ ATENÇÃO: Isso vai apagar TODAS as transações, sessões, agenda e dados financeiros de "${nome}".\n\nO cadastro (nome, email, senha, plano) será preservado.\n\nDigite CONFIRMAR para prosseguir:`);
+    if (input?.trim().toUpperCase() !== 'CONFIRMAR') {
+        showToast('Operação cancelada.', '');
+        return;
+    }
+
+    const token = localStorage.getItem('gz_token');
+    try {
+        const res = await fetch(`/api/admin/users/${id}/resetar`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json());
+
+        if (res.ok) {
+            showToast(`✅ ${res.mensagem}`, 'success');
+            adminCarregarUsuarios();
+        } else {
+            showToast(res.erro || 'Erro ao resetar usuário', 'error');
+        }
+    } catch { showToast('Erro de conexão', 'error'); }
 }
 
 function adminAbrirModalUsuario(id) {

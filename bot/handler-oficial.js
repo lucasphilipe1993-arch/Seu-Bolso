@@ -155,16 +155,16 @@ class BotOficial {
       } else if (type === 'audio') {
         // Avisa imediatamente e transcreve em seguida
         const mediaId = message.audio?.id;
-        if (!mediaId) return this.enviar(from, '❌ Não consegui receber o áudio. Tente novamente.');
+        if (!mediaId) return this.enviar(from, 'Não consegui receber o áudio. Tente novamente.');
         await this.enviarDigitando(from).catch(() => {});
         const transcricao = await this._transcreverAudioMeta(mediaId);
         texto = transcricao;
-        if (!texto) return this.enviar(from, '❌ Não consegui entender o áudio. Tente enviar texto.');
+        if (!texto) return this.enviar(from, 'Não consegui entender o áudio. Tente enviar texto.');
       } else if (type === 'image') {
-        await this.enviar(from, '🖼️ Recebi sua imagem! Analisando...');
+        await this.enviar(from, 'Analisando imagem...');
         const mediaId = message.image?.id;
         const resultado = await this._analisarImagemMeta(mediaId);
-        if (!resultado) return this.enviar(from, '❌ Não consegui extrair informações desta imagem. Tente enviar o valor em texto.');
+        if (!resultado) return this.enviar(from, 'Não consegui extrair informações desta imagem. Tente enviar o valor em texto.');
         const sessao = await this._buscarSessao(from);
         if (!sessao) return this._responderNaoCadastrado(from);
         return this.registrarTransacao(from, sessao.usuarioId, resultado, '[imagem]', from);
@@ -217,7 +217,8 @@ class BotOficial {
     const triggerResumo = [
       'resumo','saldo','extrato','relatorio','relatório','gerar relatorio',
       'meus gastos','gastos do mes','gastos do mês','quanto gastei','quanto recebi',
-      'balanço','balanco',
+      'balanço','balanco','meu saldo','ver saldo','total do mes','total do mês',
+      'como estou','como ta meu financeiro','como está meu financeiro',
     ];
     if (triggerResumo.includes(textoClean) || (textoClean.includes('relat') && !textoClean.includes('pdf')))
       return this.enviarResumo(jid, usuarioId, nome);
@@ -285,28 +286,52 @@ class BotOficial {
       return this.quitarDivida(jid, usuarioId, matchQuitar[1].toUpperCase());
 
     // ── Limites de gastos ──────────────────────────────────────────────────
-    // processarComandoLimite retorna true/false; _enviarMenuLimites é chamado internamente
-    // Patch: se o texto é exatamente um trigger de "ver limites", chama direto para garantir o await
-    const TRIGGER_LIMITES = ['limite','limites','meus limites','ver limite','ver limites','limite de gastos','limites de gastos','configurar limite','configurar limites'];
+    const TRIGGER_LIMITES = [
+      'limite','limites','meus limites','ver limite','ver limites',
+      'limite de gastos','limites de gastos','configurar limite','configurar limites',
+      'definir limite','criar limite','novo limite','adicionar limite','alerta de gasto',
+    ];
     if (TRIGGER_LIMITES.includes(textoClean)) {
       await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
       return;
     }
+
+    // NLP: detecta intenção de criar limite mesmo em frases naturais
+    // Ex: "criar limite para gasolina", "quero um limite de 200 em alimentação"
+    const recriarLimite =
+      textoClean.match(/(?:criar?|definir?|configurar?|add|adicionar?|novo|quero)\s+(?:um\s+)?limite\s+(?:de\s+)?(?:gastos?\s+)?(?:para\s+|em\s+|de\s+|no?\s+|na\s+)?(.+)/i)
+      || textoClean.match(/limite\s+(?:de\s+|para\s+|em\s+)?(.+?)\s*(?:de\s+R?\$?\s*\d|$)/i);
+
+    if (recriarLimite) {
+      // Injeta como se o usuário tivesse digitado "limite [categoria]"
+      const termoLimite = recriarLimite[1].replace(/\s*R?\$?\s*\d.*$/, '').trim();
+      const textoInjetado = `limite ${termoLimite}`;
+      const limiteHandledNLP = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado);
+      if (limiteHandledNLP) return;
+      // Se não achou categoria, abre menu de limites com contexto
+      await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
+      return;
+    }
+
     const limiteHandled = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoClean, texto);
     if (limiteHandled) return;
 
     // ── Gastos fixos ───────────────────────────────────────────────────────
-    const triggerGastosFixos = ['gastos fixos','gasto fixo','contas fixas','conta fixa','fixos mensais','gastos mensais'];
+    const triggerGastosFixos = [
+      'gastos fixos','gasto fixo','contas fixas','conta fixa','fixos mensais','gastos mensais',
+      'minhas contas','ver contas','contas do mes','contas do mês',
+    ];
     if (triggerGastosFixos.includes(textoClean) || textoClean.startsWith('gastos fixos') || textoClean.startsWith('gasto fixo'))
       return this.enviarGastosFixos(jid, usuarioId);
 
     // ── Novo gasto fixo ────────────────────────────────────────────────────
-    const matchNovoFixo = texto.match(/^(?:add|adicionar|novo|criar)s+(?:gasto|conta)s+fixo?s+(.+)/i);
+    const matchNovoFixo = texto.match(/^(?:add|adicionar|novo|criar)\s+(?:gasto|conta)\s+fixo?\s+(.+)/i)
+      || texto.match(/^(?:add|adicionar|novo|criar)\s+(?:gasto|conta)\s+mensal\s+(.+)/i);
     if (matchNovoFixo)
       return this.iniciarFluxoNovoGastoFixo(jid, telefone, matchNovoFixo[1].trim());
 
     // ── Excluir gasto fixo ─────────────────────────────────────────────────
-    const matchExcluirFixo = texto.match(/^(?:excluir|remover|deletar|apagar)s+(?:gasto|conta)s+fixo?s+([A-Z0-9]{2,6})/i);
+    const matchExcluirFixo = texto.match(/^(?:excluir|remover|deletar|apagar)\s+(?:gasto|conta)\s+fixo?\s+([A-Z0-9]{2,6})/i);
     if (matchExcluirFixo)
       return this.excluirGastoFixo(jid, usuarioId, matchExcluirFixo[1].toUpperCase());
 
@@ -359,7 +384,7 @@ class BotOficial {
                 || await this.interpretarCompromisso(conteudo);
       if (comp) return this.registrarCompromisso(jid, usuarioId, comp, texto);
       return this.enviar(jid,
-        `📅 Não consegui entender o compromisso. Tente:\n\n` +
+        `Não consegui entender o compromisso. Tente:\n\n` +
         `• _agendar reunião amanhã às 10h_\n` +
         `• _agendar consulta dia 20 às 14h_`
       );
@@ -380,7 +405,7 @@ class BotOficial {
         return this.registrarTransacao(jid, usuarioId, transacoes[0], texto, telefone);
       }
       // Múltiplas transações
-      await this.enviar(jid, `📋 Encontrei *${transacoes.length} transações*. Registrando...`);
+      await this.enviar(jid, `Encontrei *${transacoes.length} transações*. Registrando...`);
       const registradas = [];
       for (const tx of transacoes) {
         try {
@@ -390,29 +415,40 @@ class BotOficial {
           console.error('[META] Erro ao registrar transação múltipla:', err.message);
         }
       }
-      let msg = `✅ *${registradas.length} transações registradas!*\n\n`;
+      let msg = `*${registradas.length} transações registradas*\n\n`;
       let totalDespesas = 0, totalReceitas = 0;
       for (const tx of registradas) {
-        const emoji = tx.tipo === 'despesa' ? '💸' : '💰';
-        const emojiCat = EMOJI_CATEGORIA[tx.categoria] || '📦';
-        msg += `${emoji} *${tx.descricao}* — ${fmt(tx.valor)}\n`;
-        msg += `   ${emojiCat} ${tx.categoria} | 🔖 *${tx.idCurto}*\n\n`;
+        const emojiCat = EMOJI_CATEGORIA[tx.categoria] || '';
+        msg += `${tx.tipo === 'despesa' ? 'Saída' : 'Entrada'}: *${tx.descricao}* — ${fmt(tx.valor)}\n`;
+        msg += `   ${emojiCat} ${tx.categoria} | ID: *${tx.idCurto}*\n\n`;
         if (tx.tipo === 'despesa') totalDespesas += tx.valor;
         else totalReceitas += tx.valor;
       }
       msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      if (totalDespesas > 0) msg += `💸 Total despesas: *${fmt(totalDespesas)}*\n`;
-      if (totalReceitas > 0) msg += `💰 Total receitas: *${fmt(totalReceitas)}*\n`;
-      msg += `\n🗑️ Para excluir: _"excluir [ID]"_\n`;
-      msg += `📊 Digite *resumo* para ver seu saldo atualizado.`;
+      if (totalDespesas > 0) msg += `Total saídas: *${fmt(totalDespesas)}*\n`;
+      if (totalReceitas > 0) msg += `Total entradas: *${fmt(totalReceitas)}*\n`;
+      msg += `\nPara excluir: _"excluir [ID]"_\nDigite *resumo* para ver seu saldo.`;
       return this.enviar(jid, msg);
     }
 
-    // ── Fallback ───────────────────────────────────────────────────────────
+    // ── Fallback inteligente ───────────────────────────────────────────────
+    // Tenta detectar intenção por palavras-chave antes de desistir
+    const intencaoLimite = /\blimite\b/i.test(texto);
+    const intencaoAgenda = /\bagendar?\b|\breunião\b|\bconsulta\b|\blembrar?\b/i.test(texto);
+    const intencaoFixo   = /\bfixo\b|\bmensal\b|\bconta\b/i.test(texto);
+
+    if (intencaoLimite) {
+      await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
+      return;
+    }
+    if (intencaoFixo) {
+      return this.enviarGastosFixos(jid, usuarioId);
+    }
+
     await this.enviar(jid,
-      `❓ Não entendi essa mensagem.\n\n` +
+      `Não entendi essa mensagem.\n\n` +
       `Tente algo como:\n• _Gastei 50 no mercado_\n• _Recebi 3000 de salário_\n\n` +
-      `Ou mande uma *foto* de nota fiscal ou *áudio* descrevendo o gasto.`
+      `Ou mande uma *foto* de nota fiscal ou *áudio* descrevendo o gasto.\n\nDigite *menu* para ver todas as opções.`
     );
     await this.enviarBotoes(jid,
       `O que deseja fazer agora?`,
@@ -455,19 +491,9 @@ class BotOficial {
   // enviarDigitando — sinaliza "digitando..." (best-effort, não crítico)
   // ─────────────────────────────────────────────────────────────────────────
   async enviarDigitando(para) {
-    if (!ACCESS_TOKEN || !PHONE_NUMBER_ID) return;
-    try {
-      await axios.post(GRAPH_URL, {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: para,
-        type: 'text',
-        text: { body: '⌛ Processando áudio...' },
-      }, {
-        headers: { Authorization: `Bearer ${ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-        timeout: 5000,
-      });
-    } catch (_) { /* best-effort — ignora falha */ }
+    // A API Meta não suporta "typing indicator" via Cloud API —
+    // simplesmente ignoramos sem enviar mensagem de texto.
+    return;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -642,8 +668,7 @@ class BotOficial {
 
       case 'menu_receber_add':
         return this.enviar(jid,
-          `➕ *Adicionar dívida*\n\n` +
-          `Diga quem te deve, quanto e quando recebe:\n` +
+          `*Adicionar dívida*\n\nDiga quem te deve, quanto e quando recebe:\n` +
           `_"João me deve 200, recebo dia 20"_\n` +
           `_"Maria me deve 150"_`
         );
@@ -666,8 +691,8 @@ class BotOficial {
       case 'btn_painel':
         return this.enviarBotaoLink(
           jid,
-          '📊 Acesse seu painel completo com gráficos e relatórios:',
-          '🌐 Abrir painel',
+          'Acesse seu painel completo com gráficos e relatórios:',
+          '📊 Abrir painel',
           'https://www.seusecretario.com.br/dashboard'
         );
 
@@ -709,17 +734,9 @@ class BotOficial {
             estado.etapa = 'aguardando_confirmacao_fixo';
             this._estados.set(jid, estado);
             return this.enviar(jid,
-              `✅ Confirmar o gasto fixo?
-
-🏠 *${estado.descricao}*
-` +
-              `💵 *${this._fmt(estado.valor)}*/mês
-` +
-              (estado.dia ? `📅 Vence dia ${estado.dia}
-` : '') +
-              `📂 Categoria: *${estado.categoria}*
-
-` +
+              `Confirmar o gasto fixo?\n\n*${estado.descricao}*\n${this._fmt(estado.valor)}/mês\n` +
+              (estado.dia ? `Vence dia ${estado.dia}\n` : '') +
+              `Categoria: *${estado.categoria}*\n\n` +
               `Responda *sim* para confirmar ou *não* para cancelar.`
             );
           }
@@ -732,8 +749,8 @@ class BotOficial {
 
   _responderNaoCadastrado(jid) {
     return this.enviar(jid,
-      `Olá! 👋\n\nEste número não está vinculado a nenhuma conta Seu Secretário.\n\n` +
-      `Acesse *https://www.seusecretario.com.br* e cadastre-se para começar!`
+      `Olá! Este número não está vinculado a nenhuma conta Seu Secretário.\n\n` +
+      `Acesse *https://www.seusecretario.com.br* e cadastre-se para começar.`
     );
   }
 
@@ -899,31 +916,28 @@ class BotOficial {
   async registrarTransacao(jid, usuarioId, tx, textoOriginal, telefone) {
     try {
       const idCurto = await this._registrarTransacaoNoBanco(usuarioId, tx, textoOriginal, telefone);
-      const emoji = tx.tipo === 'despesa' ? '💸' : '💰';
-      const emojiCat = EMOJI_CATEGORIA[tx.categoria] || '📦';
+      const emojiCat = EMOJI_CATEGORIA[tx.categoria] || '';
       const saldoRes = await db.query(`SELECT SUM(saldo) as total FROM contas WHERE usuario_id = $1`, [usuarioId]);
       const saldo = parseFloat(saldoRes.rows[0]?.total || 0);
 
-      let msg = `${emoji} *${tx.tipo === 'despesa' ? 'Despesa' : 'Receita'} registrada!*\n\n`;
-      msg += `📋 *${tx.descricao}*\n`;
-      msg += `💵 Valor: *${fmt(tx.valor)}*\n`;
-      msg += `${emojiCat} Categoria: ${tx.categoria || 'Outros'}\n`;
+      let msg = `✅ *${tx.tipo === 'despesa' ? 'Despesa' : 'Receita'} registrada*\n\n`;
+      msg += `*${tx.descricao}*\n`;
+      msg += `Valor: *${fmt(tx.valor)}*\n`;
+      msg += `Categoria: ${emojiCat} ${tx.categoria || 'Outros'}\n`;
       msg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `💰 Saldo atual: *${fmt(saldo)}*\n`;
-      msg += `🔖 ID: *${idCurto}*\n\n`;
-      msg += `🗑️ Para excluir: _"excluir ${idCurto}"_\n`;
-      msg += `📊 Digite *resumo* para ver seu saldo.`;
+      msg += `Saldo atual: *${fmt(saldo)}*\n`;
+      msg += `ID: *${idCurto}*\n\n`;
+      msg += `Para excluir: _"excluir ${idCurto}"_`;
 
       await this.enviar(jid, msg);
-      // Botões de ação rápida após registrar transação
       await this.enviarBotoes(jid, 'O que deseja fazer agora?', [
         { id: 'btn_resumo',    titulo: '📊 Ver resumo' },
-        { id: 'btn_historico', titulo: '🕐 Histórico' },
-        { id: 'btn_painel',    titulo: '🌐 Abrir painel' },
+        { id: 'btn_historico', titulo: 'Histórico' },
+        { id: 'btn_painel',    titulo: 'Abrir painel' },
       ]);
     } catch (err) {
       console.error('[META] Erro ao registrar transação:', err.message);
-      await this.enviar(jid, '❌ Erro ao registrar transação. Tente novamente.');
+      await this.enviar(jid, 'Erro ao registrar transação. Tente novamente.');
     }
   }
 
@@ -971,16 +985,16 @@ class BotOficial {
 
       let msg = `📊 *Resumo de ${meses[mes - 1]}/${ano}*\n`;
       msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `💰 Receitas: *${fmt(receitas)}*\n`;
-      msg += `💸 Despesas: *${fmt(despesas)}*\n`;
-      msg += `📈 Resultado: *${sinalLiq}${fmt(liquido)}*\n`;
-      msg += `🏦 Saldo geral: *${fmt(saldo)}*\n`;
+      msg += `Receitas: *${fmt(receitas)}*\n`;
+      msg += `Despesas: *${fmt(despesas)}*\n`;
+      msg += `Resultado: *${sinalLiq}${fmt(liquido)}*\n`;
+      msg += `Saldo geral: *${fmt(saldo)}*\n`;
 
       if (cats.length > 0) {
         msg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `🏆 *Top categorias (despesas):*\n`;
+        msg += `*Top categorias (despesas):*\n`;
         for (const cat of cats) {
-          const emoji = EMOJI_CATEGORIA[cat.categoria] || '📦';
+          const emoji = EMOJI_CATEGORIA[cat.categoria] || '';
           msg += `${emoji} ${cat.categoria || 'Outros'}: *${fmt(cat.total)}*\n`;
         }
       }
@@ -989,7 +1003,7 @@ class BotOficial {
       await this.enviar(jid, msg);
       await this.enviarBotaoLink(
         jid,
-        '🌐 Veja gráficos e relatórios completos no painel:',
+        'Veja gráficos e relatórios completos no painel:',
         '📊 Abrir painel',
         'https://www.seusecretario.com.br/dashboard'
       );
@@ -1007,22 +1021,21 @@ class BotOficial {
        WHERE t.usuario_id = $1 ORDER BY t.criado_em DESC LIMIT 5`,
       [usuarioId]
     );
-    if (rows.length === 0) return this.enviar(jid, '📭 Nenhuma transação registrada ainda.');
-    let msg = `🕐 *Últimas transações:*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    if (rows.length === 0) return this.enviar(jid, 'Nenhuma transação registrada ainda.');
+    let msg = `*Últimas transações*\n━━━━━━━━━━━━━━━━━━━━\n`;
     for (const tx of rows) {
-      const emoji = tx.tipo === 'despesa' ? '💸' : '💰';
+      const sinal = tx.tipo === 'despesa' ? '-' : '+';
       const data = tx.data_pagamento
         ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit' })
         : '—';
-      // Abrevia descrição (máx 22 chars) e categoria (máx 12 chars)
       const desc = tx.descricao.length > 22 ? tx.descricao.slice(0, 21) + '…' : tx.descricao;
       const cat  = (tx.categoria || 'Outros').length > 12 ? (tx.categoria || 'Outros').slice(0, 11) + '…' : (tx.categoria || 'Outros');
-      msg += `${emoji} *${desc}* — ${fmt(tx.valor)}\n`;
-      msg += `   🏷️ ${cat} | 📅 ${data}`;
-      if (tx.id_curto) msg += ` | 🔖 *${tx.id_curto}*`;
+      msg += `*${desc}* — ${sinal}${fmt(tx.valor)}\n`;
+      msg += `   ${cat} | ${data}`;
+      if (tx.id_curto) msg += ` | ID: *${tx.id_curto}*`;
       msg += `\n`;
     }
-    msg += `━━━━━━━━━━━━━━━━━━━━\n🗑️ Excluir: _excluir última_ ou _excluir [ID]_`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\nExcluir: _excluir última_ ou _excluir [ID]_`;
     await this.enviar(jid, msg);
   }
 
@@ -1039,9 +1052,9 @@ class BotOficial {
     }
     await db.query(`DELETE FROM transacoes WHERE id = $1`, [tx.id]);
     await this.enviar(jid,
-      `🗑️ *Última transação excluída!*\n\n📋 ${tx.descricao}\n💵 ${fmt(tx.valor)}\n` +
-      (tx.id_curto ? `🔖 ID: ${tx.id_curto}\n` : '') +
-      `\n✅ Saldo atualizado. Digite *resumo* para ver.`
+      `*Transação excluída*\n\n${tx.descricao}\n${fmt(tx.valor)}\n` +
+      (tx.id_curto ? `ID: ${tx.id_curto}\n` : '') +
+      `\nSaldo atualizado. Digite *resumo* para ver.`
     );
   }
 
@@ -1052,7 +1065,7 @@ class BotOficial {
       [usuarioId, idCurto]
     );
     if (rows.length === 0)
-      return this.enviar(jid, `❌ Transação *${idCurto}* não encontrada.\n\nDigite *histórico* para ver suas últimas.`);
+      return this.enviar(jid, `Transação *${idCurto}* não encontrada.\n\nDigite *histórico* para ver suas últimas.`);
     const tx = rows[0];
     if (tx.conta_id) {
       const sinal = tx.tipo === 'receita' ? -1 : 1;
@@ -1060,7 +1073,7 @@ class BotOficial {
     }
     await db.query(`DELETE FROM transacoes WHERE id = $1`, [tx.id]);
     await this.enviar(jid,
-      `🗑️ *Transação excluída!*\n\n📋 ${tx.descricao}\n💵 ${fmt(tx.valor)}\n🔖 ID: ${idCurto}\n\n✅ Saldo atualizado.`
+      `*Transação excluída*\n\n${tx.descricao}\n${fmt(tx.valor)}\nID: ${idCurto}\n\nSaldo atualizado.`
     );
   }
 
@@ -1087,20 +1100,19 @@ class BotOficial {
       `SELECT DISTINCT ON (LOWER(nome)) nome FROM categorias WHERE usuario_id = $1 ORDER BY LOWER(nome) ASC`,
       [usuarioId]
     );
-    if (rows.length === 0) return this.enviar(jid, '📂 Você ainda não tem categorias. Digite _nova categoria_ para criar.');
+    if (rows.length === 0) return this.enviar(jid, 'Você ainda não tem categorias. Digite _nova categoria_ para criar.');
 
-    // Monta mensagem de texto com todas as categorias
-    let msg = `📂 *Suas Categorias*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    let msg = `*Suas Categorias*\n━━━━━━━━━━━━━━━━━━━━\n`;
     for (const row of rows) {
-      const emoji = EMOJI_CATEGORIA[row.nome] || '📦';
+      const emoji = EMOJI_CATEGORIA[row.nome] || '';
       msg += `${emoji} ${row.nome}\n`;
     }
     msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🔍 Ver gastos de uma categoria:\n`;
+    msg += `Ver gastos de uma categoria:\n`;
     msg += `   _"gasto em Transporte"_\n`;
     msg += `   _"gasto em Alimentação"_\n\n`;
-    msg += `➕ Criar nova: _nova categoria_\n`;
-    msg += `🎯 Definir limite: _limite_`;
+    msg += `Criar nova: _nova categoria_\n`;
+    msg += `Definir limite: _limite_`;
 
     await this.enviar(jid, msg);
 
@@ -1121,7 +1133,7 @@ class BotOficial {
 
   async iniciarFluxoNovaCategoria(jid, telefone) {
     this._estados.set(telefone, { tipo: 'nova_categoria', etapa: 'aguardando_nome' });
-    await this.enviar(jid, `➕ *Nova Categoria*\n\nQual será o nome da nova categoria?\n\n_Ex: Pets, Jogos, Presente_`);
+    await this.enviar(jid, `*Nova Categoria*\n\nQual será o nome da nova categoria?\n\n_Ex: Pets, Jogos, Presente_`);
   }
 
   async _continuarFluxo(telefone, texto) {
@@ -1130,7 +1142,7 @@ class BotOficial {
 
     if (['cancelar', 'sair'].includes(texto.toLowerCase().trim())) {
       this._estados.delete(telefone);
-      return this.enviar(telefone, '❌ Operação cancelada.');
+      return this.enviar(telefone, 'Operação cancelada.');
     }
 
     if (estado.tipo === 'novo_gasto_fixo') {
@@ -1144,11 +1156,11 @@ class BotOficial {
       if (estado.etapa === 'aguardando_nome') {
         const nome = texto.trim();
         if (nome.length < 2 || nome.length > 50)
-          return this.enviar(telefone, '⚠️ Nome inválido. Use entre 2 e 50 caracteres.');
+          return this.enviar(telefone, 'Nome inválido. Use entre 2 e 50 caracteres.');
         estado.nomeCategoria = nome;
         estado.etapa = 'aguardando_confirmacao';
         this._estados.set(telefone, estado);
-        return this.enviar(telefone, `📋 Confirma a criação da categoria *"${nome}"*?\n\nResponda *sim* ou *não*.`);
+        return this.enviar(telefone, `Confirma a criação da categoria *"${nome}"*?\n\nResponda *sim* ou *não*.`);
       }
 
       if (estado.etapa === 'aguardando_confirmacao') {
@@ -1161,7 +1173,7 @@ class BotOficial {
           return this.enviar(telefone, `✅ Categoria *"${estado.nomeCategoria}"* criada!`);
         }
         this._estados.delete(telefone);
-        return this.enviar(telefone, '❌ Criação cancelada.');
+        return this.enviar(telefone, 'Criação cancelada.');
       }
     }
   }
@@ -1204,9 +1216,9 @@ class BotOficial {
     );
 
     await this.enviar(jid,
-      `💸 *Dívida registrada!*\n\n👤 Devedor: *${divida.devedor}*\n💵 Valor: *${fmt(divida.valor)}*\n` +
-      `📅 Vencimento: ${vencimentoFmt}\n\n━━━━━━━━━━━━━━━━━━━━\n🔖 ID: *${idCurto}*\n\n` +
-      `✅ Quando receber: _"recebido ${idCurto}"_\n📋 Ver todas: _"a receber"_`
+      `*Dívida registrada*\n\nDevedor: *${divida.devedor}*\nValor: *${fmt(divida.valor)}*\n` +
+      `Vencimento: ${vencimentoFmt}\n\n━━━━━━━━━━━━━━━━━━━━\nID: *${idCurto}*\n\n` +
+      `Quando receber: _"recebido ${idCurto}"_\nVer todas: _"a receber"_`
     );
   }
 
@@ -1223,23 +1235,23 @@ class BotOficial {
       [usuarioId]
     );
     if (rows.length === 0)
-      return this.enviar(jid, `✅ *Nenhuma dívida pendente!*\n\nPara registrar:\n_"Bruno me deve 50 reais"_`);
+      return this.enviar(jid, `Nenhuma dívida pendente.\n\nPara registrar:\n_"Bruno me deve 50 reais"_`);
 
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    let msg = `💸 *Dívidas a Receber*\n━━━━━━━━━━━━━━━━━━━━\n💰 Total pendente: *${fmt(totais[0].pendente)}*\n\n`;
+    let msg = `*Dívidas a Receber*\n━━━━━━━━━━━━━━━━━━━━\nTotal pendente: *${fmt(totais[0].pendente)}*\n\n`;
     for (const d of rows) {
-      let vencLabel = '📅 Sem data'; let alertEmoji = '';
+      let vencLabel = 'Sem data'; let alertEmoji = '';
       if (d.data_vencimento) {
         const venc = new Date(d.data_vencimento + 'T12:00:00');
         const diff = Math.round((venc - hoje) / 86400000);
         const dataFmt = venc.toLocaleDateString('pt-BR');
-        if (diff < 0)      { vencLabel = `📅 Venceu ${dataFmt}`; alertEmoji = '🔴 '; }
-        else if (diff === 0) { vencLabel = `📅 Vence HOJE`; alertEmoji = '🟡 '; }
-        else                 { vencLabel = `📅 ${dataFmt}`; }
+        if (diff < 0)        { vencLabel = `Venceu ${dataFmt}`; alertEmoji = '🔴 '; }
+        else if (diff === 0) { vencLabel = `Vence HOJE`; alertEmoji = '🟡 '; }
+        else                  { vencLabel = `${dataFmt}`; }
       }
-      msg += `${alertEmoji}👤 *${d.devedor}* — ${fmt(d.valor)}\n   ${vencLabel} | 🔖 *${d.id_curto}*\n\n`;
+      msg += `${alertEmoji}*${d.devedor}* — ${fmt(d.valor)}\n   ${vencLabel} | ID: *${d.id_curto}*\n\n`;
     }
-    msg += `━━━━━━━━━━━━━━━━━━━━\n✅ Para marcar: _"recebido [ID]"_`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\nPara marcar como recebido: _"recebido [ID]"_`;
     await this.enviar(jid, msg);
   }
 
@@ -1250,7 +1262,7 @@ class BotOficial {
       [usuarioId, idCurto]
     );
     if (rows.length === 0)
-      return this.enviar(jid, `❌ Dívida *${idCurto}* não encontrada ou já quitada.`);
+      return this.enviar(jid, `Dívida *${idCurto}* não encontrada ou já quitada.`);
 
     const d = rows[0];
     const contaRes = await db.query(`SELECT id FROM contas WHERE usuario_id=$1 AND padrao=true LIMIT 1`, [usuarioId]);
@@ -1262,7 +1274,7 @@ class BotOficial {
     );
     if (contaId) await db.query(`UPDATE contas SET saldo = saldo + $1 WHERE id = $2`, [d.valor, contaId]);
     await this.enviar(jid,
-      `✅ *Recebimento confirmado!*\n\n👤 *${d.devedor}*\n💵 *${fmt(d.valor)}*\n\n💰 Receita registrada!\nDigite _"a receber"_ para ver as demais.`
+      `✅ *Recebimento confirmado*\n\n*${d.devedor}*\n*${fmt(d.valor)}*\n\nReceita registrada.\nDigite _"a receber"_ para ver as demais.`
     );
   }
 
@@ -1308,12 +1320,12 @@ class BotOficial {
       ? `${(compromisso.lembrar_antes || 30) / 60}h antes`
       : `${compromisso.lembrar_antes || 30} minutos antes`;
 
-    let msg = `📅 *Compromisso agendado!*\n\n📌 *${compromisso.titulo}*\n`;
-    msg += `📅 Data: *${dataFmt}*\n🕐 Hora: *${horaFmt}*\n`;
-    if (compromisso.local) msg += `📍 Local: ${compromisso.local}\n`;
-    if (compromisso.notas) msg += `📝 Notas: ${compromisso.notas}\n`;
-    msg += `🔔 Lembrete: ${lembrarLabel}\n\n━━━━━━━━━━━━━━━━━━━━\n🔖 ID: *${idCurto}*\n\n`;
-    msg += `❌ Para cancelar: _"cancelar compromisso ${idCurto}"_\n📋 Ver todos: _"agenda"_`;
+    let msg = `📅 *Compromisso agendado*\n\n*${compromisso.titulo}*\n`;
+    msg += `Data: *${dataFmt}*\nHora: *${horaFmt}*\n`;
+    if (compromisso.local) msg += `Local: ${compromisso.local}\n`;
+    if (compromisso.notas) msg += `Obs: ${compromisso.notas}\n`;
+    msg += `Lembrete: ${lembrarLabel}\n\n━━━━━━━━━━━━━━━━━━━━\nID: *${idCurto}*\n\n`;
+    msg += `Para cancelar: _"cancelar compromisso ${idCurto}"_\nVer todos: _"agenda"_`;
     await this.enviar(jid, msg);
   }
 
@@ -1328,7 +1340,7 @@ class BotOficial {
     );
     if (rows.length === 0)
       return this.enviar(jid,
-        `📅 *Sua agenda está vazia!*\n\nPara adicionar:\n` +
+        `📅 *Agenda vazia*\n\nPara adicionar:\n` +
         `_"Tenho reunião amanhã às 10h"_\n_"Consulta médica dia 20 às 14h"_`
       );
 
@@ -1339,15 +1351,15 @@ class BotOficial {
       const dataFmt = dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
       const horaFmt = dh.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
       const diffMin = Math.round((dh - agora) / 60000);
-      let statusEmoji = '📌';
+      let statusEmoji = '•';
       if (diffMin < 0)         statusEmoji = '✅';
       else if (diffMin < 60)   statusEmoji = '🟡';
       else if (diffMin < 1440) statusEmoji = '🔵';
-      msg += `${statusEmoji} *${comp.titulo}*\n   📅 ${dataFmt} às ${horaFmt}`;
-      if (comp.local) msg += ` | 📍 ${comp.local}`;
-      msg += `\n   🔖 *${comp.id_curto}*\n\n`;
+      msg += `${statusEmoji} *${comp.titulo}*\n   ${dataFmt} às ${horaFmt}`;
+      if (comp.local) msg += ` | ${comp.local}`;
+      msg += `\n   ID: *${comp.id_curto}*\n\n`;
     }
-    msg += `━━━━━━━━━━━━━━━━━━━━\n❌ Para cancelar: _"cancelar compromisso [ID]"_`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\nPara cancelar: _"cancelar compromisso [ID]"_`;
     await this.enviar(jid, msg);
   }
 
@@ -1357,11 +1369,11 @@ class BotOficial {
       [usuarioId, idCurto]
     );
     if (rows.length === 0)
-      return this.enviar(jid, `❌ Compromisso *${idCurto}* não encontrado ou já cancelado.`);
+      return this.enviar(jid, `Compromisso *${idCurto}* não encontrado ou já cancelado.`);
     const dh = new Date(rows[0].data_hora);
     await this.enviar(jid,
-      `🗑️ *Compromisso cancelado!*\n\n📌 ${rows[0].titulo}\n` +
-      `📅 ${dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} às ` +
+      `*Compromisso cancelado*\n\n${rows[0].titulo}\n` +
+      `${dh.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} às ` +
       `${dh.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}`
     );
   }
@@ -1406,9 +1418,9 @@ class BotOficial {
           const diffMin  = Math.round((dh - new Date()) / 60000);
           const tempoLabel = diffMin <= 0 ? '⚠️ *AGORA!*' : diffMin < 60 ? `em *${diffMin} minutos*` : `em *${Math.round(diffMin / 60)}h*`;
 
-          let msg = `🔔 *Lembrete!*\n\n📌 *${comp.titulo}*\n📅 ${dataFmt} às ${horaFmt} — ${tempoLabel}\n`;
-          if (comp.local) msg += `📍 ${comp.local}\n`;
-          msg += `\n🔖 ID: *${comp.id_curto}*\n_Para cancelar: "cancelar compromisso ${comp.id_curto}"_`;
+          let msg = `🔔 *Lembrete*\n\n*${comp.titulo}*\n${dataFmt} às ${horaFmt} — ${tempoLabel}\n`;
+          if (comp.local) msg += `${comp.local}\n`;
+          msg += `\nID: *${comp.id_curto}*\n_Para cancelar: "cancelar compromisso ${comp.id_curto}"_`;
 
           await this.enviar(comp.telefone, msg);
           await db.query(`UPDATE agenda SET lembrete_enviado=true WHERE id=$1`, [comp.id]);
@@ -1514,7 +1526,7 @@ class BotOficial {
     const ano = agora.getFullYear();
     const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-    await this.enviar(jid, `⏳ Gerando seu relatório PDF de *${meses[mes-1]}/${ano}*... Aguarde!`);
+    await this.enviar(jid, `Gerando seu relatório PDF de *${meses[mes-1]}/${ano}*... Aguarde.`);
 
     try {
       limparPdfsAntigos();
@@ -1568,17 +1580,11 @@ class BotOficial {
             id: mediaId,
             filename: `Relatorio_${meses[mes-1]}_${ano}.pdf`,
             caption:
-              `📊 *Relatório ${meses[mes-1]}/${ano}*
-
-` +
-              `💰 Receitas: *${this._fmt(recebido)}*
-` +
-              `💸 Despesas: *${this._fmt(pago)}*
-` +
-              `📈 Resultado: *${sinalSaldo}${this._fmt(saldo)}*
-
-` +
-              `📄 Relatório completo em PDF com todas as transações.`,
+              `📊 *Relatório ${meses[mes-1]}/${ano}*\n\n` +
+              `Receitas: *${this._fmt(recebido)}*\n` +
+              `Despesas: *${this._fmt(pago)}*\n` +
+              `Resultado: *${sinalSaldo}${this._fmt(saldo)}*\n\n` +
+              `Relatório completo em PDF com todas as transações.`,
           },
         },
         {
@@ -1599,12 +1605,9 @@ class BotOficial {
       console.error('[META] Erro ao gerar/enviar PDF:', err.message);
       // Fallback: envia resumo texto + link do painel
       await this.enviar(jid,
-        `❌ Não foi possível gerar o PDF agora.
-
-` +
-        `Tente novamente ou acesse o painel web para baixar:
-` +
-        `🌐 *https://www.seusecretario.com.br/dashboard*`
+        `Não foi possível gerar o PDF agora.\n\n` +
+        `Tente novamente ou acesse o painel web para baixar:\n` +
+        `*https://www.seusecretario.com.br/dashboard*`
       );
     }
   }
@@ -1640,53 +1643,40 @@ class BotOficial {
 
     const totalFixo = rows.reduce((acc, r) => acc + parseFloat(r.valor), 0);
 
-    let msg = `🏠 *Gastos Fixos Mensais*
-━━━━━━━━━━━━━━━━━━━━
-`;
+    let msg = `*Gastos Fixos Mensais*\n━━━━━━━━━━━━━━━━━━━━\n`;
 
     if (rows.length === 0) {
-      msg += `
-Você ainda não tem gastos fixos cadastrados.
-
-`;
+      msg += `\nVocê ainda não tem gastos fixos cadastrados.\n\n`;
     } else {
-      msg += `💰 Total mensal: *${this._fmt(totalFixo)}*
-
-`;
+      msg += `Total mensal: *${this._fmt(totalFixo)}*\n\n`;
       for (const r of rows) {
-        const emoji = EMOJI_CATEGORIA[r.categoria] || '📦';
+        const emoji = EMOJI_CATEGORIA[r.categoria] || '';
         const dia = r.dia_vencimento ? `Vence dia ${r.dia_vencimento}` : '';
-        msg += `${emoji} *${r.descricao}* — ${this._fmt(r.valor)}
-`;
-        if (dia) msg += `   📅 ${dia} | `;
+        msg += `${emoji} *${r.descricao}* — ${this._fmt(r.valor)}\n`;
+        if (dia) msg += `   ${dia} | `;
         else msg += `   `;
-        msg += `🔖 *${r.id_curto}*
-
-`;
+        msg += `ID: *${r.id_curto}*\n\n`;
       }
-      msg += `━━━━━━━━━━━━━━━━━━━━
-`;
+      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
     }
 
-    msg += `➕ Para adicionar: _"add gasto fixo [nome] [valor]"_
-`;
-    msg += `   Ex: _"add gasto fixo Internet 90"_
-`;
-    msg += `🗑️ Para remover: _"excluir gasto fixo [ID]"_`;
+    msg += `Para adicionar: _"add gasto fixo [nome] [valor]"_\n`;
+    msg += `   Ex: _"add gasto fixo Internet 90"_\n`;
+    msg += `Para remover: _"excluir gasto fixo [ID]"_`;
 
     await this.enviar(jid, msg);
 
     if (rows.length === 0) {
-      await this.enviarBotoes(jid, '👇 Adicione seu primeiro gasto fixo:', [
-        { id: 'fluxo_fixo_internet', titulo: '🌐 Internet/Telefone' },
-        { id: 'fluxo_fixo_aluguel',  titulo: '🏠 Aluguel/Moradia' },
-        { id: 'fluxo_fixo_outro',    titulo: '➕ Outro gasto fixo' },
+      await this.enviarBotoes(jid, 'Adicione seu primeiro gasto fixo:', [
+        { id: 'fluxo_fixo_internet', titulo: 'Internet / Telefone' },
+        { id: 'fluxo_fixo_aluguel',  titulo: 'Aluguel / Moradia' },
+        { id: 'fluxo_fixo_outro',    titulo: 'Outro gasto fixo' },
       ]);
     } else {
       await this.enviarBotoes(jid, 'O que deseja fazer?', [
-        { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar novo' },
+        { id: 'btn_gastos_fixos_add', titulo: 'Adicionar novo' },
         { id: 'btn_resumo',           titulo: '📊 Ver resumo' },
-        { id: 'btn_historico',        titulo: '🕐 Histórico' },
+        { id: 'btn_historico',        titulo: 'Histórico' },
       ]);
     }
   }
@@ -1698,23 +1688,13 @@ Você ainda não tem gastos fixos cadastrados.
       const valor = parseFloat(matchValor[2].replace(',', '.'));
       this._estados.set(telefone, { tipo: 'novo_gasto_fixo', etapa: 'aguardando_dia', descricao, valor });
       return this.enviar(telefone,
-        `🏠 *Novo Gasto Fixo*
-
-📋 *${descricao}*
-💵 *${this._fmt(valor)}*
-
-` +
-        `Qual o dia do vencimento? (1-31)
-_Digite o número ou "sem data" para pular_`
+        `*Novo Gasto Fixo*\n\n*${descricao}*\n${this._fmt(valor)}\n\n` +
+        `Qual o dia do vencimento? (1-31)\n_Digite o número ou "sem data" para pular_`
       );
     }
     this._estados.set(telefone, { tipo: 'novo_gasto_fixo', etapa: 'aguardando_nome' });
     await this.enviar(telefone,
-      `🏠 *Novo Gasto Fixo*
-
-Qual o nome do gasto fixo?
-
-_Ex: Internet, Aluguel, Energia, Netflix_`
+      `*Novo Gasto Fixo*\n\nQual o nome do gasto fixo?\n\n_Ex: Internet, Aluguel, Energia, Netflix_`
     );
   }
 
@@ -1726,19 +1706,16 @@ _Ex: Internet, Aluguel, Energia, Netflix_`
       estado.descricao = texto.trim();
       estado.etapa = 'aguardando_valor';
       this._estados.set(telefone, estado);
-      return this.enviar(telefone, `💵 Qual o valor mensal de *${estado.descricao}*?
-
-_Ex: 150 ou 150,00_`);
+      return this.enviar(telefone, `Qual o valor mensal de *${estado.descricao}*?\n\n_Ex: 150 ou 150,00_`);
     }
 
     if (estado.etapa === 'aguardando_valor') {
       const valor = parseFloat(texto.replace(',', '.').replace(/[^0-9.]/g, ''));
-      if (!valor || valor <= 0) return this.enviar(telefone, '⚠️ Valor inválido. Digite apenas o número, ex: 150');
+      if (!valor || valor <= 0) return this.enviar(telefone, 'Valor inválido. Digite apenas o número, ex: 150');
       estado.valor = valor;
       estado.etapa = 'aguardando_dia';
       this._estados.set(telefone, estado);
-      return this.enviar(telefone, `📅 Qual o dia do vencimento? (1-31)
-_Digite o número ou "sem data" para pular_`);
+      return this.enviar(telefone, `Qual o dia do vencimento? (1-31)\n_Digite o número ou "sem data" para pular_`);
     }
 
     if (estado.etapa === 'aguardando_dia') {
@@ -1746,7 +1723,7 @@ _Digite o número ou "sem data" para pular_`);
       if (!['sem data','nao','nao','pular','skip'].includes(texto.toLowerCase().trim())) {
         dia = parseInt(texto);
         if (isNaN(dia) || dia < 1 || dia > 31)
-          return this.enviar(telefone, '⚠️ Dia inválido. Digite um número de 1 a 31 ou "sem data".');
+          return this.enviar(telefone, 'Dia inválido. Digite um número de 1 a 31 ou "sem data".');
       }
       estado.dia = dia;
       estado.etapa = 'aguardando_categoria';
@@ -1768,7 +1745,7 @@ _Digite o número ou "sem data" para pular_`);
         await this._salvarGastoFixo(telefone, sessao.usuarioId, estado);
       } else {
         this._estados.delete(telefone);
-        await this.enviar(telefone, '❌ Gasto fixo não cadastrado.');
+        await this.enviar(telefone, 'Gasto fixo não cadastrado.');
       }
     }
   }
@@ -1789,22 +1766,10 @@ _Digite o número ou "sem data" para pular_`);
     );
     this._estados.delete(telefone);
     await this.enviar(telefone,
-      `✅ *Gasto fixo cadastrado!*
-
-🏠 *${estado.descricao}*
-` +
-      `💵 *${this._fmt(estado.valor)}*/mês
-` +
-      (estado.dia ? `📅 Vence dia ${estado.dia}
-` : '') +
-      `📂 Categoria: ${estado.categoria || 'Outros'}
-` +
-      `🔖 ID: *${idCurto}*
-
-` +
-      `🗑️ Para remover: _"excluir gasto fixo ${idCurto}"_
-` +
-      `🏠 Ver todos: _"gastos fixos"_`
+      `✅ *Gasto fixo cadastrado*\n\n*${estado.descricao}*\n${this._fmt(estado.valor)}/mês\n` +
+      (estado.dia ? `Vence dia ${estado.dia}\n` : '') +
+      `Categoria: ${estado.categoria || 'Outros'}\nID: *${idCurto}*\n\n` +
+      `Para remover: _"excluir gasto fixo ${idCurto}"_\nVer todos: _"gastos fixos"_`
     );
   }
 
@@ -1817,14 +1782,9 @@ _Digite o número ou "sem data" para pular_`);
       [usuarioId, idCurto]
     );
     if (rows.length === 0)
-      return this.enviar(jid, `❌ Gasto fixo *${idCurto}* não encontrado.`);
+      return this.enviar(jid, `Gasto fixo *${idCurto}* não encontrado.`);
     await this.enviar(jid,
-      `🗑️ *Gasto fixo removido!*
-
-🏠 ${rows[0].descricao}
-💵 ${this._fmt(rows[0].valor)}/mês
-
-` +
+      `*Gasto fixo removido*\n\n${rows[0].descricao}\n${this._fmt(rows[0].valor)}/mês\n\n` +
       `Digite *gastos fixos* para ver os demais.`
     );
   }
@@ -1911,60 +1871,46 @@ _Digite o número ou "sem data" para pular_`);
       const qtdAnt = parseInt(contagem[0]?.qtd || 0);
       const totAnt = parseFloat(contagem[0]?.total || 0);
 
-      let msg = `${emoji} *Gastos em "${tituloBusca}"*
-`;
-      msg += `📅 ${mesLabel}
-`;
-      msg += `━━━━━━━━━━━━━━━━━━━━
-`;
-      msg += `Nenhum gasto encontrado neste mês.
-
-`;
+      let msg = `${emoji} *Gastos em "${tituloBusca}"*\n`;
+      msg += `${mesLabel}\n`;
+      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `Nenhum gasto encontrado neste mês.\n\n`;
       if (qtdAnt > 0) {
-        msg += `📌 No mês anterior (${MESES_LABEL[mesAnterior-1]}): *${this._fmt(totAnt)}* em ${qtdAnt} lançamento(s).
-
-`;
+        msg += `No mês anterior (${MESES_LABEL[mesAnterior-1]}): *${this._fmt(totAnt)}* em ${qtdAnt} lançamento(s).\n\n`;
       }
-      msg += `💡 Exemplos:
-• _gasto em gasolina_ → só gasolina
-• _gasto em Transporte_ → tudo de transporte`;
+      msg += `Exemplos:\n• _gasto em gasolina_ → só gasolina\n• _gasto em Transporte_ → tudo de transporte`;
       return this.enviar(jid, msg);
     }
 
-    let msg = `${emoji} *Gastos em ${tituloBusca}*
-`;
-    if (!ehCategoria) msg += `📂 _Categoria: ${catLabel}_
-`;
-    msg += `📅 ${mesLabel}
-`;
-    msg += `━━━━━━━━━━━━━━━━━━━━
-`;
-    msg += `💰 Total: *${this._fmt(total)}*
-`;
-    msg += `📊 Lançamentos: *${transacoes.length}*
-
-`;
+    let msg = `${emoji} *Gastos em ${tituloBusca}*\n`;
+    if (!ehCategoria) msg += `_Categoria: ${catLabel}_\n`;
+    msg += `${mesLabel}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `Total: *${this._fmt(total)}*\n`;
+    msg += `Lançamentos: *${transacoes.length}*\n\n`;
 
     for (const tx of transacoes) {
       const data = tx.data_pagamento
         ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit' })
         : '—';
-      msg += `💸 *${tx.descricao}* — ${this._fmt(tx.valor)}
-`;
-      msg += `   📅 ${data}`;
-      if (tx.id_curto) msg += ` | 🔖 *${tx.id_curto}*`;
-      msg += `
-
-`;
+      msg += `*${tx.descricao}* — ${this._fmt(tx.valor)}\n`;
+      msg += `   ${data}`;
+      if (tx.id_curto) msg += ` | ID: *${tx.id_curto}*`;
+      msg += `\n\n`;
     }
 
-    msg += `━━━━━━━━━━━━━━━━━━━━
-`;
-    msg += `🔍 Outra categoria: _"gasto em [nome]"_
-`;
-    msg += `📊 Resumo geral: _resumo_`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `Outra categoria: _"gasto em [nome]"_\n`;
+    msg += `Resumo geral: _resumo_`;
 
     await this.enviar(jid, msg);
+
+    // Botões de drill-down — igual ao exemplo do Pierre Finance
+    await this.enviarBotoes(jid, 'Quer ver mais detalhes?', [
+      { id: `btn_resumo`,        titulo: '📊 Resumo geral' },
+      { id: `btn_historico`,     titulo: 'Histórico completo' },
+      { id: `btn_pdf`,           titulo: '📄 Relatório PDF' },
+    ]);
   }
 
   // Envia lembrete de cobrança para devedores pendentes
@@ -1979,9 +1925,9 @@ _Digite o número ou "sem data" para pular_`);
     ).catch(() => ({ rows: [] }));
 
     if (rows.length === 0)
-      return this.enviar(jid, `✅ Nenhuma dívida pendente para lembrar!`);
+      return this.enviar(jid, `Nenhuma dívida pendente para lembrar.`);
 
-    let msg = `🔔 *Devedores pendentes*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    let msg = `*Devedores pendentes*\n━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `Quais dívidas deseja enviar lembrete?\n` +
            `Digite: _"lembrar [ID]"_\n` +
            `Ou: _"lembrar todos"_ para cobrar todos\n\n`;
@@ -1989,7 +1935,7 @@ _Digite o número ou "sem data" para pular_`);
       const venc = d.data_prevista
         ? new Date(d.data_prevista).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })
         : 'sem data';
-      msg += `👤 *${d.nome_devedor}* — ${this._fmt(d.valor)} | 📅 ${venc} | 🔖 *${d.id_curto}*\n`;
+      msg += `*${d.nome_devedor}* — ${this._fmt(d.valor)} | ${venc} | ID: *${d.id_curto}*\n`;
     }
     await this.enviar(jid, msg);
   }
@@ -2004,94 +1950,93 @@ _Digite o número ou "sem data" para pular_`);
   // ─────────────────────────────────────────────────────────────────────────
   msgBemVindo(nome) {
     return (
-      `🎉 Olá, *${nome}*! Seja bem-vindo(a) ao *Seu Secretário*! 👋\n\n` +
-      `🤖 Sou seu assistente pessoal. Estou aqui para te ajudar a organizar sua vida financeira, ` +
-      `sua agenda e muito mais — tudo direto pelo WhatsApp!\n\n` +
-      `Escreva *ajuda* que te ensino como usar 😊`
+      `👋 Olá, *${nome}*! Bem-vindo(a) ao *Seu Secretário*.\n\n` +
+      `Sou seu assistente financeiro pessoal. Estou aqui para organizar sua vida financeira, ` +
+      `agenda e muito mais — tudo direto pelo WhatsApp.\n\n` +
+      `Escreva *ajuda* para ver o que posso fazer por você.`
     );
   }
 
   msgAjuda() {
     return (
-      `🤖 *Comandos disponíveis:*\n\n` +
+      `*Comandos disponíveis:*\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💸 *Registrar transações:*\n` +
+      `*Registrar transações:*\n` +
       `_Gastei 50 no mercado_\n_Recebi 3000 de salário_\n\n` +
-      `🎤 *Áudio:* Mande um áudio falando o gasto\n` +
-      `📸 *Foto:* Tire foto de nota fiscal\n\n` +
+      `*Áudio:* Mande um áudio falando o gasto\n` +
+      `*Foto:* Tire foto de nota fiscal\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `📅 *Agenda:*\n` +
+      `*Agenda:*\n` +
       `_"agendar reunião amanhã às 10h"_\n` +
       `_"agendar consulta médica dia 20 às 14h"_\n` +
       `_agenda_ — ver compromissos\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💸 *Dívidas a Receber:*\n` +
+      `*Dívidas a Receber:*\n` +
       `_"Bruno me deve 40, paga dia 30"_ — registra\n` +
       `_a receber_ — lista devedores\n` +
       `_"recebido [ID]"_ — quita\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `📊 *resumo* — Saldo e relatório\n` +
-      `🕐 *histórico* — Últimas transações\n` +
-      `📂 *categorias* — Suas categorias\n` +
-      `🎯 *limite* — Definir limites de gastos\n` +
-      `🏠 *gastos fixos* — Configurar gastos mensais fixos\n` +
-      `🔍 *gasto em [categoria]* — Ex: _gasto em gasolina_\n\n` +
+      `*histórico* — Últimas transações\n` +
+      `*categorias* — Suas categorias\n` +
+      `*limite* — Definir limites de gastos\n` +
+      `*gastos fixos* — Configurar gastos mensais fixos\n` +
+      `_gasto em [categoria]_ — Ex: _gasto em gasolina_\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `🌐 Painel: *https://www.seusecretario.com.br/dashboard*`
+      `Painel: *https://www.seusecretario.com.br/dashboard*`
     );
   }
 
   // ── Menu Principal — 5 botões de acesso rápido ────────────────────────────
   async enviarAjudaComBotoes(jid) {
     const corpo =
-      `🤖 *Seu Secretário — Menu Principal*\n` +
+      `*Seu Secretário — Menu Principal*\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💸 Registre gastos e receitas por texto, áudio ou foto\n` +
-      `📅 Agende compromissos e receba lembretes\n` +
-      `📊 Veja resumos, relatórios e gastos fixos\n` +
-      `👥 Gerencie quem te deve dinheiro\n` +
-      `⚙️ Configure gastos fixos mensais\n` +
+      `Registre gastos e receitas por texto, áudio ou foto\n` +
+      `Agende compromissos e receba lembretes\n` +
+      `Veja resumos, relatórios e histórico\n` +
+      `Gerencie quem te deve dinheiro\n` +
+      `Configure gastos fixos mensais\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
-      `Escolha uma seção abaixo 👇`;
+      `Escolha uma seção abaixo:`;
 
     await this.enviarLista(jid, corpo, '📋 Abrir menu', [
       {
-        titulo: '💸 Financeiro',
+        titulo: 'Financeiro',
         itens: [
           { id: 'btn_resumo',    titulo: '📊 Resumo do mês',     descricao: 'Saldo, receitas e despesas' },
-          { id: 'btn_historico', titulo: '🕐 Histórico',         descricao: 'Últimas 5 transações' },
-          { id: 'btn_limite',    titulo: '🎯 Limites de gastos', descricao: 'Alertas por categoria' },
+          { id: 'btn_historico', titulo: 'Histórico',            descricao: 'Últimas 5 transações' },
+          { id: 'btn_limite',    titulo: 'Limites de gastos',    descricao: 'Alertas por categoria' },
           { id: 'btn_pdf',       titulo: '📄 Relatório PDF',     descricao: 'Relatório completo do mês' },
         ],
       },
       {
-        titulo: '📅 Agenda',
+        titulo: 'Agenda',
         itens: [
           { id: 'btn_agenda', titulo: '📅 Minha agenda', descricao: 'Próximos compromissos' },
         ],
       },
       {
-        titulo: '👥 Quem me deve',
+        titulo: 'Quem me deve',
         itens: [
-          { id: 'menu_receber_ver', titulo: '📋 Ver devedores',    descricao: 'Quem ainda te deve' },
-          { id: 'menu_receber_add', titulo: '➕ Adicionar dívida', descricao: 'Registrar novo devedor' },
+          { id: 'menu_receber_ver', titulo: 'Ver devedores',    descricao: 'Quem ainda te deve' },
+          { id: 'menu_receber_add', titulo: 'Adicionar dívida', descricao: 'Registrar novo devedor' },
         ],
       },
       {
-        titulo: '⚙️ Gastos Fixos',
+        titulo: 'Gastos Fixos',
         itens: [
-          { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos', descricao: 'Suas contas mensais' },
-          { id: 'btn_gastos_fixos_add', titulo: '➕ Novo gasto fixo',  descricao: 'Nova conta mensal' },
+          { id: 'btn_gastos_fixos',     titulo: 'Ver gastos fixos', descricao: 'Suas contas mensais' },
+          { id: 'btn_gastos_fixos_add', titulo: 'Novo gasto fixo',  descricao: 'Nova conta mensal' },
         ],
       },
       {
-        titulo: '🌐 Outros',
+        titulo: 'Outros',
         itens: [
-          { id: 'btn_painel', titulo: '🌐 Painel web', descricao: 'Graficos e relatorios completos' },
+          { id: 'btn_painel', titulo: '🌐 Painel web', descricao: 'Gráficos e relatórios completos' },
         ],
       },
     ]);
-    // Nota: limite da API Meta = 10 rows totais por lista
   }
 
   // ── Submenu: Quem me deve ──────────────────────────────────────────────────
@@ -2106,21 +2051,21 @@ _Digite o número ou "sem data" para pular_`);
     const total = parseFloat(rows[0]?.total || 0);
 
     const corpo = qtd > 0
-      ? `👥 *Quem me deve — Menu*\n` +
+      ? `*Quem me deve*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📌 *${qtd}* pessoa(s) te devem no total *${this._fmt(total)}*\n` +
+        `*${qtd}* pessoa(s) te devem | Total: *${this._fmt(total)}*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Gerencie as pessoas que te devem dinheiro.`
-      : `👥 *Quem me deve — Menu*\n` +
+      : `*Quem me deve*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Nenhuma dívida pendente no momento.\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Gerencie as pessoas que te devem dinheiro.`;
 
     await this.enviarBotoes(jid, corpo, [
-      { id: 'menu_receber_ver',     titulo: '📋 Ver devedores' },
-      { id: 'menu_receber_add',     titulo: '➕ Adicionar dívida' },
-      { id: 'menu_receber_lembrete',titulo: '🔔 Enviar lembrete' },
+      { id: 'menu_receber_ver',     titulo: 'Ver devedores' },
+      { id: 'menu_receber_add',     titulo: 'Adicionar dívida' },
+      { id: 'menu_receber_lembrete',titulo: 'Enviar lembrete' },
     ]);
   }
 
@@ -2136,21 +2081,21 @@ _Digite o número ou "sem data" para pular_`);
     const total = parseFloat(rows[0]?.total || 0);
 
     const corpo = qtd > 0
-      ? `⚙️ *Gastos Fixos — Menu*\n` +
+      ? `*Gastos Fixos*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
-        `📌 *${qtd}* gasto(s) fixo(s) | Total: *${this._fmt(total)}/mês*\n` +
+        `*${qtd}* gasto(s) fixo(s) | Total: *${this._fmt(total)}/mês*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Configure suas contas mensais fixas.`
-      : `⚙️ *Gastos Fixos — Menu*\n` +
+      : `*Gastos Fixos*\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Nenhum gasto fixo cadastrado.\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `Configure suas contas mensais fixas.`;
 
     await this.enviarBotoes(jid, corpo, [
-      { id: 'btn_gastos_fixos',     titulo: '📋 Ver gastos fixos' },
-      { id: 'btn_gastos_fixos_add', titulo: '➕ Adicionar novo' },
-      { id: 'btn_menu_principal',   titulo: '🔙 Menu principal' },
+      { id: 'btn_gastos_fixos',     titulo: 'Ver gastos fixos' },
+      { id: 'btn_gastos_fixos_add', titulo: 'Adicionar novo' },
+      { id: 'btn_menu_principal',   titulo: 'Menu principal' },
     ]);
   }
 }

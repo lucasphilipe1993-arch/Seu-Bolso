@@ -296,8 +296,8 @@ class BotOficial {
       return;
     }
 
-    // NLP: detecta intenção de criar limite mesmo em frases naturais
-    // Ex: "criar limite para gasolina 300", "limite transporte 500", "quero limite em alimentação de 200"
+    // NLP: detecta intenção de criar limite para uma categoria específica
+    // Ex: "criar limite para almoço", "limite de gastos para gasolina", "quero limite em alimentação"
     const recriarLimite =
       textoClean.match(/(?:criar?|definir?|configurar?|add|adicionar?|novo|quero)\s+(?:um\s+)?limite\s+(?:de\s+)?(?:gastos?\s+)?(?:para\s+|em\s+|de\s+|no?\s+|na\s+)?(.+)/i)
       || textoClean.match(/^limite\s+(?:de\s+|para\s+|em\s+)?(.+)/i);
@@ -305,27 +305,37 @@ class BotOficial {
     if (recriarLimite) {
       const parteRestante = recriarLimite[1].trim();
 
-      // Tenta extrair valor junto com a categoria: "gasolina 300" ou "gasolina de 300"
+      // Se já veio com valor: "gasolina 300" ou "almoço de 200"
       const matchComValor = parteRestante.match(/^(.+?)\s+(?:de\s+)?R?\$?\s*(\d+(?:[.,]\d{1,2})?)$/i);
-
       if (matchComValor) {
-        const categoriaTermo = matchComValor[1].trim();
-        const valorNum = parseFloat(matchComValor[2].replace(',', '.'));
-        // Tenta via processarComandoLimite com formato "limite [categoria] [valor]"
-        const textoInjetado = `limite ${categoriaTermo} ${valorNum}`;
-        const handled = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado);
-        if (handled) return;
+        const cat = matchComValor[1].trim();
+        const val = parseFloat(matchComValor[2].replace(',', '.'));
+        // Inicia fluxo guiado direto na etapa do período
+        this._estados.set(telefone, {
+          tipo: 'criar_limite_guiado',
+          etapa: 'aguardando_periodo',
+          categoria: cat,
+          valor: val,
+        });
+        return this._perguntarPeriodoLimite(jid, cat, val);
       }
 
-      // Só categoria sem valor — tenta injetar "limite [categoria]" para disparar o fluxo
-      const categoriaSemValor = parteRestante.replace(/\s*R?\$?\s*\d.*$/, '').trim();
-      if (categoriaSemValor) {
-        const textoInjetado = `limite ${categoriaSemValor}`;
-        const handled = await this._limitesAlertas.processarComandoLimite(jid, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado);
-        if (handled) return;
+      // Só categoria, sem valor → inicia fluxo guiado perguntando valor
+      const cat = parteRestante.replace(/\s*R?\$?\s*\d.*$/, '').trim();
+      if (cat.length >= 2) {
+        this._estados.set(telefone, {
+          tipo: 'criar_limite_guiado',
+          etapa: 'aguardando_valor',
+          categoria: cat,
+        });
+        return this.enviar(jid,
+          `🎯 *Limite de gastos — ${cat}*\n\n` +
+          `Qual o valor máximo que você quer gastar em *${cat}* (em R$)?\n\n` +
+          `_Ex: 300 ou 500,00_`
+        );
       }
 
-      // Fallback: abre o menu de limites
+      // Não conseguiu extrair categoria → abre menu genérico
       await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
       return;
     }
@@ -724,6 +734,32 @@ class BotOficial {
 
       case 'fluxo_fixo_outro':
         return this.iniciarFluxoNovoGastoFixo(jid, jid, '');
+
+      case 'lim_periodo_mensal':
+      case 'lim_periodo_semanal':
+      case 'lim_periodo_diario': {
+        // Usuário clicou no botão de período no fluxo guiado de limite
+        const estadoLim = this._estados.get(jid);
+        if (estadoLim && estadoLim.tipo === 'criar_limite_guiado' && estadoLim.etapa === 'aguardando_periodo') {
+          const periodoMap = {
+            'lim_periodo_mensal':  'mensal',
+            'lim_periodo_semanal': 'semanal',
+            'lim_periodo_diario':  'diario',
+          };
+          const periodo = periodoMap[buttonId];
+          estadoLim.periodo = periodo;
+          this._estados.delete(jid);
+
+          const textoInjetado = `limite ${estadoLim.categoria} ${estadoLim.valor} ${periodo}`;
+          const handled = await this._limitesAlertas.processarComandoLimite(
+            jid, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado
+          );
+          if (!handled) {
+            await this._salvarLimiteDiretamente(jid, usuarioId, estadoLim.categoria, estadoLim.valor, periodo);
+          }
+        }
+        return;
+      }
 
       default: {
         // Clique em categoria → relatório de gastos da categoria no mês
@@ -1166,6 +1202,10 @@ class BotOficial {
       return this._continuarFluxoGastoFixo(telefone, texto, estado);
     }
 
+    if (estado.tipo === 'criar_limite_guiado') {
+      return this._continuarFluxoLimiteGuiado(telefone, texto, estado);
+    }
+
     if (estado.tipo === 'nova_categoria') {
       const sessao = await this._buscarSessao(telefone);
       if (!sessao) { this._estados.delete(telefone); return; }
@@ -1193,6 +1233,109 @@ class BotOficial {
         return this.enviar(telefone, 'Criação cancelada.');
       }
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fluxo guiado: criação de limite por linguagem natural
+  // ─────────────────────────────────────────────────────────────────────────
+  async _perguntarPeriodoLimite(jid, categoria, valor) {
+    await this.enviarBotoes(jid,
+      `🎯 *Limite de gastos — ${categoria}*\n\n` +
+      `Valor: *${this._fmt(valor)}*\n\n` +
+      `Qual deve ser o período do limite?`,
+      [
+        { id: `lim_periodo_mensal`,  titulo: '📅 Mensal' },
+        { id: `lim_periodo_semanal`, titulo: '📆 Semanal' },
+        { id: `lim_periodo_diario`,  titulo: '📋 Diário' },
+      ]
+    );
+  }
+
+  async _continuarFluxoLimiteGuiado(telefone, texto, estado) {
+    const sessao = await this._buscarSessao(telefone);
+    if (!sessao) { this._estados.delete(telefone); return; }
+    const { usuarioId, nome } = sessao;
+
+    if (estado.etapa === 'aguardando_valor') {
+      const valor = parseFloat(texto.replace(',', '.').replace(/[^0-9.]/g, ''));
+      if (!valor || valor <= 0) {
+        return this.enviar(telefone, 'Valor inválido. Digite apenas o número, ex: 300');
+      }
+      estado.valor = valor;
+      estado.etapa = 'aguardando_periodo';
+      this._estados.set(telefone, estado);
+      return this._perguntarPeriodoLimite(telefone, estado.categoria, valor);
+    }
+
+    if (estado.etapa === 'aguardando_periodo') {
+      const t = texto.toLowerCase().trim();
+      let periodo = null;
+      if (['mensal','mes','mês','monthly','m'].includes(t) || t === 'lim_periodo_mensal')   periodo = 'mensal';
+      if (['semanal','semana','weekly','s'].includes(t)    || t === 'lim_periodo_semanal')  periodo = 'semanal';
+      if (['diario','diário','diaria','diária','daily','d'].includes(t) || t === 'lim_periodo_diario') periodo = 'diario';
+
+      if (!periodo) {
+        return this.enviar(telefone,
+          'Período inválido. Responda *mensal*, *semanal* ou *diário*.'
+        );
+      }
+
+      estado.periodo = periodo;
+      this._estados.delete(telefone);
+
+      // Injeta o comando no formato que processarComandoLimite entende
+      const textoInjetado = `limite ${estado.categoria} ${estado.valor} ${periodo}`;
+      const handled = await this._limitesAlertas.processarComandoLimite(
+        telefone, usuarioId, nome, textoInjetado.toLowerCase(), textoInjetado
+      );
+
+      if (!handled) {
+        // processarComandoLimite não reconheceu — salva diretamente na tabela
+        await this._salvarLimiteDiretamente(telefone, usuarioId, estado.categoria, estado.valor, periodo);
+      }
+    }
+  }
+
+  async _salvarLimiteDiretamente(jid, usuarioId, categoria, valor, periodo) {
+    // Garante a tabela de limites (mesma estrutura esperada pelo limites_alertas)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS limites_gastos (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        usuario_id UUID NOT NULL,
+        categoria TEXT NOT NULL,
+        valor_limite NUMERIC(12,2) NOT NULL,
+        periodo TEXT NOT NULL DEFAULT 'mensal',
+        ativo BOOLEAN NOT NULL DEFAULT TRUE,
+        criado_em TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+
+    // Upsert — substitui limite existente para a mesma categoria+período
+    await db.query(`
+      INSERT INTO limites_gastos (usuario_id, categoria, valor_limite, periodo)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (usuario_id, LOWER(categoria), periodo)
+      DO UPDATE SET valor_limite = EXCLUDED.valor_limite, ativo = TRUE
+    `, [usuarioId, categoria, valor, periodo]).catch(async () => {
+      // Se não tem constraint única, faz delete + insert
+      await db.query(
+        `DELETE FROM limites_gastos WHERE usuario_id=$1 AND LOWER(categoria)=LOWER($2) AND periodo=$3`,
+        [usuarioId, categoria, periodo]
+      ).catch(() => {});
+      await db.query(
+        `INSERT INTO limites_gastos (usuario_id, categoria, valor_limite, periodo) VALUES ($1, $2, $3, $4)`,
+        [usuarioId, categoria, valor, periodo]
+      ).catch(() => {});
+    });
+
+    const periodoLabel = periodo === 'mensal' ? 'por mês' : periodo === 'semanal' ? 'por semana' : 'por dia';
+    await this.enviar(jid,
+      `✅ *Limite criado!*\n\n` +
+      `Categoria: *${categoria}*\n` +
+      `Limite: *${this._fmt(valor)}* ${periodoLabel}\n\n` +
+      `Vou te avisar quando você estiver chegando perto desse valor.\n` +
+      `Para ver seus limites: _"limites"_`
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────

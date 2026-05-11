@@ -158,18 +158,9 @@ class BotOficial {
         const mediaId = message.audio?.id;
         if (!mediaId) return this.enviar(from, 'Não consegui receber o áudio. Tente novamente.');
         await this.enviar(from, '🎙️ _Transcrevendo..._');
-
-        // Roda transcrição e busca de sessão EM PARALELO — economiza ~1-2s
-        const [transcricao, sessaoAudio] = await Promise.all([
-          this._transcreverAudioMeta(mediaId),
-          this._buscarSessao(from),
-        ]);
-
-        if (!transcricao) return this.enviar(from, 'Não consegui entender o áudio. Tente enviar texto.');
-        if (!sessaoAudio) return this._responderNaoCadastrado(from);
-
-        console.log(`📲 [META] ${from} (${pushName || 'sem nome'}) [áudio]: ${transcricao}`);
-        return this.processarTexto(from, sessaoAudio.usuarioId, sessaoAudio.nome, transcricao, from);
+        const transcricao = await this._transcreverAudioMeta(mediaId);
+        texto = transcricao;
+        if (!texto) return this.enviar(from, 'Não consegui entender o áudio. Tente enviar texto.');
       } else if (type === 'image') {
         await this.enviar(from, 'Analisando imagem...');
         const mediaId = message.image?.id;
@@ -1134,9 +1125,9 @@ class BotOficial {
 
       // Botões de ação rápida
       await this.enviarBotoes(jid, 'O que deseja ver agora?', [
-        { id: 'btn_agenda',       titulo: '📅 Ver agenda' },
-        { id: 'menu_receber_ver', titulo: '👥 Ver devedores' },
-        { id: 'btn_pdf',          titulo: '📄 Relatório PDF' },
+        { id: 'btn_agenda',  titulo: '📅 Ver agenda' },
+        { id: 'btn_limite',  titulo: '🎯 Limites de gastos' },
+        { id: 'btn_pdf',     titulo: '📄 Relatório PDF' },
       ]);
 
       await this.enviarBotaoLink(
@@ -2302,10 +2293,9 @@ class BotOficial {
       {
         titulo: '💸 Financeiro',
         itens: [
-          { id: 'btn_resumo',    titulo: '📊 Resumo do mês',     descricao: 'Saldo, receitas e despesas' },
-          { id: 'btn_historico', titulo: '🕐 Histórico',          descricao: 'Últimas 5 transações' },
-          { id: 'btn_limite',    titulo: '🎯 Limites de gastos',  descricao: 'Alertas por categoria' },
-          { id: 'btn_pdf',       titulo: '📄 Relatório PDF',      descricao: 'Relatório completo do mês' },
+          { id: 'btn_resumo',    titulo: '📊 Resumo do mês',    descricao: 'Saldo, receitas e despesas' },
+          { id: 'btn_historico', titulo: '🕐 Histórico',         descricao: 'Últimas 5 transações' },
+          { id: 'btn_limite',    titulo: '🎯 Limites de gastos', descricao: 'Alertas por categoria' },
         ],
       },
       {
@@ -2329,9 +2319,10 @@ class BotOficial {
         ],
       },
       {
-        titulo: '🌐 Outros',
+        titulo: '📄 Relatórios',
         itens: [
-          { id: 'btn_painel', titulo: '🌐 Painel web', descricao: 'Gráficos e relatórios completos' },
+          { id: 'btn_pdf',    titulo: '📄 Relatório PDF', descricao: 'Relatório completo do mês' },
+          { id: 'btn_painel', titulo: '🌐 Painel web',    descricao: 'Gráficos e relatórios completos' },
         ],
       },
     ]);

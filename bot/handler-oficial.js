@@ -353,13 +353,29 @@ class BotOficial {
       return this.enviarGastosFixos(jid, usuarioId);
 
     // ── Novo gasto fixo ────────────────────────────────────────────────────
-    const matchNovoFixo = texto.match(/^(?:add|adicionar|novo|criar)\s+(?:gasto|conta)\s+fixo?\s+(.+)/i)
-      || texto.match(/^(?:add|adicionar|novo|criar)\s+(?:gasto|conta)\s+mensal\s+(.+)/i);
+    // Detecta variações de texto e áudio (Whisper pode transcrever diferente):
+    // "adicionar gasto fixo ...", "add gastos conta de luz 500 mês",
+    // "novo gasto mensal ...", "adicionar conta fixa ...", etc.
+    const matchNovoFixo =
+      texto.match(/^(?:add|adicionar|novo|criar|incluir|registrar)\s+(?:gasto[s]?\s+fixo[s]?|conta[s]?\s+fixa[s]?|gasto[s]?\s+mensal|conta[s]?\s+mensal)\s+(.+)/i)
+      || texto.match(/^(?:add|adicionar|novo|criar|incluir|registrar)\s+(?:gasto[s]?|conta[s]?)\s+(?:fixo[s]?|mensal|mensai[s]?)\s+(.+)/i)
+      // "adicionar gastos conta de luz 500 mês" — "gastos" sem "fixo" mas com indicador mensal no final
+      || (
+          /^(?:add|adicionar|novo|criar|incluir|registrar)\s+(?:gasto[s]?|conta[s]?)\s+/i.test(texto)
+          && /\b(?:m[eê]s|mensal|mensai[s]?|todo[s]?\s+(?:o[s]?\s+)?dia[s]?|vence|vencimento|todo\s+dia)\b/i.test(texto)
+          && texto.match(/^(?:add|adicionar|novo|criar|incluir|registrar)\s+(?:gasto[s]?|conta[s]?)\s+(.+)/i)
+        );
+
     if (matchNovoFixo) {
-      // Remove sufixos que o usuário pode incluir junto, ex: "conta de água 200 mês, vencimento dia 05"
-      const textoFixoLimpo = matchNovoFixo[1].trim()
-        .replace(/[,.]?\s*vencimento\s+dia\s+\d+/i, '') // remove "vencimento dia X"
-        .replace(/\s+(?:por\s+)?m[eê]s[.,\s].*$/i, '')  // remove "mês, ..." e tudo após
+      const capturado = Array.isArray(matchNovoFixo) ? matchNovoFixo[1] : matchNovoFixo[1];
+      // Remove sufixos que o usuário pode incluir no áudio:
+      // "mês, vence todo dia 05", "por mês, vencimento dia 5", "todo dia 5", etc.
+      const textoFixoLimpo = capturado.trim()
+        .replace(/[,.]?\s*venc(?:e|imento|e todo[s]?\s+(?:o[s]?\s+)?dia[s]?)\s*(?:todo[s]?\s+(?:o[s]?\s+)?dia[s]?\s*)?\d*/i, '')
+        .replace(/[,.]?\s*todo[s]?\s+(?:o[s]?\s+)?dia[s]?\s+\d+/i, '')
+        .replace(/[,.]?\s*dia\s+\d+/i, '')
+        .replace(/\s+(?:por\s+)?m[eê]s[.,\s].*$/i, '')
+        .replace(/\s+mensal.*$/i, '')
         .trim();
       return this.iniciarFluxoNovoGastoFixo(jid, telefone, textoFixoLimpo);
     }
@@ -470,11 +486,33 @@ class BotOficial {
     // Tenta detectar intenção por palavras-chave antes de desistir
     const intencaoLimite = /\blimite\b/i.test(texto);
     const intencaoAgenda = /\bagendar?\b|\breunião\b|\bconsulta\b|\blembrar?\b/i.test(texto);
-    const intencaoFixo   = /\bfixo\b|\bmensal\b|\bconta\b/i.test(texto);
+
+    // Detecta intenção de ADICIONAR gasto fixo via fallback (áudio mal transcrito, etc.)
+    // Ex: "adicionar gastos conta de luz 500 mês" que escapou do regex principal
+    const verboCadastro = /\b(?:add|adicionar|incluir|cadastrar|registrar|criar|novo|colocar)\b/i.test(texto);
+    const indicadorMensal = /\b(?:m[eê]s|mensal|mensai[s]?|todo[s]?\s+(?:o[s]?\s+)?dia[s]?|vence|vencimento|fixo[s]?|fixa[s]?)\b/i.test(texto);
+    const temValor = /\b\d+(?:[.,]\d{1,2})?\b/.test(texto);
+
+    const intencaoAddFixo = verboCadastro && indicadorMensal && temValor;
+    const intencaoFixo    = /\bfixo[s]?\b|\bmensal\b/i.test(texto) && !verboCadastro;
 
     if (intencaoLimite) {
       await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
       return;
+    }
+    if (intencaoAddFixo) {
+      // Tenta extrair "nome valor" do texto bruto para já pré-preencher o fluxo
+      const matchFallbackFixo = texto.match(/\b(?:add|adicionar|incluir|cadastrar|registrar|criar|novo|colocar)\s+(?:gasto[s]?|conta[s]?)?\s*(.+)/i);
+      const textoExtraido = matchFallbackFixo
+        ? matchFallbackFixo[1].trim()
+            .replace(/[,.]?\s*venc(?:e|imento|e\s+todo[s]?\s+dia[s]?)\s*\d*/i, '')
+            .replace(/[,.]?\s*todo[s]?\s+(?:o[s]?\s+)?dia[s]?\s+\d+/i, '')
+            .replace(/[,.]?\s*dia\s+\d+/i, '')
+            .replace(/\s+(?:por\s+)?m[eê]s.*$/i, '')
+            .replace(/\s+mensal.*$/i, '')
+            .trim()
+        : '';
+      return this.iniciarFluxoNovoGastoFixo(jid, telefone, textoExtraido);
     }
     if (intencaoFixo) {
       return this.enviarGastosFixos(jid, usuarioId);

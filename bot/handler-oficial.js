@@ -2011,16 +2011,22 @@ class BotOficial {
       estado.dia = dia;
       estado.etapa = 'aguardando_categoria';
       this._estados.set(telefone, estado);
-      const categoriasOpcoes = CATEGORIAS_PADRAO.filter(c => c.tipo !== 'receita').map(c => ({
-        id: `fixo_cat_${c.nome.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`,
-        titulo: `${EMOJI_CATEGORIA[c.nome] || '📦'} ${c.nome}`,
-      }));
-      return this.enviarLista(
-        telefone,
-        `📂 Qual a categoria de *${estado.descricao}*?`,
-        '📂 Escolher categoria',
-        [{ titulo: 'Categorias', itens: categoriasOpcoes.slice(0, 10) }]
-      );
+     // Categorias de gastos fixos — sincronizadas com o site (máx 10, limite Meta)
+const CATS_GASTOS_FIXOS = [
+  'Casa', 'Assinatura', 'Transporte', 'Saúde',
+  'Alimentação', 'Educação', 'Mercado', 'Pets',
+  'Lazer e Entretenimento', 'Outros',
+];
+const categoriasOpcoes = CATS_GASTOS_FIXOS.map(nome => ({
+  id: `fixo_cat_${nome.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`,
+  titulo: `${EMOJI_CATEGORIA[nome] || '📦'} ${nome}`,
+}));
+return this.enviarLista(
+  telefone,
+  `📂 Qual a categoria de *${estado.descricao}*?`,
+  '📂 Escolher categoria',
+  [{ titulo: 'Categorias', itens: categoriasOpcoes }]
+);
     }
 
     if (estado.etapa === 'aguardando_confirmacao_fixo') {

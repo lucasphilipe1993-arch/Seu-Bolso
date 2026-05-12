@@ -219,10 +219,14 @@ router.delete('/users/:id', autenticarAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
-//  NOVA ROTA: Zerar todos os registros de um usuário
+//  ROTA: Zerar todos os registros de um usuário
 //  DELETE /api/admin/users/:id/resetar
-//  Remove: transações, contas, categorias, sessões, lembretes, agenda
+//  Remove: transações, contas, categorias, sessões, lembretes,
+//          agenda, gastos_fixos, limites_gastos, a_receber
 //  Preserva: o cadastro do usuário (nome, email, senha, plano)
+//
+//  CORREÇÃO: blocos DO $$ anônimos não aceitam $1 do node-postgres.
+//  Agora verificamos a existência das tabelas em JS antes de deletar.
 // ══════════════════════════════════════════════════════════════
 router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
   const { id } = req.params;
@@ -237,58 +241,60 @@ router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
 
     const nome = rows[0].nome;
 
-    // Remove em ordem para respeitar foreign keys
-    await db.query('DELETE FROM lembretes    WHERE usuario_id = $1', [id]);
-    await db.query('DELETE FROM sessoes_bot  WHERE usuario_id = $1', [id]);
+    // Helper: verifica se a tabela existe no banco
+    async function tabelaExiste(tabela) {
+      const r = await db.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1`,
+        [tabela]
+      );
+      return r.rows.length > 0;
+    }
 
-    // Agenda (se a tabela existir)
-    await db.query(`
-      DO $$ BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='agenda') THEN
-          DELETE FROM agenda WHERE usuario_id = $1;
-        END IF;
-      END$$;
-    `, [id]).catch(() => {});
+    // 1. Lembretes
+    await db.query('DELETE FROM lembretes WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // Gastos fixos (se existir)
-    await db.query(`
-      DO $$ BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='gastos_fixos') THEN
-          DELETE FROM gastos_fixos WHERE usuario_id = $1;
-        END IF;
-      END$$;
-    `, [id]).catch(() => {});
+    // 2. Sessões do bot
+    await db.query('DELETE FROM sessoes_bot WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // Limites (se existir)
-    await db.query(`
-      DO $$ BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='limites_gastos') THEN
-          DELETE FROM limites_gastos WHERE usuario_id = $1;
-        END IF;
-      END$$;
-    `, [id]).catch(() => {});
+    // 3. Agenda
+    if (await tabelaExiste('agenda'))
+      await db.query('DELETE FROM agenda WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // Transações (depende de lembretes que já foi deletado)
-    await db.query('DELETE FROM transacoes WHERE usuario_id = $1', [id]);
+    // 4. Gastos fixos
+    if (await tabelaExiste('gastos_fixos'))
+      await db.query('DELETE FROM gastos_fixos WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // Categorias do usuário (não as globais com usuario_id = NULL)
-    await db.query('DELETE FROM categorias WHERE usuario_id = $1', [id]);
+    // 5. Limites de gastos
+    if (await tabelaExiste('limites_gastos'))
+      await db.query('DELETE FROM limites_gastos WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // Remove contas e recria conta padrão
-    await db.query('DELETE FROM contas WHERE usuario_id = $1', [id]);
+    // 6. A receber / devedores (tenta nomes comuns)
+    for (const tabela of ['a_receber', 'cobrancas', 'devedores', 'recebimentos']) {
+      if (await tabelaExiste(tabela))
+        await db.query(`DELETE FROM ${tabela} WHERE usuario_id = $1`, [id]).catch(() => {});
+    }
+
+    // 7. Transações
+    await db.query('DELETE FROM transacoes WHERE usuario_id = $1', [id]).catch(() => {});
+
+    // 8. Categorias do usuário (não as globais com usuario_id = NULL)
+    await db.query('DELETE FROM categorias WHERE usuario_id = $1', [id]).catch(() => {});
+
+    // 9. Contas: remove e recria carteira padrão
+    await db.query('DELETE FROM contas WHERE usuario_id = $1', [id]).catch(() => {});
     await db.query(
       `INSERT INTO contas (usuario_id, nome, padrao, saldo) VALUES ($1, 'Carteira', true, 0)`,
       [id]
     );
 
-    // Limpa cupom e sessão Stripe (mantém dados pessoais)
+    // 10. Limpa campos de acesso/trial no usuário
     await db.query(`
       UPDATE usuarios
-      SET cupom_codigo = NULL,
+      SET cupom_codigo     = NULL,
           acesso_expira_em = NULL,
           stripe_trial_end = NULL,
-          whatsapp_ativo = false,
-          atualizado_em = NOW()
+          whatsapp_ativo   = false,
+          atualizado_em    = NOW()
       WHERE id = $1
     `, [id]);
 

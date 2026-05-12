@@ -193,17 +193,17 @@
         .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
         /* ─── Admin usuários: card mobile ─────────────────────────── */
-        .adm-user-card { display: none; background: var(--white); border: 1px solid var(--gray-200); border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
-        .adm-user-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-        .adm-user-card-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; }
-        .adm-user-card-name { font-size: 15px; font-weight: 700; color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
-        .adm-user-card-email { font-size: 12px; color: var(--gray-400); overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-        .adm-user-card-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-        .adm-user-card-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--gray-100); font-size: 13px; }
+        .adm-user-card { display: none; background: var(--white); border: 1px solid var(--gray-200); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+        .adm-user-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .adm-user-card-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+        .adm-user-card-name { font-size: 13px; font-weight: 700; color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
+        .adm-user-card-email { font-size: 11px; color: var(--gray-400); overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+        .adm-user-card-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+        .adm-user-card-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--gray-100); font-size: 12px; }
         .adm-user-card-row:last-of-type { border-bottom: none; }
-        .adm-user-card-label { font-weight: 600; color: var(--gray-400); text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
-        .adm-user-card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-100); }
-        .adm-user-card-actions .btn { flex: 1; justify-content: center; min-width: 70px; font-size: 12px; padding: 8px 10px; }
+        .adm-user-card-label { font-weight: 600; color: var(--gray-400); text-transform: uppercase; font-size: 10px; letter-spacing: .05em; }
+        .adm-user-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--gray-100); }
+        .adm-user-card-actions .btn { flex: 1; justify-content: center; min-width: 60px; font-size: 11px; padding: 6px 8px; }
 
         /* ═══════════════════════════════════════════════════════════
            RESPONSIVO — tablet 900px
@@ -215,7 +215,7 @@
             .settings-layout { flex-direction: column; }
             .settings-sidebar { width: 100%; }
             .form-row { grid-template-columns: 1fr; }
-            .content { padding: 24px 20px; }
+            .content { padding: 20px 18px; }
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -228,42 +228,42 @@
             .main { margin-left: 0; }
             .hamburger { display: flex; }
             /* Topbar */
-            .topbar { padding: 0 16px; height: 60px; }
-            .topbar-title { font-size: 17px; font-weight: 700; }
-            /* Content — padding generoso */
-            .content { padding: 18px 16px; }
+            .topbar { padding: 0 14px; height: 54px; }
+            .topbar-title { font-size: 14px; font-weight: 600; }
+            /* Content */
+            .content { padding: 14px 12px; }
             /* Grids — 2 colunas no mobile */
             .grid-3 { grid-template-columns: 1fr 1fr; }
             .grid-4 { grid-template-columns: 1fr 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
-            /* stat-box — fonte MAIOR no mobile para melhor leitura */
-            .stat-box { padding: 20px 18px; }
-            .stat-value { font-size: 30px; }
-            .stat-label { font-size: 11px; letter-spacing: .08em; }
-            .stat-meta { font-size: 13px; }
+            /* stat-box — compacto */
+            .stat-box { padding: 14px 12px; }
+            .stat-value { font-size: 20px; }
+            .stat-label { font-size: 10px; letter-spacing: .06em; }
+            .stat-meta { font-size: 11px; }
             /* Cards */
-            .card { padding: 20px 16px; }
-            .card-title { font-size: 17px; }
-            /* Botões maiores no touch */
-            .btn { padding: 11px 18px; font-size: 14px; }
-            /* Tabela genérica */
-            .table th { padding: 10px 12px; font-size: 11px; }
-            .table td { padding: 12px 12px; font-size: 13px; }
+            .card { padding: 14px 12px; }
+            .card-title { font-size: 14px; }
+            /* Botões */
+            .btn { padding: 7px 12px; font-size: 12px; }
+            /* Tabela */
+            .table th { padding: 8px 9px; font-size: 10px; }
+            .table td { padding: 9px 9px; font-size: 12px; }
             .table .col-desc { display: none; }
             /* Forms */
             .form-row { grid-template-columns: 1fr; }
             .settings-layout { flex-direction: column; }
             .settings-sidebar { width: 100%; }
-            .plan-card { padding: 20px; }
-            .modal { padding: 24px 18px; }
+            .plan-card { padding: 14px; }
+            .modal { padding: 18px 14px; }
             /* Admin usuários — ESCONDE tabela, MOSTRA cards */
             .adm-table-wrap { display: none !important; }
             .adm-user-card { display: block; }
             /* Admin KPIs — 1 coluna */
-            #admin-usuarios .grid-3 { grid-template-columns: 1fr; gap: 10px; }
+            #admin-usuarios .grid-3 { grid-template-columns: 1fr; gap: 8px; }
             /* Filtros admin */
-            .adm-filtros { gap: 6px; }
-            .adm-filtros .btn { font-size: 12px; padding: 7px 12px; }
+            .adm-filtros { gap: 5px; }
+            .adm-filtros .btn { font-size: 11px; padding: 5px 10px; }
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -272,14 +272,14 @@
         @media (max-width: 480px) {
             .grid-3, .grid-4 { grid-template-columns: 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
-            .stat-value { font-size: 32px; }
-            .stat-box { padding: 18px 16px; }
-            .card { padding: 18px 14px; }
-            .topbar { height: 56px; padding: 0 14px; }
-            .topbar-title { font-size: 16px; }
+            .stat-value { font-size: 18px; }
+            .stat-box { padding: 12px 10px; }
+            .card { padding: 12px 10px; }
+            .topbar { height: 50px; padding: 0 10px; }
+            .topbar-title { font-size: 13px; }
             .btn-topbar-text { display: none; }
-            .table th { padding: 9px 10px; font-size: 11px; }
-            .table td { padding: 11px 10px; font-size: 13px; }
+            .table th { padding: 7px 8px; font-size: 10px; }
+            .table td { padding: 8px 8px; font-size: 11px; }
         }
     </style>
 </head>

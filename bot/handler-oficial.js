@@ -299,11 +299,35 @@ class BotOficial {
 
     // NLP: detecta intenção de criar limite para uma categoria específica
     // Ex: "criar limite para almoço", "limite de gastos para gasolina", "quero limite em alimentação"
-    const recriarLimite =
-      textoClean.match(/(?:criar?|definir?|configurar?|add|adicionar?|novo|quero)\s+(?:um\s+)?limite\s+(?:de\s+)?(?:gastos?\s+)?(?:para\s+|em\s+|de\s+|no?\s+|na\s+)?(.+)/i)
-      || textoClean.match(/^limite\s+(?:de\s+|para\s+|em\s+)?(.+)/i);
+    // Ex: "quero gastar no máximo 1000 com diversão esse mês", "gastar até 300 em alimentação"
+    const matchGastarMax = textoClean.match(
+      /(?:quero\s+)?gastar\s+(?:no\s+m[aá]x(?:imo)?\.?|at[eé]|menos\s+de|mais\s+de)\s+R?\$?\s*(\d+(?:[.,]\d{1,2})?)\s+(?:com|em|de|no|na)\s+(.+?)(?:\s+(?:esse|este|nesse|neste|por\s+)?m[eê]s|\s+essa\s+semana|\s+por\s+semana|\s+por\s+dia)?$/i
+    );
+
+    const recriarLimite = matchGastarMax
+      ? { _gastarMax: true, _valor: matchGastarMax[1], _categoria: matchGastarMax[2] }
+      : (textoClean.match(/(?:criar?|definir?|configurar?|add|adicionar?|novo|quero)\s+(?:um\s+)?limite\s+(?:de\s+)?(?:gastos?\s+)?(?:para\s+|em\s+|de\s+|no?\s+|na\s+)?(.+)/i)
+        || textoClean.match(/^limite\s+(?:de\s+|para\s+|em\s+)?(.+)/i));
 
     if (recriarLimite) {
+      // ── Padrão "quero gastar no máximo X com [categoria]" ─────────────────
+      if (recriarLimite._gastarMax) {
+        const cat = recriarLimite._categoria.trim().replace(/[.,!?]+$/, '');
+        const val = parseFloat(recriarLimite._valor.replace(',', '.'));
+        if (cat.length >= 2 && val > 0) {
+          this._estados.set(telefone, {
+            tipo: 'criar_limite_guiado',
+            etapa: 'aguardando_periodo',
+            categoria: cat,
+            valor: val,
+          });
+          return this._perguntarPeriodoLimite(jid, cat, val);
+        }
+        // Não conseguiu extrair — abre menu genérico
+        await this._limitesAlertas._enviarMenuLimites(jid, usuarioId, nome);
+        return;
+      }
+
       const parteRestante = recriarLimite[1].trim();
 
       // Se já veio com valor: "gasolina 300" ou "almoço de 200"

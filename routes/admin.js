@@ -302,7 +302,7 @@ router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
-//  NOVA ROTA: Alternar acesso ao bot (bloquear/liberar)
+//  ROTA: Alternar acesso ao bot (bloquear/liberar)
 //  PATCH /api/admin/users/:id/bot
 //  Body: { ativo: true | false }
 // ══════════════════════════════════════════════════════════════
@@ -314,23 +314,51 @@ router.patch('/users/:id/bot', autenticarAdmin, async (req, res) => {
     return res.status(400).json({ erro: 'Campo "ativo" (boolean) é obrigatório' });
 
   try {
-    const { rows } = await db.query('SELECT email, nome FROM usuarios WHERE id = $1', [id]);
+    const { rows } = await db.query('SELECT email, nome, telefone FROM usuarios WHERE id = $1', [id]);
     if (!rows.length)
       return res.status(404).json({ erro: 'Usuário não encontrado' });
+
+    const { nome, telefone } = rows[0];
 
     await db.query(
       'UPDATE usuarios SET whatsapp_ativo = $1, atualizado_em = NOW() WHERE id = $2',
       [ativo, id]
     );
 
-    // Se bloqueando, remove a sessão do bot para forçar desconexão imediata
     if (!ativo) {
+      // Bloquear: remove sessão para forçar desconexão imediata
       await db.query('DELETE FROM sessoes_bot WHERE usuario_id = $1', [id]);
+      console.log(`🚫 Bot bloqueado para ${nome} (${id}) — sessão removida`);
+    } else {
+      // Liberar: recria sessão automaticamente se o usuário tiver telefone cadastrado
+      if (telefone) {
+        await db.query(
+          `INSERT INTO sessoes_bot (telefone, usuario_id, estado, contexto)
+           VALUES ($1, $2, 'idle', '{}')
+           ON CONFLICT (telefone) DO UPDATE
+             SET usuario_id    = $2,
+                 estado        = 'idle',
+                 contexto      = '{}',
+                 atualizado_em = NOW()`,
+          [telefone, id]
+        );
+        console.log(`✅ Bot liberado para ${nome} (${id}) — sessão recriada para ${telefone}`);
+      } else {
+        console.log(`⚠️  Bot liberado para ${nome} (${id}) mas sem telefone cadastrado — sessão não criada`);
+      }
     }
 
     const acao = ativo ? 'liberado' : 'bloqueado';
-    console.log(`🤖 Acesso ao bot ${acao} para ${rows[0].nome} (${id})`);
-    res.json({ ok: true, mensagem: `Acesso ao bot ${acao} para ${rows[0].nome}`, whatsapp_ativo: ativo });
+    const aviso = (ativo && !telefone)
+      ? ' (sem telefone cadastrado — vincule o WhatsApp manualmente)'
+      : '';
+
+    res.json({
+      ok: true,
+      mensagem: `Acesso ao bot ${acao} para ${nome}${aviso}`,
+      whatsapp_ativo: ativo,
+      sessao_criada: ativo && !!telefone,
+    });
   } catch (err) {
     console.error('❌ admin/users/bot PATCH:', err);
     res.status(500).json({ erro: 'Erro ao alterar acesso ao bot: ' + err.message });

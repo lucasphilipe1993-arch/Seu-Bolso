@@ -355,8 +355,14 @@ class BotOficial {
     // ── Novo gasto fixo ────────────────────────────────────────────────────
     const matchNovoFixo = texto.match(/^(?:add|adicionar|novo|criar)\s+(?:gasto|conta)\s+fixo?\s+(.+)/i)
       || texto.match(/^(?:add|adicionar|novo|criar)\s+(?:gasto|conta)\s+mensal\s+(.+)/i);
-    if (matchNovoFixo)
-      return this.iniciarFluxoNovoGastoFixo(jid, telefone, matchNovoFixo[1].trim());
+    if (matchNovoFixo) {
+      // Remove sufixos que o usuário pode incluir junto, ex: "conta de água 200 mês, vencimento dia 05"
+      const textoFixoLimpo = matchNovoFixo[1].trim()
+        .replace(/[,.]?\s*vencimento\s+dia\s+\d+/i, '') // remove "vencimento dia X"
+        .replace(/\s+(?:por\s+)?m[eê]s[.,\s].*$/i, '')  // remove "mês, ..." e tudo após
+        .trim();
+      return this.iniciarFluxoNovoGastoFixo(jid, telefone, textoFixoLimpo);
+    }
 
     // ── Excluir gasto fixo ─────────────────────────────────────────────────
     const matchExcluirFixo = texto.match(/^(?:excluir|remover|deletar|apagar)\s+(?:gasto|conta)\s+fixo?\s+([A-Z0-9]{2,6})/i);
@@ -780,19 +786,18 @@ class BotOficial {
         if (buttonId.startsWith('fixo_cat_')) {
           const estado = this._estados.get(jid);
           if (estado && estado.tipo === 'novo_gasto_fixo' && estado.etapa === 'aguardando_categoria') {
-            // Encontra nome real da categoria pelo id
+            // CORRIGIDO: regex com \s+ (era /s+/g — faltava o backslash)
             const catKey = buttonId.replace('fixo_cat_', '').replace(/_/g, ' ');
             const catEncontrada = CATEGORIAS_PADRAO.find(c =>
-              c.nome.toLowerCase().replace(/s+/g, '_').slice(0, 15) === buttonId.replace('fixo_cat_', '')
+              c.nome.toLowerCase().replace(/\s+/g, '_').slice(0, 15) === buttonId.replace('fixo_cat_', '')
             );
             estado.categoria = catEncontrada ? catEncontrada.nome : catKey;
-            estado.etapa = 'aguardando_confirmacao_fixo';
+            // CORRIGIDO: após categoria, vai para dia de vencimento (não para confirmação)
+            estado.etapa = 'aguardando_dia';
             this._estados.set(jid, estado);
             return this.enviar(jid,
-              `Confirmar o gasto fixo?\n\n*${estado.descricao}*\n${this._fmt(estado.valor)}/mês\n` +
-              (estado.dia ? `Vence dia ${estado.dia}\n` : '') +
-              `Categoria: *${estado.categoria}*\n\n` +
-              `Responda *sim* para confirmar ou *não* para cancelar.`
+              `*Novo Gasto Fixo*\n\n*${estado.descricao}*\n${this._fmt(estado.valor)}/mês\nCategoria: *${estado.categoria}*\n\n` +
+              `Qual o dia do vencimento? (1-31)\n_Digite o número ou "sem data" para pular_`
             );
           }
         }
@@ -1969,15 +1974,32 @@ class BotOficial {
     if (matchValor) {
       const descricao = matchValor[1].trim();
       const valor = parseFloat(matchValor[2].replace(',', '.'));
-      this._estados.set(telefone, { tipo: 'novo_gasto_fixo', etapa: 'aguardando_dia', descricao, valor });
-      return this.enviar(telefone,
-        `*Novo Gasto Fixo*\n\n*${descricao}*\n${this._fmt(valor)}\n\n` +
-        `Qual o dia do vencimento? (1-31)\n_Digite o número ou "sem data" para pular_`
-      );
+      // CORRIGIDO: pergunta categoria ANTES do dia de vencimento
+      this._estados.set(telefone, { tipo: 'novo_gasto_fixo', etapa: 'aguardando_categoria', descricao, valor });
+      return this._perguntarCategoriaGastoFixo(telefone, descricao);
     }
     this._estados.set(telefone, { tipo: 'novo_gasto_fixo', etapa: 'aguardando_nome' });
     await this.enviar(telefone,
       `*Novo Gasto Fixo*\n\nQual o nome do gasto fixo?\n\n_Ex: Internet, Aluguel, Energia, Netflix_`
+    );
+  }
+
+  // Método auxiliar: exibe lista de categorias para o gasto fixo
+  async _perguntarCategoriaGastoFixo(telefone, descricao) {
+    const CATS_GASTOS_FIXOS = [
+      'Casa', 'Assinatura', 'Transporte', 'Saúde',
+      'Alimentação', 'Educação', 'Mercado', 'Pets',
+      'Lazer e Entretenimento', 'Outros',
+    ];
+    const categoriasOpcoes = CATS_GASTOS_FIXOS.map(nome => ({
+      id: `fixo_cat_${nome.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`,
+      titulo: `${EMOJI_CATEGORIA[nome] || '📦'} ${nome}`,
+    }));
+    return this.enviarLista(
+      telefone,
+      `📂 Qual a categoria de *${descricao}*?`,
+      '📂 Escolher categoria',
+      [{ titulo: 'Categorias', itens: categoriasOpcoes }]
     );
   }
 
@@ -1996,37 +2018,28 @@ class BotOficial {
       const valor = parseFloat(texto.replace(',', '.').replace(/[^0-9.]/g, ''));
       if (!valor || valor <= 0) return this.enviar(telefone, 'Valor inválido. Digite apenas o número, ex: 150');
       estado.valor = valor;
-      estado.etapa = 'aguardando_dia';
+      // CORRIGIDO: após valor, pergunta categoria (não dia)
+      estado.etapa = 'aguardando_categoria';
       this._estados.set(telefone, estado);
-      return this.enviar(telefone, `Qual o dia do vencimento? (1-31)\n_Digite o número ou "sem data" para pular_`);
+      return this._perguntarCategoriaGastoFixo(telefone, estado.descricao);
     }
 
     if (estado.etapa === 'aguardando_dia') {
       let dia = null;
-      if (!['sem data','nao','nao','pular','skip'].includes(texto.toLowerCase().trim())) {
+      if (!['sem data','nao','não','pular','skip'].includes(texto.toLowerCase().trim())) {
         dia = parseInt(texto);
         if (isNaN(dia) || dia < 1 || dia > 31)
           return this.enviar(telefone, 'Dia inválido. Digite um número de 1 a 31 ou "sem data".');
       }
       estado.dia = dia;
-      estado.etapa = 'aguardando_categoria';
+      estado.etapa = 'aguardando_confirmacao_fixo';
       this._estados.set(telefone, estado);
-     // Categorias de gastos fixos — sincronizadas com o site (máx 10, limite Meta)
-const CATS_GASTOS_FIXOS = [
-  'Casa', 'Assinatura', 'Transporte', 'Saúde',
-  'Alimentação', 'Educação', 'Mercado', 'Pets',
-  'Lazer e Entretenimento', 'Outros',
-];
-const categoriasOpcoes = CATS_GASTOS_FIXOS.map(nome => ({
-  id: `fixo_cat_${nome.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`,
-  titulo: `${EMOJI_CATEGORIA[nome] || '📦'} ${nome}`,
-}));
-return this.enviarLista(
-  telefone,
-  `📂 Qual a categoria de *${estado.descricao}*?`,
-  '📂 Escolher categoria',
-  [{ titulo: 'Categorias', itens: categoriasOpcoes }]
-);
+      return this.enviar(telefone,
+        `Confirmar o gasto fixo?\n\n*${estado.descricao}*\n${this._fmt(estado.valor)}/mês\n` +
+        (estado.dia ? `Vence dia ${estado.dia}\n` : '') +
+        `Categoria: *${estado.categoria}*\n\n` +
+        `Responda *sim* para confirmar ou *não* para cancelar.`
+      );
     }
 
     if (estado.etapa === 'aguardando_confirmacao_fixo') {

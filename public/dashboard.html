@@ -180,12 +180,19 @@
         /* LOGOUT BUTTON */
         .btn-logout { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #9ca3af; transition: all .15s; flex-shrink: 0; }
         .btn-logout:hover { background: #fee2e2; color: var(--red); }
+        /* ÍCONES — cor única navy, sem variação */
+        .nav-icon svg { stroke: var(--navy) !important; }
+        .nav-item:hover .nav-icon svg { stroke: var(--navy) !important; }
+        .nav-item.active .nav-icon svg { stroke: white !important; }
         /* HAMBURGER */
-        .hamburger { display: none; width: 40px; height: 40px; border: none; background: transparent; cursor: pointer; border-radius: 8px; align-items: center; justify-content: center; color: var(--navy); }
+        .hamburger { display: none; width: 44px; height: 44px; border: none; background: transparent; cursor: pointer; border-radius: 8px; align-items: center; justify-content: center; color: var(--navy); flex-shrink: 0; }
         .hamburger:hover { background: var(--gray-100); }
-        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 49; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 49; }
         .sidebar-overlay.open { display: block; }
-        /* RESPONSIVE */
+
+        /* ═══════════════════════════════════════════════════════════
+           RESPONSIVO — tablet 900px
+        ═══════════════════════════════════════════════════════════ */
         @media (max-width: 900px) {
             .grid-3 { grid-template-columns: repeat(2, 1fr); }
             .grid-4 { grid-template-columns: repeat(2, 1fr); }
@@ -193,33 +200,72 @@
             .settings-layout { flex-direction: column; }
             .settings-sidebar { width: 100%; }
             .form-row { grid-template-columns: 1fr; }
+            .content { padding: 20px 20px; }
         }
+
+        /* ═══════════════════════════════════════════════════════════
+           RESPONSIVO — mobile 768px
+        ═══════════════════════════════════════════════════════════ */
         @media (max-width: 768px) {
+            :root { --sidebar-w: 280px; }
+            /* Sidebar vira drawer */
             .sidebar { transform: translateX(-100%); transition: transform .3s ease; box-shadow: none; }
-            .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.15); }
+            .sidebar.open { transform: translateX(0); box-shadow: 6px 0 30px rgba(0,0,0,.18); }
             .main { margin-left: 0; }
             .hamburger { display: flex; }
-            .topbar { padding: 0 16px; }
-            .topbar-title { font-size: 16px; }
-            .content { padding: 20px 16px; }
+            /* Topbar */
+            .topbar { padding: 0 14px; height: 58px; }
+            .topbar-title { font-size: 15px; }
+            /* Content */
+            .content { padding: 16px 14px; }
+            /* Grids */
             .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
-            .stat-value { font-size: 20px; }
-            .card { padding: 18px; }
-            .table th, .table td { padding: 9px 10px; font-size: 12px; }
-            .btn { padding: 8px 14px; font-size: 12px; }
             .grid-2 { grid-template-columns: 1fr; }
-            .plan-card { padding: 18px; }
+            /* Cards */
+            .card { padding: 16px 14px; }
+            .stat-box { padding: 16px 14px; }
+            .stat-value { font-size: 22px; }
+            .stat-label { font-size: 10px; }
+            /* Botões */
+            .btn { padding: 9px 14px; font-size: 12px; }
+            /* Tabela — scroll horizontal em wrapper, fonte menor */
+            .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .table th { padding: 9px 10px; font-size: 10px; }
+            .table td { padding: 10px 10px; font-size: 12px; }
+            .table .col-desc { display: none; }
+            /* Forms */
+            .form-row { grid-template-columns: 1fr; }
             .settings-layout { flex-direction: column; }
             .settings-sidebar { width: 100%; }
-            .form-row { grid-template-columns: 1fr; }
-            /* A Receber — esconde colunas menos importantes no mobile */
-            .table .col-desc { display: none; }
+            .plan-card { padding: 16px; }
+            /* Modal ocupa mais tela */
+            .modal { padding: 20px 16px; }
+            /* Admin tabela usuários — esconde colunas não essenciais */
+            .adm-col-id { display: none; }
+            /* Botões de ação admin — empilham */
+            .adm-acoes { display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
         }
+
+        /* ═══════════════════════════════════════════════════════════
+           RESPONSIVO — mobile pequeno 480px
+        ═══════════════════════════════════════════════════════════ */
         @media (max-width: 480px) {
             .grid-3, .grid-4 { grid-template-columns: 1fr; }
-            .stat-box { padding: 16px; }
-            .btn-text-hide { display: none; }
-            .topbar-actions .btn span { display: none; }
+            .stat-value { font-size: 20px; }
+            .card { padding: 14px 12px; }
+            .stat-box { padding: 14px 12px; }
+            .topbar { height: 54px; padding: 0 12px; }
+            .topbar-title { font-size: 14px; }
+            /* Botão "Nova Transação" — só ícone no mobile pequeno */
+            .btn-topbar-text { display: none; }
+            /* KPI grid vira coluna única */
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            /* Tabelas: menos padding */
+            .table th { padding: 8px 8px; font-size: 10px; }
+            .table td { padding: 9px 8px; font-size: 11px; }
+            /* Filtros admin — quebra linha */
+            .adm-filtros { flex-wrap: wrap; gap: 6px; }
+            .adm-filtros .btn { font-size: 11px; padding: 5px 10px; }
         }
     </style>
 </head>
@@ -304,7 +350,7 @@
             <div class="topbar-actions">
                 <button class="btn btn-primary" onclick="openModal('modalNovaTransacao')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Nova transação
+                    <span class="btn-topbar-text">Nova transação</span>
                 </button>
             </div>
         </div>
@@ -358,10 +404,12 @@
                 </div>
                 <div class="card">
                     <h3 class="card-title">Todas as Transações</h3>
+                    <div class="table-scroll">
                     <table class="table">
                         <thead><tr><th>Descrição</th><th>Categoria</th><th>Data</th><th>Valor</th><th>Tipo</th><th>Origem</th><th>Status</th></tr></thead>
                         <tbody id="tabela-transacoes"><tr><td colspan="7" style="text-align:center;padding:20px;color:var(--gray-400)">Carregando...</td></tr></tbody>
                     </table>
+                    </div>
                 </div>
             </div>
             <!-- ── RELATÓRIOS ─────────────────────────────────────────────── -->
@@ -778,7 +826,7 @@
                 </div>
 
                 <!-- Filtros de segmento -->
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+                <div class="adm-filtros" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
                     <span style="font-size:12px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.08em">Filtrar:</span>
                     <button class="btn btn-secondary adm-filtro-btn active" data-filtro="todos"
                         onclick="adminSetFiltro('todos',this)" style="font-size:12px;padding:5px 13px">
@@ -812,6 +860,7 @@
 
                 <!-- Tabela -->
                 <div class="card" style="padding:0;overflow-x:auto">
+                    <div class="table-scroll">
                     <table class="table">
                         <thead>
                             <tr>
@@ -822,7 +871,7 @@
                                 <th>Telefone</th>
                                 <th>📍 Localização</th>
                                 <th>Cadastrado em</th>
-                                <th>ID</th>
+                                <th class="adm-col-id">ID</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -830,6 +879,7 @@
                             <tr><td colspan="9" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
 
@@ -2521,20 +2571,23 @@ function _admBotBadge(u) {
         const estado = u.bot_estado || 'idle';
         const estadoMap = { idle: '💤 Idle', aguardando: '⏳ Aguardando', processando: '⚙️ Proc.' };
         const estadoLabel = estadoMap[estado] || estado;
+        // Usa atualizado_em como fonte primária — é o que o handler atualiza a cada mensagem
+        const tsRaw = u.bot_sessao_em || u.bot_ultima_msg_em || null;
         let ultimaAtiv = '';
-        if (u.bot_ultima_msg_em || u.bot_sessao_em) {
-            const dt = new Date(u.bot_ultima_msg_em || u.bot_sessao_em);
+        if (tsRaw) {
+            const dt = new Date(tsRaw);
             const agora = new Date();
             const diffMin = Math.round((agora - dt) / 60000);
-            if (diffMin < 60)        ultimaAtiv = `${diffMin}min atrás`;
-            else if (diffMin < 1440) ultimaAtiv = `${Math.round(diffMin/60)}h atrás`;
-            else                     ultimaAtiv = `${Math.round(diffMin/1440)}d atrás`;
+            if (diffMin < 1)          ultimaAtiv = 'agora mesmo';
+            else if (diffMin < 60)    ultimaAtiv = `${diffMin}min atrás`;
+            else if (diffMin < 1440)  ultimaAtiv = `${Math.round(diffMin/60)}h atrás`;
+            else                      ultimaAtiv = `${Math.round(diffMin/1440)}d atrás`;
         }
-        const msgs = u.bot_total_msgs ? `· ${u.bot_total_msgs} msgs` : '';
+        const msgs = u.bot_total_msgs ? ` · ${u.bot_total_msgs} msgs` : '';
         return `<div style="display:flex;flex-direction:column;gap:2px">
             <span class="badge badge-green" style="font-size:10px" title="Sessão WhatsApp ativa">🤖 Ativo</span>
-            <span style="font-size:10px;color:var(--gray-400)">${estadoLabel} ${msgs}</span>
-            ${ultimaAtiv ? `<span style="font-size:10px;color:var(--gray-300)">🕒 ${ultimaAtiv}</span>` : ''}
+            <span style="font-size:10px;color:var(--gray-500)">${estadoLabel}${msgs}</span>
+            ${ultimaAtiv ? `<span style="font-size:10px;color:var(--gray-400)">🕒 ${ultimaAtiv}</span>` : ''}
         </div>`;
     }
     return `<span class="badge" style="background:var(--gray-100);color:var(--gray-400);font-size:10px" title="Sem sessão ativa">📵 Sem sessão</span>`;
@@ -2681,13 +2734,13 @@ function adminFiltrarUsuarios() {
             <td>${telFormatado}</td>
             <td>${localCell}</td>
             <td style="font-size:12px;color:var(--gray-400)">${criadoFmt}</td>
-            <td>
+            <td class="adm-col-id">
                 <code style="font-size:11px;background:var(--gray-100);padding:2px 7px;border-radius:5px;color:var(--navy);cursor:pointer;user-select:all"
                     title="Clique para copiar o ID completo: ${uid}"
                     onclick="navigator.clipboard.writeText('${uid}').then(()=>showToast('ID copiado! ✅','success'))">${uidCurto}…</code>
             </td>
             <td>
-                <div style="display:flex;gap:5px;flex-wrap:wrap">
+                <div class="adm-acoes" style="display:flex;gap:5px;flex-wrap:wrap">
                     <button class="btn btn-secondary" style="padding:4px 9px;font-size:11px"
                         onclick="adminAbrirModalUsuario('${uid}')">✏️ Editar</button>
                     ${botBotao}

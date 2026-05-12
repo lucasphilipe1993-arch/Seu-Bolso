@@ -820,13 +820,14 @@
                                 <th>Plano / Origem</th>
                                 <th>Bot</th>
                                 <th>Telefone</th>
+                                <th>📍 Localização</th>
                                 <th>Cadastrado em</th>
                                 <th>ID</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody id="adm-usr-tbody">
-                            <tr><td colspan="8" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
+                            <tr><td colspan="9" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -2516,15 +2517,33 @@ function _admPlanoLabel(u) {
 function _admBotBadge(u) {
     if (!u.whatsapp_ativo)
         return `<span class="badge badge-red" style="font-size:10px" title="Bot bloqueado">🚫 Bloqueado</span>`;
-    if (u.usa_bot)
-        return `<span class="badge badge-green" style="font-size:10px" title="Sessão ativa">🤖 Ativo</span>`;
+    if (u.usa_bot) {
+        const estado = u.bot_estado || 'idle';
+        const estadoMap = { idle: '💤 Idle', aguardando: '⏳ Aguardando', processando: '⚙️ Proc.' };
+        const estadoLabel = estadoMap[estado] || estado;
+        let ultimaAtiv = '';
+        if (u.bot_ultima_msg_em || u.bot_sessao_em) {
+            const dt = new Date(u.bot_ultima_msg_em || u.bot_sessao_em);
+            const agora = new Date();
+            const diffMin = Math.round((agora - dt) / 60000);
+            if (diffMin < 60)        ultimaAtiv = `${diffMin}min atrás`;
+            else if (diffMin < 1440) ultimaAtiv = `${Math.round(diffMin/60)}h atrás`;
+            else                     ultimaAtiv = `${Math.round(diffMin/1440)}d atrás`;
+        }
+        const msgs = u.bot_total_msgs ? `· ${u.bot_total_msgs} msgs` : '';
+        return `<div style="display:flex;flex-direction:column;gap:2px">
+            <span class="badge badge-green" style="font-size:10px" title="Sessão WhatsApp ativa">🤖 Ativo</span>
+            <span style="font-size:10px;color:var(--gray-400)">${estadoLabel} ${msgs}</span>
+            ${ultimaAtiv ? `<span style="font-size:10px;color:var(--gray-300)">🕒 ${ultimaAtiv}</span>` : ''}
+        </div>`;
+    }
     return `<span class="badge" style="background:var(--gray-100);color:var(--gray-400);font-size:10px" title="Sem sessão ativa">📵 Sem sessão</span>`;
 }
 
 async function adminCarregarUsuarios() {
     const token = localStorage.getItem('gz_token');
     const tbody = document.getElementById('adm-usr-tbody');
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
 
     try {
         const res = await fetch('/api/admin/users', {
@@ -2555,7 +2574,7 @@ async function adminCarregarUsuarios() {
 
         adminFiltrarUsuarios();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--red)">
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--red)">
             Erro ao carregar usuários.<br>
             <small style="color:var(--gray-400)">Verifique se a rota /api/admin/users retorna os campos cupom_codigo, acesso_expira_em, stripe_trial_end e usa_bot.</small>
         </td></tr>`;
@@ -2597,7 +2616,7 @@ function adminFiltrarUsuarios() {
     const isAdmin = _usuario?.email === 'matheus10201971@gmail.com';
 
     if (!lista.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum usuário encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--gray-400)">Nenhum usuário encontrado.</td></tr>`;
         return;
     }
 
@@ -2616,6 +2635,24 @@ function adminFiltrarUsuarios() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--green)"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.125.558 4.126 1.529 5.868L.057 23.925l6.235-1.635A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.002-1.368l-.36-.214-3.7.97.988-3.608-.235-.371A9.818 9.818 0 1112 21.818z"/></svg>
                 ${tel}</a>`
             : '<span style="color:var(--gray-300)">—</span>';
+
+        // ── Localização / IP ─────────────────────────────────────
+        const ip        = u.cadastro_ip || u.ultimo_ip || '';
+        const cidade    = u.cadastro_cidade || '';
+        const regiao    = u.cadastro_regiao || '';
+        const pais      = u.cadastro_pais || '';
+        const localFmt  = cidade ? `${cidade}${regiao ? ', ' + regiao : ''}` : (pais || '');
+        const bandeira  = pais === 'Brazil' || pais === 'Brasil' ? '🇧🇷 '
+                        : pais === 'United States' || pais === 'Estados Unidos' ? '🇺🇸 '
+                        : pais === 'Portugal' ? '🇵🇹 '
+                        : pais ? '🌍 ' : '';
+        const localCell = ip
+            ? `<div style="display:flex;flex-direction:column;gap:1px">
+                   <span style="font-size:12px;font-weight:500;color:var(--gray-700)">${bandeira}${localFmt || 'Desconhecida'}</span>
+                   <span style="font-size:10px;color:var(--gray-400);font-family:monospace">${ip}</span>
+                   ${u.ultimo_login_em ? `<span style="font-size:10px;color:var(--gray-300)">Login: ${new Date(u.ultimo_login_em).toLocaleDateString('pt-BR')}</span>` : ''}
+               </div>`
+            : `<span style="color:var(--gray-300);font-size:12px">—</span>`;
 
         const botBotao = u.whatsapp_ativo
             ? `<button class="btn btn-danger" style="padding:4px 9px;font-size:11px"
@@ -2642,6 +2679,7 @@ function adminFiltrarUsuarios() {
             <td>${_admPlanoLabel(u)}</td>
             <td>${_admBotBadge(u)}</td>
             <td>${telFormatado}</td>
+            <td>${localCell}</td>
             <td style="font-size:12px;color:var(--gray-400)">${criadoFmt}</td>
             <td>
                 <code style="font-size:11px;background:var(--gray-100);padding:2px 7px;border-radius:5px;color:var(--navy);cursor:pointer;user-select:all"

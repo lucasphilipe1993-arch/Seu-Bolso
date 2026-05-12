@@ -220,9 +220,25 @@ class BotOficial {
       'meus gastos','gastos do mes','gastos do mês','quanto gastei','quanto recebi',
       'balanço','balanco','meu saldo','ver saldo','total do mes','total do mês',
       'como estou','como ta meu financeiro','como está meu financeiro',
+      'quanto gastei este mes','quanto gastei esse mes',
+      'quanto gastei este mês','quanto gastei esse mês',
+      'quanto gastei no mes','quanto gastei no mês',
     ];
     if (triggerResumo.includes(textoClean) || (textoClean.includes('relat') && !textoClean.includes('pdf')))
       return this.enviarResumo(jid, usuarioId, nome);
+
+    // ── Gastos por período (hoje / ontem / esta semana / etc) ───────────────
+    {
+      const matchPeriodo =
+        textoClean.match(/^quanto\s+(?:eu\s+)?gastei\s+(hoje)[\s?!]*$/) ||
+        textoClean.match(/^quanto\s+(?:eu\s+)?gastei\s+(ontem)[\s?!]*$/) ||
+        textoClean.match(/^quanto\s+(?:eu\s+)?gastei\s+(esta\s+semana|essa\s+semana|nesta\s+semana|nessa\s+semana)[\s?!]*$/) ||
+        textoClean.match(/^quanto\s+(?:eu\s+)?gastei\s+(este\s+ano|esse\s+ano|neste\s+ano|nesse\s+ano)[\s?!]*$/);
+
+      if (matchPeriodo) {
+        return this.enviarGastosPorPeriodo(jid, usuarioId, matchPeriodo[1].trim());
+      }
+    }
 
     // ── Ajuda ──────────────────────────────────────────────────────────────
     if (['ajuda','help','?','menu'].includes(textoClean))
@@ -421,6 +437,13 @@ class BotOficial {
         .replace(/[?!.,;:]+$/, '')
         .trim();
 
+      // Termos temporais que NÃO são categorias — devem cair no resumo/período
+      const TERMOS_TEMPORAIS = [
+        'este mes','esse mes','este mês','esse mês','no mes','no mês','neste mes','nesse mes',
+        'hoje','ontem','esta semana','essa semana','nesta semana','nessa semana',
+        'este ano','esse ano','neste ano','nesse ano','este dia','agora','recente',
+      ];
+
       const recat =
         textoClean.match(/^quanto\s+de\s+(.+?)\s+(?:gastei|eu\s+gastei)/)
         || textoClean.match(/^quanto\s+(?:eu\s+)?gastei\s+(?:de|em|com|no|na)\s+(.+)/)
@@ -429,7 +452,12 @@ class BotOficial {
 
       if (recat) {
         const termoLimpo = _limparTermo(recat[1]);
-        if (termoLimpo) return this.enviarRelatorioPorCategoria(jid, usuarioId, termoLimpo);
+        // Não envia como categoria se o termo for temporal (ex: "este mês", "hoje")
+        if (termoLimpo && !TERMOS_TEMPORAIS.includes(termoLimpo.toLowerCase()))
+          return this.enviarRelatorioPorCategoria(jid, usuarioId, termoLimpo);
+        // Se era temporal sem período específico → resumo do mês
+        if (!termoLimpo || TERMOS_TEMPORAIS.some(t => recat[1].toLowerCase().startsWith(t)))
+          return this.enviarResumo(jid, usuarioId, nome);
       }
     }
 
@@ -1074,7 +1102,7 @@ class BotOficial {
       const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
       // Todas as queries em paralelo para máxima velocidade
-      const [totaisRes, saldoRes, catsRes, agendaRes, devedoresRes, fixosRes] = await Promise.all([
+      const [totaisRes, saldoRes, catsRes, agendaRes, devedoresRes, fixosRes, limitesRes] = await Promise.all([
         db.query(`
           SELECT
             COALESCE(SUM(CASE WHEN tipo='receita' THEN valor END), 0) AS receitas,
@@ -1115,6 +1143,26 @@ class BotOficial {
           SELECT COUNT(*) AS qtd, COALESCE(SUM(valor), 0) AS total
           FROM gastos_fixos WHERE usuario_id=$1 AND ativo=true
         `, [usuarioId]).catch(() => ({ rows: [{ qtd: 0, total: 0 }] })),
+
+        db.query(`
+          SELECT lg.categoria, lg.valor_limite, lg.periodo,
+                 COALESCE(SUM(t.valor), 0) AS gasto_atual
+          FROM limites_gastos lg
+          LEFT JOIN transacoes t ON t.usuario_id = lg.usuario_id
+            AND t.tipo = 'despesa'
+            AND (
+              (lg.periodo = 'mensal'  AND EXTRACT(MONTH FROM t.data_pagamento) = $2 AND EXTRACT(YEAR FROM t.data_pagamento) = $3)
+              OR (lg.periodo = 'semanal' AND t.data_pagamento >= date_trunc('week', NOW()::date))
+              OR (lg.periodo = 'diario'  AND t.data_pagamento = CURRENT_DATE)
+            )
+            AND (
+              LOWER(COALESCE((SELECT nome FROM categorias c WHERE c.id = t.categoria_id), 'outros')) = LOWER(lg.categoria)
+              OR LOWER(lg.categoria) = 'global'
+            )
+          WHERE lg.usuario_id = $1 AND lg.ativo = true
+          GROUP BY lg.categoria, lg.valor_limite, lg.periodo
+          ORDER BY lg.categoria ASC
+        `, [usuarioId, mes, ano]).catch(() => ({ rows: [] })),
       ]);
 
       const receitas  = parseFloat(totaisRes.rows[0].receitas);
@@ -1128,6 +1176,7 @@ class BotOficial {
       const devTotal  = parseFloat(devedoresRes.rows[0]?.total || 0);
       const fixoQtd   = parseInt(fixosRes.rows[0]?.qtd || 0);
       const fixoTotal = parseFloat(fixosRes.rows[0]?.total || 0);
+      const limitesRows = limitesRes.rows || [];
 
       // ── Bloco 1: Financeiro ──────────────────────────────────────────────
       let msg = `📊 *Resumo de ${meses[mes - 1]}/${ano}*\n`;
@@ -1157,7 +1206,25 @@ class BotOficial {
         msg += `_Digite "gastos fixos" para ver a lista_`;
       }
 
-      // ── Bloco 4: Agenda ──────────────────────────────────────────────────
+      // ── Bloco 4: Limites de gastos ───────────────────────────────────────
+      if (limitesRows.length > 0) {
+        msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `🎯 *Limites de Gastos*\n`;
+        for (const lim of limitesRows) {
+          const gasto    = parseFloat(lim.gasto_atual);
+          const limite   = parseFloat(lim.valor_limite);
+          const pct      = limite > 0 ? Math.min(100, Math.round((gasto / limite) * 100)) : 0;
+          const periodoLabel = lim.periodo === 'mensal' ? 'mês' : lim.periodo === 'semanal' ? 'semana' : 'dia';
+          const statusEmoji  = pct >= 100 ? '🔴' : pct >= 80 ? '🟡' : '🟢';
+          const barFilled  = Math.round(pct / 10);
+          const barEmpty   = 10 - barFilled;
+          const barra      = '█'.repeat(barFilled) + '░'.repeat(barEmpty);
+          msg += `${statusEmoji} *${lim.categoria}* (${periodoLabel})\n`;
+          msg += `${barra} ${pct}%\n`;
+          msg += `${this._fmt(gasto)} / ${this._fmt(limite)}\n`;
+        }
+        msg += `_Digite "limites" para gerenciar_`;
+      }
       msg += `\n\n━━━━━━━━━━━━━━━━━━━━\n`;
       msg += `📅 *Próximos Compromissos*\n`;
       if (agenda.length === 0) {
@@ -2275,6 +2342,86 @@ class BotOficial {
       { id: 'btn_historico', titulo: '🕐 Histórico completo' },
       { id: 'btn_pdf',       titulo: '📄 Relatório PDF' },
     ]);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Gastos por Período (hoje / ontem / esta semana / este ano)
+  // ─────────────────────────────────────────────────────────────────────────
+  async enviarGastosPorPeriodo(jid, usuarioId, periodo) {
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+
+    let dataInicio, dataFim, labelPeriodo;
+
+    const p = periodo.toLowerCase();
+    if (p === 'hoje') {
+      const hoje = agora.toISOString().split('T')[0];
+      dataInicio = hoje;
+      dataFim    = hoje;
+      labelPeriodo = 'Hoje';
+    } else if (p === 'ontem') {
+      const ontem = new Date(agora);
+      ontem.setDate(ontem.getDate() - 1);
+      const ontemStr = ontem.toISOString().split('T')[0];
+      dataInicio = ontemStr;
+      dataFim    = ontemStr;
+      labelPeriodo = 'Ontem';
+    } else if (/semana/.test(p)) {
+      // Segunda-feira da semana atual
+      const dow = agora.getDay(); // 0=dom
+      const diffSeg = (dow === 0 ? -6 : 1 - dow);
+      const seg = new Date(agora);
+      seg.setDate(agora.getDate() + diffSeg);
+      dataInicio   = seg.toISOString().split('T')[0];
+      dataFim      = agora.toISOString().split('T')[0];
+      labelPeriodo = 'Esta semana';
+    } else if (/ano/.test(p)) {
+      dataInicio   = `${agora.getFullYear()}-01-01`;
+      dataFim      = agora.toISOString().split('T')[0];
+      labelPeriodo = `Ano ${agora.getFullYear()}`;
+    } else {
+      return this.enviarResumo(jid, usuarioId, '');
+    }
+
+    const { rows: transacoes } = await db.query(
+      `SELECT t.descricao, t.valor, t.data_pagamento, t.tipo, c.nome AS categoria
+       FROM transacoes t
+       LEFT JOIN categorias c ON c.id = t.categoria_id
+       WHERE t.usuario_id = $1
+         AND t.data_pagamento >= $2
+         AND t.data_pagamento <= $3
+       ORDER BY t.data_pagamento DESC, t.criado_em DESC
+       LIMIT 20`,
+      [usuarioId, dataInicio, dataFim]
+    );
+
+    const totalDespesas = transacoes.filter(t => t.tipo === 'despesa').reduce((a, t) => a + parseFloat(t.valor), 0);
+    const totalReceitas = transacoes.filter(t => t.tipo === 'receita').reduce((a, t) => a + parseFloat(t.valor), 0);
+
+    if (transacoes.length === 0) {
+      return this.enviar(jid,
+        `📦 *Gastos — ${labelPeriodo}*\n━━━━━━━━━━━━━━━━━━━━\n\nNenhum lançamento encontrado.\n\n` +
+        `Para registrar: _"gastei 50 no almoço"_`
+      );
+    }
+
+    let msg = `📦 *Gastos — ${labelPeriodo}*\n━━━━━━━━━━━━━━━━━━━━\n`;
+    if (totalDespesas > 0) msg += `💸 Saídas: *${this._fmt(totalDespesas)}*\n`;
+    if (totalReceitas > 0) msg += `💰 Entradas: *${this._fmt(totalReceitas)}*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+
+    for (const tx of transacoes) {
+      const sinal = tx.tipo === 'despesa' ? '-' : '+';
+      const data  = tx.data_pagamento
+        ? new Date(tx.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })
+        : '—';
+      const emoji = EMOJI_CATEGORIA[tx.categoria] || '📦';
+      const desc  = tx.descricao.length > 24 ? tx.descricao.slice(0, 23) + '…' : tx.descricao;
+      msg += `${emoji} *${desc}* — ${sinal}${this._fmt(tx.valor)}\n`;
+      msg += `   ${tx.categoria || 'Outros'} | ${data}\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━\nDigite *resumo* para ver o saldo geral.`;
+    await this.enviar(jid, msg);
   }
 
   // Envia lembrete de cobrança para devedores pendentes

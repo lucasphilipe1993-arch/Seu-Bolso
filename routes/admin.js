@@ -222,11 +222,8 @@ router.delete('/users/:id', autenticarAdmin, async (req, res) => {
 //  ROTA: Zerar todos os registros de um usuário
 //  DELETE /api/admin/users/:id/resetar
 //  Remove: transações, contas, categorias, sessões, lembretes,
-//          agenda, gastos_fixos, limites_gastos, a_receber
+//          gastos_fixos, limites_gastos, dividas_receber, agenda
 //  Preserva: o cadastro do usuário (nome, email, senha, plano)
-//
-//  CORREÇÃO: blocos DO $$ anônimos não aceitam $1 do node-postgres.
-//  Agora verificamos a existência das tabelas em JS antes de deletar.
 // ══════════════════════════════════════════════════════════════
 router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
   const { id } = req.params;
@@ -241,7 +238,7 @@ router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
 
     const nome = rows[0].nome;
 
-    // Helper: verifica se a tabela existe no banco
+    // Helper: checa existência de tabela sem usar DO $$ (que não aceita $1)
     async function tabelaExiste(tabela) {
       const r = await db.query(
         `SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1`,
@@ -250,15 +247,15 @@ router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
       return r.rows.length > 0;
     }
 
-    // 1. Lembretes
+    // 1. Lembretes (FK para transacoes — deletar antes)
     await db.query('DELETE FROM lembretes WHERE usuario_id = $1', [id]).catch(() => {});
 
     // 2. Sessões do bot
     await db.query('DELETE FROM sessoes_bot WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // 3. Agenda
-    if (await tabelaExiste('agenda'))
-      await db.query('DELETE FROM agenda WHERE usuario_id = $1', [id]).catch(() => {});
+    // 3. Dívidas a receber
+    if (await tabelaExiste('dividas_receber'))
+      await db.query('DELETE FROM dividas_receber WHERE usuario_id = $1', [id]).catch(() => {});
 
     // 4. Gastos fixos
     if (await tabelaExiste('gastos_fixos'))
@@ -268,19 +265,17 @@ router.delete('/users/:id/resetar', autenticarAdmin, async (req, res) => {
     if (await tabelaExiste('limites_gastos'))
       await db.query('DELETE FROM limites_gastos WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // 6. A receber / devedores (tenta nomes comuns)
-    for (const tabela of ['a_receber', 'cobrancas', 'devedores', 'recebimentos']) {
-      if (await tabelaExiste(tabela))
-        await db.query(`DELETE FROM ${tabela} WHERE usuario_id = $1`, [id]).catch(() => {});
-    }
+    // 6. Agenda
+    if (await tabelaExiste('agenda'))
+      await db.query('DELETE FROM agenda WHERE usuario_id = $1', [id]).catch(() => {});
 
     // 7. Transações
     await db.query('DELETE FROM transacoes WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // 8. Categorias do usuário (não as globais com usuario_id = NULL)
+    // 8. Categorias do usuário (preserva as globais onde usuario_id IS NULL)
     await db.query('DELETE FROM categorias WHERE usuario_id = $1', [id]).catch(() => {});
 
-    // 9. Contas: remove e recria carteira padrão
+    // 9. Contas: remove e recria carteira padrão zerada
     await db.query('DELETE FROM contas WHERE usuario_id = $1', [id]).catch(() => {});
     await db.query(
       `INSERT INTO contas (usuario_id, nome, padrao, saldo) VALUES ($1, 'Carteira', true, 0)`,
@@ -358,35 +353,49 @@ router.get('/users/:id/sessao', autenticarAdmin, async (req, res) => {
   }
 });
 
-// ─── POST /api/admin/users/:id/vincular ──────────────────────
+// ─── POST /api/admin/users/:id/vincular-lid ──────────────────
 router.post('/users/:id/vincular-lid', autenticarAdmin, async (req, res) => {
   const { id } = req.params;
   let { telefone } = req.body;
 
   if (!telefone) return res.status(400).json({ erro: 'Telefone obrigatório' });
 
+  // Normaliza: remove tudo que não é dígito
   telefone = telefone.replace(/\D/g, '');
+
+  // Remove DDI 55 se vier com ele
   if (telefone.startsWith('55') && telefone.length > 11) telefone = telefone.slice(2);
+
+  // Adiciona o 9 em celulares de 10 dígitos
   if (telefone.length === 10) {
     const ddd = telefone.slice(0, 2);
     const num = telefone.slice(2);
     if (['6','7','8','9'].includes(num[0])) telefone = ddd + '9' + num;
   }
 
+  console.log(`📲 Vinculando telefone normalizado: ${telefone} ao usuário ${id}`);
+
   try {
+    // Atualiza telefone e ativa whatsapp no cadastro
     await db.query(
       `UPDATE usuarios SET telefone = $1, whatsapp_ativo = true WHERE id = $2`,
       [telefone, id]
     );
 
+    // Cria ou atualiza sessão — reseta estado para 'idle' para o bot funcionar limpo
     await db.query(
-      `INSERT INTO sessoes_bot (telefone, usuario_id)
-       VALUES ($1, $2)
-       ON CONFLICT (telefone) DO UPDATE SET usuario_id = $2`,
+      `INSERT INTO sessoes_bot (telefone, usuario_id, estado, contexto)
+       VALUES ($1, $2, 'idle', '{}')
+       ON CONFLICT (telefone) DO UPDATE
+         SET usuario_id    = $2,
+             estado        = 'idle',
+             contexto      = '{}',
+             atualizado_em = NOW()`,
       [telefone, id]
     );
 
-    res.json({ ok: true, mensagem: 'WhatsApp vinculado com sucesso' });
+    console.log(`✅ Sessão criada/atualizada para telefone ${telefone} → usuário ${id}`);
+    res.json({ ok: true, mensagem: `WhatsApp ${telefone} vinculado com sucesso` });
   } catch (err) {
     console.error('admin/vincular-lid POST:', err);
     res.status(500).json({ erro: err.message });

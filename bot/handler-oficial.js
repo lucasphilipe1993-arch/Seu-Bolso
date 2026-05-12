@@ -168,6 +168,10 @@ class BotOficial {
         if (!resultado) return this.enviar(from, 'Não consegui extrair informações desta imagem. Tente enviar o valor em texto.');
         const sessao = await this._buscarSessao(from);
         if (!sessao) return this._responderNaoCadastrado(from);
+        db.query(
+          `UPDATE sessoes_bot SET atualizado_em = NOW(), ultima_msg_em = NOW(), total_msgs = COALESCE(total_msgs,0)+1 WHERE telefone = $1`,
+          [from.replace(/\D/g, '')]
+        ).catch(() => {});
         return this.registrarTransacao(from, sessao.usuarioId, resultado, '[imagem]', from);
       } else {
         // Tipo não suportado (sticker, vídeo, etc) — ignora silenciosamente
@@ -189,6 +193,17 @@ class BotOficial {
       if (!sessao) return this._responderNaoCadastrado(from);
 
       const { usuarioId, nome } = sessao;
+
+      // ── Atualiza atividade da sessão (para o painel admin mostrar "agora") ──
+      db.query(
+        `UPDATE sessoes_bot
+         SET atualizado_em = NOW(),
+             ultima_msg_em = NOW(),
+             total_msgs    = COALESCE(total_msgs, 0) + 1
+         WHERE telefone = $1`,
+        [from.replace(/\D/g, '')]
+      ).catch(() => {});
+
       await this.processarTexto(from, usuarioId, nome, texto, from);
 
     } catch (err) {

@@ -722,6 +722,31 @@ router.post('/users/:id/boas-vindas', autenticarAdmin, async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
+//  ROTA: Bot registra atividade (atualiza atualizado_em da sessão)
+//  POST /api/admin/bot-atividade
+//  Body: { telefone }   — chamada interna do handler após cada msg
+//  Também incrementa total_msgs
+// ══════════════════════════════════════════════════════════════
+router.post('/bot-atividade', autenticarToken, async (req, res) => {
+  const { telefone } = req.body;
+  if (!telefone) return res.status(400).json({ erro: 'telefone obrigatório' });
+
+  try {
+    await db.query(`
+      UPDATE sessoes_bot
+      SET atualizado_em = NOW(),
+          ultima_msg_em = NOW(),
+          total_msgs    = COALESCE(total_msgs, 0) + 1
+      WHERE telefone = $1
+    `, [telefone.replace(/\D/g, '')]).catch(() => {});
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
 //  HELPER: Geolocalização de IP via ip-api.com (gratuito, sem chave)
 // ══════════════════════════════════════════════════════════════
 async function geolocalizarIP(ip) {

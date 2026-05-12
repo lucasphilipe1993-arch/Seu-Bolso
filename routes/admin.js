@@ -75,6 +75,64 @@ router.get('/users', autenticarAdmin, async (req, res) => {
         ) THEN
           ALTER TABLE usuarios ADD COLUMN stripe_trial_end TIMESTAMPTZ;
         END IF;
+
+        -- ── Localização / IP do cadastro ─────────────────────────
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='cadastro_ip'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN cadastro_ip VARCHAR(60);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='cadastro_pais'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN cadastro_pais VARCHAR(100);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='cadastro_cidade'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN cadastro_cidade VARCHAR(100);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='cadastro_regiao'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN cadastro_regiao VARCHAR(100);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='ultimo_ip'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN ultimo_ip VARCHAR(60);
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='usuarios' AND column_name='ultimo_login_em'
+        ) THEN
+          ALTER TABLE usuarios ADD COLUMN ultimo_login_em TIMESTAMPTZ;
+        END IF;
+
+        -- ── Status detalhado do bot ───────────────────────────────
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='sessoes_bot' AND column_name='ultima_msg_em'
+        ) THEN
+          ALTER TABLE sessoes_bot ADD COLUMN ultima_msg_em TIMESTAMPTZ;
+        END IF;
+
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='sessoes_bot' AND column_name='total_msgs'
+        ) THEN
+          ALTER TABLE sessoes_bot ADD COLUMN total_msgs INTEGER DEFAULT 0;
+        END IF;
       END$$;
     `).catch(() => {});
 
@@ -94,10 +152,22 @@ router.get('/users', autenticarAdmin, async (req, res) => {
         u.stripe_trial_end,
         u.criado_em,
         u.atualizado_em,
+        -- IP e localização do cadastro
+        u.cadastro_ip,
+        u.cadastro_pais,
+        u.cadastro_cidade,
+        u.cadastro_regiao,
+        u.ultimo_ip,
+        u.ultimo_login_em,
         -- usa bot se tem sessão ativa
         EXISTS(
           SELECT 1 FROM sessoes_bot s WHERE s.usuario_id = u.id
         ) AS usa_bot,
+        -- detalhes da sessão do bot
+        (SELECT s.estado         FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_estado,
+        (SELECT s.ultima_msg_em  FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_ultima_msg_em,
+        (SELECT s.total_msgs     FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_total_msgs,
+        (SELECT s.atualizado_em  FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_sessao_em,
         (SELECT COUNT(*) FROM transacoes t WHERE t.usuario_id = u.id)::int  AS total_transacoes,
         (SELECT COALESCE(SUM(t.valor), 0)
            FROM transacoes t
@@ -651,4 +721,104 @@ router.post('/users/:id/boas-vindas', autenticarAdmin, async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════
+//  HELPER: Geolocalização de IP via ip-api.com (gratuito, sem chave)
+// ══════════════════════════════════════════════════════════════
+async function geolocalizarIP(ip) {
+  // IPs locais / privados → sem geo
+  if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    return { pais: null, cidade: null, regiao: null };
+  }
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const res   = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city&lang=pt-BR`, { timeout: 3000 });
+    const data  = await res.json();
+    if (data.status === 'success') {
+      return { pais: data.country || null, cidade: data.city || null, regiao: data.regionName || null };
+    }
+  } catch { /* silencia erros de geo — não bloqueia o fluxo */ }
+  return { pais: null, cidade: null, regiao: null };
+}
+
+// ──────────────────────────────────────────────────────────────
+//  HELPER: extrai IP real do request (compatível com proxies/Railway)
+// ──────────────────────────────────────────────────────────────
+function extrairIP(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.socket?.remoteAddress || req.ip || null;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ROTA: Registrar IP e localização ao fazer login/cadastro
+//  POST /api/admin/registrar-acesso
+//  Body: { usuario_id }   — chamada interna após auth bem-sucedida
+// ══════════════════════════════════════════════════════════════
+router.post('/registrar-acesso', autenticarJWT, async (req, res) => {
+  const usuarioId = req.body?.usuario_id || req.usuarioId;
+  if (!usuarioId) return res.status(400).json({ erro: 'usuario_id obrigatório' });
+
+  const ip = extrairIP(req);
+
+  try {
+    // Atualiza último IP e timestamp de login
+    await db.query(
+      `UPDATE usuarios SET ultimo_ip = $1, ultimo_login_em = NOW() WHERE id = $2`,
+      [ip, usuarioId]
+    ).catch(() => {});
+
+    // Verifica se já tem geo salvo; se não, busca e persiste
+    const { rows } = await db.query(
+      `SELECT cadastro_ip, cadastro_pais FROM usuarios WHERE id = $1`,
+      [usuarioId]
+    );
+    const u = rows[0];
+    if (!u?.cadastro_ip && ip) {
+      const geo = await geolocalizarIP(ip);
+      await db.query(
+        `UPDATE usuarios
+         SET cadastro_ip = $1, cadastro_pais = $2, cadastro_cidade = $3, cadastro_regiao = $4
+         WHERE id = $5`,
+        [ip, geo.pais, geo.cidade, geo.regiao, usuarioId]
+      ).catch(() => {});
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('❌ admin/registrar-acesso:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  ROTA: Forçar geolocalização de um usuário específico
+//  POST /api/admin/users/:id/geo
+// ══════════════════════════════════════════════════════════════
+router.post('/users/:id/geo', autenticarAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await db.query(
+      `SELECT cadastro_ip, ultimo_ip FROM usuarios WHERE id = $1`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ erro: 'Usuário não encontrado' });
+
+    const ip = rows[0].cadastro_ip || rows[0].ultimo_ip;
+    if (!ip) return res.status(400).json({ erro: 'Nenhum IP registrado para este usuário' });
+
+    const geo = await geolocalizarIP(ip);
+    await db.query(
+      `UPDATE usuarios SET cadastro_pais = $1, cadastro_cidade = $2, cadastro_regiao = $3 WHERE id = $4`,
+      [geo.pais, geo.cidade, geo.regiao, id]
+    );
+
+    res.json({ ok: true, ip, ...geo });
+  } catch (err) {
+    console.error('❌ admin/users/geo POST:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 module.exports = router;
+module.exports.extrairIP      = extrairIP;
+module.exports.geolocalizarIP = geolocalizarIP;

@@ -172,6 +172,10 @@ class BotOficial {
           `UPDATE sessoes_bot SET atualizado_em = NOW(), ultima_msg_em = NOW(), total_msgs = COALESCE(total_msgs,0)+1 WHERE telefone = $1`,
           [from.replace(/\D/g, '')]
         ).catch(() => {});
+        db.query(
+          `UPDATE usuarios SET ultimo_login_em = NOW() WHERE id = $1`,
+          [sessao.usuarioId]
+        ).catch(() => {});
         return this.registrarTransacao(from, sessao.usuarioId, resultado, '[imagem]', from);
       } else {
         // Tipo não suportado (sticker, vídeo, etc) — ignora silenciosamente
@@ -202,6 +206,12 @@ class BotOficial {
              total_msgs    = COALESCE(total_msgs, 0) + 1
          WHERE telefone = $1`,
         [from.replace(/\D/g, '')]
+      ).catch(() => {});
+
+      // ── Também atualiza ultimo_login_em no usuário (sincroniza com dashboard) ──
+      db.query(
+        `UPDATE usuarios SET ultimo_login_em = NOW() WHERE id = $1`,
+        [sessao.usuarioId]
       ).catch(() => {});
 
       await this.processarTexto(from, usuarioId, nome, texto, from);

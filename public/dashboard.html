@@ -61,8 +61,8 @@
         .grid-auto { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
         .grid-4 { grid-template-columns: repeat(4, 1fr); }
         .stat-box { background: var(--white); border-radius: 14px; padding: 22px 24px; border: 1px solid var(--gray-200); display: flex; flex-direction: column; }
-        .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--gray-400); margin-bottom: 10px; }
-        .stat-value { font-size: 26px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+        .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--gray-400); margin-bottom: 6px; }
+        .stat-value { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
         .stat-meta { font-size: 12px; color: var(--gray-400); }
         /* BUTTONS */
         .btn { padding: 9px 20px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: 8px; font-family: 'Inter', sans-serif; }
@@ -316,12 +316,6 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </div>
                     <span>Faturamento</span>
-                </div>
-                <div class="nav-item admin-only" data-page="admin-calendario" style="display:none">
-                    <div class="nav-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    </div>
-                    <span>Google Agenda</span>
                 </div>
                 <div class="nav-item admin-only" data-page="admin-usuarios" style="display:none">
                     <div class="nav-icon">
@@ -2591,18 +2585,29 @@ function _admBotBadge(u) {
         // Usa atualizado_em como fonte primária — é o que o handler atualiza a cada mensagem
         const tsRaw = u.bot_sessao_em || u.bot_ultima_msg_em || null;
         let ultimaAtiv = '';
+        let onlineAgora = false;
         if (tsRaw) {
             const dt = new Date(tsRaw);
             const agora = new Date();
             const diffMin = Math.round((agora - dt) / 60000);
+            onlineAgora = diffMin < 5;
             if (diffMin < 1)          ultimaAtiv = 'agora mesmo';
             else if (diffMin < 60)    ultimaAtiv = `${diffMin}min atrás`;
             else if (diffMin < 1440)  ultimaAtiv = `${Math.round(diffMin/60)}h atrás`;
             else                      ultimaAtiv = `${Math.round(diffMin/1440)}d atrás`;
         }
+        // Verifica também último login no sistema
+        const loginRaw = u.ultimo_login_em || u.last_seen || u.updated_at || null;
+        if (!onlineAgora && loginRaw) {
+            const dtLogin = new Date(loginRaw);
+            const diffLoginMin = Math.round((new Date() - dtLogin) / 60000);
+            onlineAgora = diffLoginMin < 5;
+        }
         const msgs = u.bot_total_msgs ? ` · ${u.bot_total_msgs} msgs` : '';
+        const badgeColor = onlineAgora ? '#16a34a' : 'var(--green)';
+        const badgeLabel = onlineAgora ? '🟢 Online agora' : '🤖 Ativo';
         return `<div style="display:flex;flex-direction:column;gap:2px">
-            <span class="badge badge-green" style="font-size:10px" title="Sessão WhatsApp ativa">🤖 Ativo</span>
+            <span class="badge badge-green" style="font-size:10px;background:${onlineAgora ? '#dcfce7' : ''}" title="Sessão WhatsApp ativa">${badgeLabel}</span>
             <span style="font-size:10px;color:var(--gray-500)">${estadoLabel}${msgs}</span>
             ${ultimaAtiv ? `<span style="font-size:10px;color:var(--gray-400)">🕒 ${ultimaAtiv}</span>` : ''}
         </div>`;
@@ -2738,11 +2743,26 @@ function adminFiltrarUsuarios() {
                     onclick="adminResetarUsuario('${uid}','${nomeEscapado}')">🗑️ Zerar</button>`
             : '';
 
+        // ── Online no sistema (último login) ────────────────────────
+        const loginTs = u.ultimo_login_em || u.last_seen || u.updated_at || null;
+        let sistemaOnline = '';
+        if (loginTs) {
+            const dtL = new Date(loginTs);
+            const diffLMin = Math.round((new Date() - dtL) / 60000);
+            if (diffLMin < 5)          sistemaOnline = `<span style="font-size:10px;color:#16a34a;font-weight:600">🟢 Online agora</span>`;
+            else if (diffLMin < 60)    sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">🕐 ${diffLMin}min atrás</span>`;
+            else if (diffLMin < 1440)  sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">🕐 ${Math.round(diffLMin/60)}h atrás</span>`;
+            else                       sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">🕐 ${Math.round(diffLMin/1440)}d atrás</span>`;
+        }
+
         return `<tr>
             <td>
                 <div style="display:flex;align-items:center;gap:10px">
                     <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">${inicial}</div>
-                    <span class="td-strong">${nome}</span>
+                    <div>
+                        <span class="td-strong">${nome}</span>
+                        ${sistemaOnline ? `<div style="margin-top:2px">${sistemaOnline}</div>` : ''}
+                    </div>
                 </div>
             </td>
             <td style="color:var(--gray-500);font-size:12px">${u.email || '—'}</td>

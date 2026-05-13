@@ -732,17 +732,37 @@ router.post('/bot-atividade', autenticarToken, async (req, res) => {
   const { telefone } = req.body;
   if (!telefone) return res.status(400).json({ erro: 'telefone obrigatório' });
 
+  // Remove todos os não-dígitos para normalizar
+  const telLimpo = telefone.replace(/\D/g, '');
+
   try {
-    await db.query(`
+    // Busca a sessão usando LIKE para tolerar variações de formato
+    // Ex: '5531991003389', '31991003389', '031991003389' — todas devem dar match
+    const result = await db.query(`
       UPDATE sessoes_bot
       SET atualizado_em = NOW(),
           ultima_msg_em = NOW(),
           total_msgs    = COALESCE(total_msgs, 0) + 1
-      WHERE telefone = $1
-    `, [telefone.replace(/\D/g, '')]).catch(() => {});
+      WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = $1
+         OR regexp_replace(telefone, '[^0-9]', '', 'g') = $2
+         OR regexp_replace(telefone, '[^0-9]', '', 'g') = $3
+      RETURNING telefone, usuario_id
+    `, [
+      telLimpo,                                          // formato exato
+      telLimpo.startsWith('55') ? telLimpo.slice(2) : '55' + telLimpo,  // com/sem DDI 55
+      telLimpo.length === 11 ? '55' + telLimpo : telLimpo               // adiciona 55 se 11 dígitos
+    ]);
 
-    res.json({ ok: true });
+    if (result.rowCount === 0) {
+      // Sessão não encontrada — loga para diagnóstico mas não falha
+      console.warn(`⚠️  bot-atividade: sessão não encontrada para telefone "${telLimpo}". Verifique se sessoes_bot tem registro para este número.`);
+    } else {
+      console.log(`✅ bot-atividade: ultima_msg_em atualizado para ${result.rows[0]?.telefone}`);
+    }
+
+    res.json({ ok: true, atualizado: result.rowCount > 0 });
   } catch (err) {
+    console.error('❌ bot-atividade:', err);
     res.status(500).json({ erro: err.message });
   }
 });

@@ -207,4 +207,94 @@ BEGIN
     ALTER TABLE usuarios ADD COLUMN google_calendar_id TEXT;
   END IF;
 
+  -- ── Colunas de presença / atividade ──────────────────────────────────────
+  -- ultimo_login_em: atualizado pelo middleware auth.js a cada request autenticado
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='ultimo_login_em'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN ultimo_login_em TIMESTAMPTZ;
+  END IF;
+
+  -- ── Cupons e acesso temporário ────────────────────────────────────────────
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='cupom_codigo'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN cupom_codigo VARCHAR(50);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='acesso_expira_em'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN acesso_expira_em TIMESTAMPTZ;
+  END IF;
+
+  -- ── Stripe trial ──────────────────────────────────────────────────────────
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='stripe_trial_end'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN stripe_trial_end TIMESTAMPTZ;
+  END IF;
+
+  -- ── Localização / IP de cadastro ──────────────────────────────────────────
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='cadastro_ip'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN cadastro_ip VARCHAR(60);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='cadastro_cidade'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN cadastro_cidade VARCHAR(100);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='cadastro_regiao'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN cadastro_regiao VARCHAR(100);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='cadastro_pais'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN cadastro_pais VARCHAR(100);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='usuarios' AND column_name='ultimo_ip'
+  ) THEN
+    ALTER TABLE usuarios ADD COLUMN ultimo_ip VARCHAR(60);
+  END IF;
+
+  -- ── Colunas que faltam em sessoes_bot (usadas pelo handler-oficial.js) ────
+  -- ultima_msg_em: timestamp da última mensagem recebida no bot
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='sessoes_bot' AND column_name='ultima_msg_em'
+  ) THEN
+    ALTER TABLE sessoes_bot ADD COLUMN ultima_msg_em TIMESTAMPTZ;
+  END IF;
+
+  -- total_msgs: contador de mensagens do usuário no bot
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='sessoes_bot' AND column_name='total_msgs'
+  ) THEN
+    ALTER TABLE sessoes_bot ADD COLUMN total_msgs INTEGER DEFAULT 0;
+  END IF;
+
+  -- usa_bot: flag de controle se o usuário tem sessão ativa (lida pelo dashboard)
+  -- Nota: o campo whatsapp_ativo já existe em usuarios; usa_bot fica em sessoes_bot
+  -- e é calculado dinamicamente na rota admin com base em atualizado_em recente
+  -- (nenhuma coluna nova necessária — a lógica fica na query da rota)
+
 END$$;

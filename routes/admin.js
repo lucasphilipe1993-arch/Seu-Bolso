@@ -159,15 +159,15 @@ router.get('/users', autenticarAdmin, async (req, res) => {
         u.cadastro_regiao,
         u.ultimo_ip,
         u.ultimo_login_em,
-        -- usa bot se tem sessão ativa
-        EXISTS(
-          SELECT 1 FROM sessoes_bot s WHERE s.usuario_id = u.id
-        ) AS usa_bot,
-        -- detalhes da sessão do bot
-        (SELECT s.estado         FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_estado,
-        (SELECT s.ultima_msg_em  FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_ultima_msg_em,
-        (SELECT s.total_msgs     FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_total_msgs,
-        (SELECT s.atualizado_em  FROM sessoes_bot s WHERE s.usuario_id = u.id LIMIT 1) AS bot_sessao_em,
+        -- ── Sessão do bot via LEFT JOIN (mais eficiente que subqueries) ──
+        -- usa_bot = true se existe sessão (independente de whatsapp_ativo)
+        CASE WHEN s.usuario_id IS NOT NULL THEN true ELSE false END AS usa_bot,
+        s.estado         AS bot_estado,
+        s.ultima_msg_em,          -- campo-chave: atualizado pelo handler a cada mensagem
+        s.ultima_msg_em  AS bot_ultima_msg_em,   -- alias de compatibilidade
+        s.total_msgs     AS bot_total_msgs,
+        s.atualizado_em  AS bot_sessao_em,
+        -- ── Totais financeiros ────────────────────────────────────────────
         (SELECT COUNT(*) FROM transacoes t WHERE t.usuario_id = u.id)::int  AS total_transacoes,
         (SELECT COALESCE(SUM(t.valor), 0)
            FROM transacoes t
@@ -176,6 +176,7 @@ router.get('/users', autenticarAdmin, async (req, res) => {
            FROM transacoes t
            WHERE t.usuario_id = u.id AND t.tipo = 'despesa')::numeric       AS total_despesas
       FROM usuarios u
+      LEFT JOIN sessoes_bot s ON s.usuario_id = u.id
       ORDER BY u.criado_em DESC
     `);
     res.json(rows);

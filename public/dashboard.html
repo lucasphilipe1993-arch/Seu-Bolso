@@ -236,11 +236,11 @@
             .grid-3 { grid-template-columns: 1fr 1fr; }
             .grid-4 { grid-template-columns: 1fr 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
-            /* stat-box — fonte MAIOR no mobile para melhor leitura */
-            .stat-box { padding: 20px 18px; }
-            .stat-value { font-size: 30px; }
-            .stat-label { font-size: 11px; letter-spacing: .08em; }
-            .stat-meta { font-size: 13px; }
+            /* stat-box — compacto no mobile */
+            .stat-box { padding: 14px 16px; }
+            .stat-value { font-size: 20px; }
+            .stat-label { font-size: 10px; letter-spacing: .07em; }
+            .stat-meta { font-size: 11px; }
             /* Cards */
             .card { padding: 20px 16px; }
             .card-title { font-size: 17px; }
@@ -272,8 +272,8 @@
         @media (max-width: 480px) {
             .grid-3, .grid-4 { grid-template-columns: 1fr; }
             .grid-2 { grid-template-columns: 1fr; }
-            .stat-value { font-size: 32px; }
-            .stat-box { padding: 18px 16px; }
+            .stat-value { font-size: 18px; }
+            .stat-box { padding: 12px 14px; }
             .card { padding: 18px 14px; }
             .topbar { height: 56px; padding: 0 14px; }
             .topbar-title { font-size: 16px; }
@@ -2582,8 +2582,9 @@ function _admBotBadge(u) {
         const estado = u.bot_estado || 'idle';
         const estadoMap = { idle: '💤 Idle', aguardando: '⏳ Aguardando', processando: '⚙️ Proc.' };
         const estadoLabel = estadoMap[estado] || estado;
-        // Usa atualizado_em como fonte primária — é o que o handler atualiza a cada mensagem
-        const tsRaw = u.bot_sessao_em || u.bot_ultima_msg_em || null;
+        // Fonte primária: ultima_msg_em de sessoes_bot (atualizado a cada mensagem pelo handler)
+        // A rota /api/admin/users deve retornar este campo via JOIN com sessoes_bot
+        const tsRaw = u.ultima_msg_em || u.bot_ultima_msg_em || u.bot_sessao_em || null;
         let ultimaAtiv = '';
         let onlineAgora = false;
         if (tsRaw) {
@@ -2596,12 +2597,14 @@ function _admBotBadge(u) {
             else if (diffMin < 1440)  ultimaAtiv = `${Math.round(diffMin/60)}h atrás`;
             else                      ultimaAtiv = `${Math.round(diffMin/1440)}d atrás`;
         }
-        // Verifica também último login no sistema
-        const loginRaw = u.ultimo_login_em || u.last_seen || u.updated_at || null;
-        if (!onlineAgora && loginRaw) {
-            const dtLogin = new Date(loginRaw);
-            const diffLoginMin = Math.round((new Date() - dtLogin) / 60000);
-            onlineAgora = diffLoginMin < 5;
+        // Fallback: ultimo_login_em só para exibição de texto, não muda onlineAgora
+        if (!tsRaw) {
+            const loginRaw = u.ultimo_login_em || null;
+            if (loginRaw) {
+                const diffLMin = Math.round((new Date() - new Date(loginRaw)) / 60000);
+                if (diffLMin < 60)        ultimaAtiv = `web ${diffLMin}min atrás`;
+                else if (diffLMin < 1440) ultimaAtiv = `web ${Math.round(diffLMin/60)}h atrás`;
+            }
         }
         const msgs = u.bot_total_msgs ? ` · ${u.bot_total_msgs} msgs` : '';
         const badgeColor = onlineAgora ? '#16a34a' : 'var(--green)';
@@ -2743,16 +2746,21 @@ function adminFiltrarUsuarios() {
                     onclick="adminResetarUsuario('${uid}','${nomeEscapado}')">🗑️ Zerar</button>`
             : '';
 
-        // ── Online no sistema (último login) ────────────────────────
-        const loginTs = u.ultimo_login_em || u.last_seen || u.updated_at || null;
+        // ── Presença: usa ultima_msg_em do bot (fonte real de atividade)
+        // A rota deve retornar s.ultima_msg_em como ultima_msg_em via JOIN sessoes_bot
+        const botTs  = u.ultima_msg_em || u.bot_ultima_msg_em || u.bot_sessao_em || null;
+        const loginTs = u.ultimo_login_em || null;
+        const presTs  = botTs || loginTs; // prefere bot, fallback web
         let sistemaOnline = '';
-        if (loginTs) {
-            const dtL = new Date(loginTs);
+        if (presTs) {
+            const dtL = new Date(presTs);
             const diffLMin = Math.round((new Date() - dtL) / 60000);
+            const isBotTs = !!botTs;
+            const prefix = isBotTs ? '🤖' : '🌐';
             if (diffLMin < 5)          sistemaOnline = `<span style="font-size:10px;color:#16a34a;font-weight:600">🟢 Online agora</span>`;
-            else if (diffLMin < 60)    sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">🕐 ${diffLMin}min atrás</span>`;
-            else if (diffLMin < 1440)  sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">🕐 ${Math.round(diffLMin/60)}h atrás</span>`;
-            else                       sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">🕐 ${Math.round(diffLMin/1440)}d atrás</span>`;
+            else if (diffLMin < 60)    sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">${prefix} ${diffLMin}min atrás</span>`;
+            else if (diffLMin < 1440)  sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">${prefix} ${Math.round(diffLMin/60)}h atrás</span>`;
+            else                       sistemaOnline = `<span style="font-size:10px;color:var(--gray-400)">${prefix} ${Math.round(diffLMin/1440)}d atrás</span>`;
         }
 
         return `<tr>

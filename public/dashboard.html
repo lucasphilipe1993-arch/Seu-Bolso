@@ -776,12 +776,21 @@
                             <h2 style="font-size:18px;font-weight:700;color:var(--navy)">Usuários Cadastrados</h2>
                             <span id="adm-usr-badge" class="badge badge-navy" style="font-size:11px">—</span>
                         </div>
-                        <p style="font-size:13px;color:var(--gray-400);margin-top:2px">Todos os usuários registrados na plataforma</p>
+                        <p style="font-size:13px;color:var(--gray-400);margin-top:2px">
+                            Todos os usuários registrados na plataforma
+                            &nbsp;·&nbsp;
+                            <span id="adm-usr-ultima-atualizacao" style="font-size:12px;color:var(--gray-300)">atualizando...</span>
+                            <span style="font-size:11px;color:var(--gray-300)">&nbsp;(auto-refresh 30s)</span>
+                        </p>
                     </div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap">
                         <input class="form-input" type="text" id="adm-usr-busca"
                             placeholder="🔍 Buscar por nome ou email..." style="width:260px"
                             oninput="adminFiltrarUsuarios()">
+                        <button class="btn btn-secondary" onclick="adminCarregarUsuarios()" title="Atualizar lista" style="gap:6px">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            Atualizar
+                        </button>
                         <button class="btn btn-primary" onclick="adminAbrirModalUsuario()">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             Novo Usuário
@@ -1970,7 +1979,8 @@ function navigateTo(pageId) {
     if (pageId === 'metas')   carregarLimites();
     if (pageId === 'admin-faturamento') adminCarregarFaturamento();
     if (pageId === 'admin-calendario') adminCarregarCalendario();
-    if (pageId === 'admin-usuarios') adminCarregarUsuarios();
+    if (pageId === 'admin-usuarios') { adminCarregarUsuarios(); _admIniciarAutoRefresh(); }
+    else { _admPararAutoRefresh(); }
 }
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -2618,10 +2628,26 @@ function _admBotBadge(u) {
     return `<span class="badge" style="background:var(--gray-100);color:var(--gray-400);font-size:10px" title="Sem sessão ativa">📵 Sem sessão</span>`;
 }
 
+// ── Auto-refresh do painel admin a cada 30s ───────────────────────────────────
+let _admAutoRefreshTimer = null;
+function _admIniciarAutoRefresh() {
+    _admPararAutoRefresh();
+    _admAutoRefreshTimer = setInterval(() => {
+        if (document.getElementById('admin-usuarios')?.classList.contains('active')) {
+            adminCarregarUsuarios();
+        }
+    }, 30000);
+}
+function _admPararAutoRefresh() {
+    if (_admAutoRefreshTimer) { clearInterval(_admAutoRefreshTimer); _admAutoRefreshTimer = null; }
+}
+
 async function adminCarregarUsuarios() {
     const token = localStorage.getItem('gz_token');
     const tbody = document.getElementById('adm-usr-tbody');
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+    if (!_admUsuarios.length) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--gray-400)">Carregando...</td></tr>`;
+    }
 
     try {
         const res = await fetch('/api/admin/users', {
@@ -2643,6 +2669,11 @@ async function adminCarregarUsuarios() {
         });
 
         document.getElementById('adm-usr-badge').textContent     = `${total} usuário${total !== 1 ? 's' : ''}`;
+        // Atualiza timestamp de última atualização
+        const agora = new Date();
+        const hhmm = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const el = document.getElementById('adm-usr-ultima-atualizacao');
+        if (el) el.textContent = `atualizado às ${hhmm}`;
         document.getElementById('adm-usr-total').textContent      = total;
         document.getElementById('adm-usr-premium').textContent    = premium;
         document.getElementById('adm-usr-gratis').textContent     = total - premium;

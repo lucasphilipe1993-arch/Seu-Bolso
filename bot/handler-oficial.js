@@ -203,22 +203,26 @@ class BotOficial {
 
       // ── Atualiza atividade SEMPRE — antes de qualquer fluxo ──────────────
       // Colocado aqui para que fluxos multi-etapa também atualizem o timestamp
+      // Gera todas as variações possíveis do número para garantir match no banco.
+      // A Meta pode omitir o 9 do celular: ex: 553191003389 → banco tem 5531991003389
       const _fromDigits = from.replace(/\D/g, '');
+      const _semDDI     = _fromDigits.startsWith('55') ? _fromDigits.slice(2) : _fromDigits;
+      const _comDDI     = '55' + _semDDI;
+      // Adiciona o 9 se DDD+8dígitos (ex: 3191003389 → 31991003389)
+      const _com9       = _semDDI.length === 10 ? _semDDI.slice(0,2) + '9' + _semDDI.slice(2) : _semDDI;
+      // Remove o 9 se DDD+9+8dígitos (ex: 31991003389 → 3191003389)
+      const _sem9       = _semDDI.length === 11 && _semDDI[2] === '9' ? _semDDI.slice(0,2) + _semDDI.slice(3) : _semDDI;
+      const _variacoes  = [...new Set([_fromDigits, _semDDI, _comDDI, '55'+_com9, _com9, '55'+_sem9, _sem9])];
+      const _placeholders = _variacoes.map((_,i) => `regexp_replace(telefone, '[^0-9]', '', 'g') = $${i+1}`).join(' OR ');
       db.query(
         `UPDATE sessoes_bot
          SET atualizado_em = NOW(),
              ultima_msg_em = NOW(),
              total_msgs    = COALESCE(total_msgs, 0) + 1
-         WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = $1
-            OR regexp_replace(telefone, '[^0-9]', '', 'g') = $2
-            OR regexp_replace(telefone, '[^0-9]', '', 'g') = $3`,
-        [
-          _fromDigits,
-          _fromDigits.startsWith('55') ? _fromDigits.slice(2) : '55' + _fromDigits,
-          _fromDigits.length === 11 ? '55' + _fromDigits : _fromDigits,
-        ]
+         WHERE ${_placeholders}`,
+        _variacoes
       ).then(r => {
-        if (r.rowCount === 0) console.warn(`⚠️ [META] ultima_msg_em NÃO atualizado — telefone não encontrado no banco: ${_fromDigits}`);
+        if (r.rowCount === 0) console.warn(`⚠️ [META] ultima_msg_em NÃO atualizado — nenhuma variação encontrada. Tentativas: ${_variacoes.join(', ')}`);
         else console.log(`✅ [META] ultima_msg_em atualizado para ${from} (${r.rowCount} linha(s))`);
       }).catch(() => {});
 
@@ -785,20 +789,22 @@ class BotOficial {
   _gerarVariacoesTelefone(telefone) {
     const variacoes = new Set();
     variacoes.add(telefone);
-    const digits  = telefone.replace(/\D/g, '');
-    const semDDI  = digits.startsWith('55') && digits.length > 11 ? digits.slice(2) : digits;
-    const comDDI  = '55' + semDDI;
+    const digits = telefone.replace(/\D/g, '');
+    // Remove DDI 55 se presente (independente do comprimento total)
+    const semDDI = digits.startsWith('55') ? digits.slice(2) : digits;
+    const comDDI = '55' + semDDI;
+    variacoes.add(digits);
     variacoes.add(semDDI);
     variacoes.add(comDDI);
+    // Caso sem o 9: DDD + 8 dígitos (ex: 3191003389 → 31991003389)
     if (semDDI.length === 10) {
-      const ddd = semDDI.slice(0, 2);
-      const num = semDDI.slice(2);
-      variacoes.add(ddd + '9' + num);
-      variacoes.add('55' + ddd + '9' + num);
+      const com9 = semDDI.slice(0, 2) + '9' + semDDI.slice(2);
+      variacoes.add(com9);
+      variacoes.add('55' + com9);
     }
+    // Caso com o 9: DDD + 9 + 8 dígitos (ex: 31991003389 → 3191003389)
     if (semDDI.length === 11 && semDDI[2] === '9') {
-      const ddd = semDDI.slice(0, 2);
-      const sem9 = ddd + semDDI.slice(3);
+      const sem9 = semDDI.slice(0, 2) + semDDI.slice(3);
       variacoes.add(sem9);
       variacoes.add('55' + sem9);
     }

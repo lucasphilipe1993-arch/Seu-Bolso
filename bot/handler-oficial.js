@@ -195,39 +195,43 @@ class BotOficial {
 
       console.log(`📲 [META] ${from} (${pushName || 'sem nome'}): ${texto}`);
 
-      // ── Fluxo multi-etapa (categoria, etc) ───────────────────────────────
-      if (this._estados.has(from) && type === 'text') {
-        return this._continuarFluxo(from, texto);
-      }
-
       // ── Busca sessão do usuário ───────────────────────────────────────────
       const sessao = await this._buscarSessao(from);
       if (!sessao) return this._responderNaoCadastrado(from);
 
       const { usuarioId, nome } = sessao;
 
-      // ── Atualiza atividade da sessão (para o painel admin mostrar "agora") ──
-      // Busca com todas as variações do telefone para garantir o match
+      // ── Atualiza atividade SEMPRE — antes de qualquer fluxo ──────────────
+      // Colocado aqui para que fluxos multi-etapa também atualizem o timestamp
+      const _fromDigits = from.replace(/\D/g, '');
       db.query(
         `UPDATE sessoes_bot
          SET atualizado_em = NOW(),
              ultima_msg_em = NOW(),
              total_msgs    = COALESCE(total_msgs, 0) + 1
-         WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
-            OR regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')
-            OR regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($3, '[^0-9]', '', 'g')`,
+         WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = $1
+            OR regexp_replace(telefone, '[^0-9]', '', 'g') = $2
+            OR regexp_replace(telefone, '[^0-9]', '', 'g') = $3`,
         [
-          from,
-          from.replace(/\D/g, '').startsWith('55') ? from.replace(/\D/g, '').slice(2) : '55' + from.replace(/\D/g, ''),
-          from.replace(/\D/g, ''),
+          _fromDigits,
+          _fromDigits.startsWith('55') ? _fromDigits.slice(2) : '55' + _fromDigits,
+          _fromDigits.length === 11 ? '55' + _fromDigits : _fromDigits,
         ]
-      ).catch(() => {});
+      ).then(r => {
+        if (r.rowCount === 0) console.warn(`⚠️ [META] ultima_msg_em NÃO atualizado — telefone não encontrado no banco: ${_fromDigits}`);
+        else console.log(`✅ [META] ultima_msg_em atualizado para ${from} (${r.rowCount} linha(s))`);
+      }).catch(() => {});
 
       // ── Também atualiza ultimo_login_em no usuário (sincroniza com dashboard) ──
       db.query(
         `UPDATE usuarios SET ultimo_login_em = NOW() WHERE id = $1`,
-        [sessao.usuarioId]
+        [usuarioId]
       ).catch(() => {});
+
+      // ── Fluxo multi-etapa (categoria, etc) ───────────────────────────────
+      if (this._estados.has(from) && type === 'text') {
+        return this._continuarFluxo(from, texto);
+      }
 
       await this.processarTexto(from, usuarioId, nome, texto, from);
 

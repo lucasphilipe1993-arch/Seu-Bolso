@@ -176,7 +176,13 @@ router.get('/users', autenticarAdmin, async (req, res) => {
            FROM transacoes t
            WHERE t.usuario_id = u.id AND t.tipo = 'despesa')::numeric       AS total_despesas
       FROM usuarios u
-      LEFT JOIN sessoes_bot s ON s.usuario_id = u.id
+      LEFT JOIN LATERAL (
+        SELECT usuario_id, estado, ultima_msg_em, total_msgs, atualizado_em
+        FROM sessoes_bot
+        WHERE usuario_id = u.id
+        ORDER BY COALESCE(ultima_msg_em, atualizado_em, '1970-01-01') DESC
+        LIMIT 1
+      ) s ON true
       ORDER BY u.criado_em DESC
     `);
     res.json(rows);

@@ -534,12 +534,129 @@
 
         @media (max-width: 900px) {
             body { flex-direction: column; }
-            .left-panel { width: 100%; min-height: 220px; padding: 32px; }
+            .left-panel { width: 100%; min-height: 200px; padding: 32px; order: 9; }
             .left-content { padding: 24px; }
             .left-headline { font-size: 26px; }
             .features { display: none; }
-            .right-panel { width: 100%; padding: 32px 24px; }
+            .right-panel { width: 100%; padding: 32px 24px; order: 1; }
+            .left-footer { position: relative; bottom: auto; margin-top: 20px; }
         }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(9,25,41,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.2s ease;
+        }
+        .modal-overlay.open { display: flex; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .modal-box {
+            background: var(--white);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 680px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+            animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 28px 18px;
+            border-bottom: 1.5px solid var(--gray-100);
+            flex-shrink: 0;
+        }
+        .modal-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 20px;
+            color: var(--navy);
+            letter-spacing: -0.3px;
+        }
+        .modal-subtitle {
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 2px;
+        }
+        .modal-close {
+            width: 34px; height: 34px;
+            border-radius: 50%; border: none;
+            background: var(--gray-100);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--gray-500);
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .modal-close:hover { background: var(--gray-200); color: var(--navy); }
+
+        .modal-body {
+            overflow-y: auto;
+            padding: 24px 28px;
+            flex: 1;
+            line-height: 1.7;
+            color: var(--gray-700);
+            font-size: 13.5px;
+        }
+        .modal-body h3 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 16px;
+            color: var(--navy);
+            margin: 22px 0 8px;
+            letter-spacing: -0.2px;
+        }
+        .modal-body h3:first-child { margin-top: 0; }
+        .modal-body p { margin-bottom: 10px; }
+        .modal-body ul { padding-left: 20px; margin-bottom: 10px; }
+        .modal-body ul li { margin-bottom: 5px; }
+        .modal-body .highlight-box {
+            background: var(--gray-50);
+            border-left: 3px solid var(--gold);
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 14px 0;
+            font-size: 13px;
+        }
+
+        .modal-footer {
+            padding: 16px 28px;
+            border-top: 1.5px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            gap: 12px;
+        }
+        .modal-updated {
+            font-size: 11.5px;
+            color: var(--gray-400);
+        }
+        .modal-accept-btn {
+            padding: 10px 24px;
+            background: var(--navy);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13.5px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .modal-accept-btn:hover { background: var(--navy-lite); }
     </style>
 </head>
 <body>
@@ -704,7 +821,7 @@
                     <span class="toggle-slider"></span>
                 </label>
                 <div class="terms-text">
-                    Aceito os <a href="#">termos de uso</a> e a <a href="#">política de privacidade</a> do Seu Secretário.
+                    Aceito os <a href="#" onclick="abrirModal('modal-termos');return false;">termos de uso</a> e a <a href="#" onclick="abrirModal('modal-privacidade');return false;">política de privacidade</a> do Seu Secretário.
                 </div>
             </div>
 
@@ -1438,6 +1555,227 @@ async function submeter() {
         backBtn.disabled = false;
     }
 }
+</script>
+
+<!-- ── MODAL: TERMOS DE USO ── -->
+<div class="modal-overlay" id="modal-termos" onclick="fecharModalExterno(event, 'modal-termos')">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title">Termos de Uso</div>
+                <div class="modal-subtitle">Seu Secretário — Bot de IA para WhatsApp</div>
+            </div>
+            <button class="modal-close" onclick="fecharModal('modal-termos')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="highlight-box">
+                Ao criar sua conta e utilizar o Seu Secretário, você concorda integralmente com estes Termos de Uso. Leia com atenção antes de prosseguir.
+            </div>
+
+            <h3>1. Definições e Aceitação</h3>
+            <p>O <strong>Seu Secretário</strong> é um assistente virtual baseado em Inteligência Artificial (IA) operado via <strong>WhatsApp</strong>, com funcionalidades de controle financeiro pessoal e gerenciamento de agenda. Ao se cadastrar, você ("Usuário") aceita expressamente estes Termos, bem como nossa Política de Privacidade.</p>
+            <p>Caso não concorde com qualquer parte destes Termos, não utilize o serviço.</p>
+
+            <h3>2. Descrição do Serviço</h3>
+            <p>O Seu Secretário oferece, por meio de bot no WhatsApp, os seguintes recursos:</p>
+            <ul>
+                <li>Registro e categorização de receitas e despesas</li>
+                <li>Alertas e lembretes de contas a pagar e vencimentos</li>
+                <li>Resumos e relatórios financeiros periódicos</li>
+                <li>Gerenciamento de agenda e compromissos pessoais</li>
+                <li>Consultas e interações via linguagem natural com IA</li>
+            </ul>
+            <p>O serviço é prestado mediante assinatura mensal ou anual, conforme plano escolhido no momento do cadastro.</p>
+
+            <h3>3. Cadastro e Conta do Usuário</h3>
+            <p>Para utilizar o serviço, é obrigatório informar nome completo, endereço de e-mail válido, número de WhatsApp ativo e criar uma senha segura. Você é responsável pela veracidade das informações fornecidas e pela guarda de suas credenciais de acesso.</p>
+            <p>É vedado o compartilhamento de conta com terceiros ou o uso do serviço por menores de 18 anos sem supervisão dos responsáveis.</p>
+
+            <h3>4. Assinatura, Pagamento e Período de Teste</h3>
+            <p>Todos os planos incluem <strong>7 dias de teste gratuito</strong>. Não será efetuada nenhuma cobrança durante este período. Ao final do teste, a assinatura será ativada automaticamente conforme o plano selecionado.</p>
+            <p>O pagamento é processado de forma segura via <strong>Stripe</strong>. As cobranças são recorrentes (mensal ou anual) e serão realizadas na data de vencimento de cada ciclo.</p>
+            <p>Preços vigentes:</p>
+            <ul>
+                <li><strong>Básico Mensal:</strong> R$ 19,90/mês</li>
+                <li><strong>Básico Anual:</strong> R$ 199,00/ano (equivalente a R$ 16,58/mês)</li>
+                <li><strong>Pro Mensal:</strong> R$ 29,90/mês</li>
+                <li><strong>Pro Anual:</strong> R$ 299,00/ano (equivalente a R$ 24,92/mês)</li>
+            </ul>
+            <p>Os preços podem ser reajustados com aviso prévio de 30 dias por e-mail.</p>
+
+            <h3>5. Cancelamento e Reembolso</h3>
+            <p>O cancelamento pode ser solicitado a qualquer momento via suporte ou painel da conta. Após o cancelamento, o acesso permanece ativo até o fim do período pago. Não há reembolso proporcional por dias não utilizados, exceto nos casos previstos no Código de Defesa do Consumidor (CDC), como arrependimento em até 7 dias corridos da primeira contratação.</p>
+
+            <h3>6. Uso Aceitável</h3>
+            <p>É proibido utilizar o Seu Secretário para:</p>
+            <ul>
+                <li>Atividades ilícitas, fraudulentas ou que violem direitos de terceiros</li>
+                <li>Envio de spam ou conteúdo abusivo via WhatsApp</li>
+                <li>Tentativas de engenharia reversa, extração de dados ou comprometimento dos sistemas</li>
+                <li>Uso automatizado não autorizado (bots sobre bots)</li>
+            </ul>
+            <p>O descumprimento poderá acarretar suspensão ou cancelamento imediato da conta, sem direito a reembolso.</p>
+
+            <h3>7. Limitação de Responsabilidade</h3>
+            <p>O Seu Secretário fornece informações e organizações financeiras com caráter exclusivamente auxiliar. <strong>Não nos responsabilizamos por decisões financeiras tomadas com base nos dados processados pelo bot.</strong> Recomendamos sempre a consulta a profissionais especializados (contadores, consultores financeiros) para decisões relevantes.</p>
+            <p>O serviço é fornecido "como está" e não garantimos disponibilidade ininterrupta, embora nos esforcemos para manter o uptime acima de 99%.</p>
+
+            <h3>8. Propriedade Intelectual</h3>
+            <p>Todo o conteúdo, marca, código e tecnologia do Seu Secretário são de propriedade exclusiva da empresa e protegidos por direitos autorais e marcas registradas. É vedada qualquer reprodução, distribuição ou uso comercial sem autorização prévia e expressa.</p>
+
+            <h3>9. Modificações nos Termos</h3>
+            <p>Podemos atualizar estes Termos periodicamente. Mudanças relevantes serão comunicadas por e-mail com 15 dias de antecedência. O uso contínuo do serviço após as alterações implica aceitação das novas condições.</p>
+
+            <h3>10. Lei Aplicável e Foro</h3>
+            <p>Estes Termos são regidos pela legislação brasileira, especialmente o Código Civil, o Código de Defesa do Consumidor (Lei nº 8.078/90) e a LGPD (Lei nº 13.709/18). Fica eleito o foro da comarca de <strong>Belo Horizonte – MG</strong> para dirimir eventuais conflitos.</p>
+
+            <h3>11. Contato</h3>
+            <p>Para dúvidas, sugestões ou solicitações relacionadas a estes Termos, entre em contato:</p>
+            <ul>
+                <li>E-mail: <strong>suporte@seusecretario.com.br</strong></li>
+                <li>WhatsApp: <strong>(31) 97323-3343</strong></li>
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <div class="modal-updated">Última atualização: maio de 2026</div>
+            <button class="modal-accept-btn" onclick="aceitarEFechar('modal-termos')">Entendi e aceito</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: POLÍTICA DE PRIVACIDADE ── -->
+<div class="modal-overlay" id="modal-privacidade" onclick="fecharModalExterno(event, 'modal-privacidade')">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title">Política de Privacidade</div>
+                <div class="modal-subtitle">Seu Secretário — Tratamento de Dados Pessoais (LGPD)</div>
+            </div>
+            <button class="modal-close" onclick="fecharModal('modal-privacidade')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="highlight-box">
+                Sua privacidade é nossa prioridade. Esta política explica como coletamos, usamos e protegemos seus dados pessoais, em conformidade com a <strong>Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/18)</strong>.
+            </div>
+
+            <h3>1. Controlador dos Dados</h3>
+            <p>O <strong>Seu Secretário</strong> atua como Controlador dos dados pessoais tratados em sua plataforma. Para exercer seus direitos ou tirar dúvidas, acesse o canal de contato ao final deste documento.</p>
+
+            <h3>2. Dados que Coletamos</h3>
+            <p><strong>Dados fornecidos diretamente por você:</strong></p>
+            <ul>
+                <li>Nome completo</li>
+                <li>Endereço de e-mail</li>
+                <li>Número de WhatsApp (telefone celular)</li>
+                <li>Senha (armazenada com criptografia hash — nunca em texto puro)</li>
+                <li>Dados de pagamento (processados diretamente pelo Stripe — não armazenamos número de cartão)</li>
+            </ul>
+            <p><strong>Dados gerados pelo uso do serviço:</strong></p>
+            <ul>
+                <li>Lançamentos financeiros (receitas, despesas, categorias)</li>
+                <li>Compromissos e eventos de agenda inseridos no bot</li>
+                <li>Histórico de conversas com o bot via WhatsApp</li>
+                <li>Dados de uso e logs de acesso (IP, data/hora, dispositivo)</li>
+            </ul>
+
+            <h3>3. Finalidade e Base Legal do Tratamento</h3>
+            <ul>
+                <li><strong>Execução do contrato:</strong> prestar o serviço de controle financeiro e agenda conforme contratado</li>
+                <li><strong>Cumprimento de obrigação legal:</strong> emissão de notas fiscais, registros contábeis</li>
+                <li><strong>Legítimo interesse:</strong> melhoria dos serviços, segurança da plataforma, prevenção a fraudes</li>
+                <li><strong>Consentimento:</strong> envio de comunicações de marketing (você pode revogar a qualquer momento)</li>
+            </ul>
+
+            <h3>4. Compartilhamento de Dados</h3>
+            <p>Seus dados <strong>não são vendidos</strong> a terceiros. Podemos compartilhá-los apenas com:</p>
+            <ul>
+                <li><strong>Stripe:</strong> processamento seguro de pagamentos</li>
+                <li><strong>Meta / WhatsApp Business API:</strong> viabilização do bot no WhatsApp</li>
+                <li><strong>Provedores de infraestrutura em nuvem</strong> (servidores, banco de dados) — sob contratos de confidencialidade</li>
+                <li><strong>Autoridades públicas:</strong> quando exigido por lei ou ordem judicial</li>
+            </ul>
+
+            <h3>5. Armazenamento e Segurança</h3>
+            <p>Seus dados são armazenados em servidores com <strong>criptografia em repouso e em trânsito (TLS 1.2+)</strong>. Adotamos controles de acesso restrito, monitoramento contínuo e backups regulares.</p>
+            <p>Em caso de incidente de segurança que envolva seus dados, você será notificado dentro do prazo previsto pela LGPD.</p>
+
+            <h3>6. Retenção dos Dados</h3>
+            <p>Mantemos seus dados pelo período necessário à prestação do serviço. Após o cancelamento da conta:</p>
+            <ul>
+                <li>Dados financeiros e de agenda: excluídos em até <strong>90 dias</strong></li>
+                <li>Dados de faturamento: retidos por <strong>5 anos</strong> (obrigação fiscal)</li>
+                <li>Logs de acesso: retidos por <strong>6 meses</strong> (Marco Civil da Internet)</li>
+            </ul>
+
+            <h3>7. Seus Direitos (LGPD — Art. 18)</h3>
+            <p>Você tem direito a:</p>
+            <ul>
+                <li><strong>Acesso:</strong> solicitar uma cópia dos seus dados pessoais</li>
+                <li><strong>Correção:</strong> atualizar dados incorretos ou desatualizados</li>
+                <li><strong>Exclusão:</strong> solicitar a remoção dos seus dados (quando não houver obrigação legal de retenção)</li>
+                <li><strong>Portabilidade:</strong> receber seus dados em formato estruturado</li>
+                <li><strong>Revogação do consentimento:</strong> cancelar a qualquer momento autorizações previamente concedidas</li>
+                <li><strong>Oposição:</strong> opor-se ao tratamento realizado com base em legítimo interesse</li>
+            </ul>
+            <p>Para exercer qualquer desses direitos, entre em contato conosco pelo e-mail <strong>privacidade@seusecretario.com.br</strong>. Responderemos em até 15 dias úteis.</p>
+
+            <h3>8. Cookies e Tecnologias de Rastreamento</h3>
+            <p>Nossa plataforma web utiliza cookies técnicos (essenciais para o funcionamento) e cookies analíticos (para entender como os usuários navegam, usando dados anonimizados). Você pode desativar cookies analíticos nas configurações do seu navegador sem prejuízo ao uso do serviço.</p>
+
+            <h3>9. Comunicações</h3>
+            <p>Enviaremos mensagens pelo WhatsApp e e-mail sobre o funcionamento do serviço (transacionais) e, com seu consentimento, novidades e ofertas (marketing). Você pode cancelar comunicações de marketing a qualquer momento respondendo "SAIR" no WhatsApp ou clicando em "cancelar inscrição" nos e-mails.</p>
+
+            <h3>10. Menores de Idade</h3>
+            <p>O serviço não é destinado a menores de 18 anos. Caso identificarmos cadastro de menores, a conta será encerrada e os dados excluídos imediatamente.</p>
+
+            <h3>11. Alterações nesta Política</h3>
+            <p>Esta Política pode ser atualizada periodicamente. Mudanças relevantes serão comunicadas por e-mail. A data de vigência sempre estará indicada no rodapé deste documento.</p>
+
+            <h3>12. Encarregado de Proteção de Dados (DPO)</h3>
+            <p>Responsável pelo tratamento de dados pessoais no Seu Secretário:</p>
+            <ul>
+                <li>E-mail: <strong>privacidade@seusecretario.com.br</strong></li>
+                <li>WhatsApp: <strong>(31) 97323-3343</strong></li>
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <div class="modal-updated">Última atualização: maio de 2026</div>
+            <button class="modal-accept-btn" onclick="aceitarEFechar('modal-privacidade')">Entendi e aceito</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirModal(id) {
+    document.getElementById(id).classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function fecharModal(id) {
+    document.getElementById(id).classList.remove('open');
+    document.body.style.overflow = '';
+}
+function fecharModalExterno(e, id) {
+    if (e.target === e.currentTarget) fecharModal(id);
+}
+function aceitarEFechar(id) {
+    fecharModal(id);
+    // Marca o toggle de termos como aceito ao clicar em "Entendi e aceito"
+    const toggle = document.getElementById('f-terms');
+    if (toggle) toggle.checked = true;
+}
+// Fecha modais com tecla ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.open').forEach(m => {
+            m.classList.remove('open');
+            document.body.style.overflow = '';
+        });
+    }
+});
 </script>
 </body>
 </html>

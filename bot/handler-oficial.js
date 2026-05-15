@@ -169,8 +169,16 @@ class BotOficial {
         const sessao = await this._buscarSessao(from);
         if (!sessao) return this._responderNaoCadastrado(from);
         db.query(
-          `UPDATE sessoes_bot SET atualizado_em = NOW(), ultima_msg_em = NOW(), total_msgs = COALESCE(total_msgs,0)+1 WHERE telefone = $1`,
-          [from.replace(/\D/g, '')]
+          `UPDATE sessoes_bot
+           SET atualizado_em = NOW(), ultima_msg_em = NOW(), total_msgs = COALESCE(total_msgs,0)+1
+           WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
+              OR regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')
+              OR regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($3, '[^0-9]', '', 'g')`,
+          [
+            from,
+            from.replace(/\D/g, '').startsWith('55') ? from.replace(/\D/g, '').slice(2) : '55' + from.replace(/\D/g, ''),
+            from.replace(/\D/g, ''),
+          ]
         ).catch(() => {});
         db.query(
           `UPDATE usuarios SET ultimo_login_em = NOW() WHERE id = $1`,
@@ -199,13 +207,20 @@ class BotOficial {
       const { usuarioId, nome } = sessao;
 
       // ── Atualiza atividade da sessão (para o painel admin mostrar "agora") ──
+      // Busca com todas as variações do telefone para garantir o match
       db.query(
         `UPDATE sessoes_bot
          SET atualizado_em = NOW(),
              ultima_msg_em = NOW(),
              total_msgs    = COALESCE(total_msgs, 0) + 1
-         WHERE telefone = $1`,
-        [from.replace(/\D/g, '')]
+         WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
+            OR regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($2, '[^0-9]', '', 'g')
+            OR regexp_replace(telefone, '[^0-9]', '', 'g') = regexp_replace($3, '[^0-9]', '', 'g')`,
+        [
+          from,
+          from.replace(/\D/g, '').startsWith('55') ? from.replace(/\D/g, '').slice(2) : '55' + from.replace(/\D/g, ''),
+          from.replace(/\D/g, ''),
+        ]
       ).catch(() => {});
 
       // ── Também atualiza ultimo_login_em no usuário (sincroniza com dashboard) ──

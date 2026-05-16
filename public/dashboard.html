@@ -3611,7 +3611,7 @@ function applyTheme(dark) {
     const label = document.getElementById('themeToggleLabel');
     if (label) label.textContent = dark ? 'Modo claro' : 'Modo escuro';
     const logo = document.querySelector('.sidebar-logo img');
-    if (logo) logo.src = dark ? '/public/assets/logo_branca.webp' : '/assets/seu_secretario.webp';
+    if (logo) logo.src = dark ? '/assets/logo_branca.webp' : '/assets/seu_secretario.webp';
 }
 
 function toggleTheme() {
@@ -3620,7 +3620,7 @@ function toggleTheme() {
     const label = document.getElementById('themeToggleLabel');
     if (label) label.textContent = isDark ? 'Modo claro' : 'Modo escuro';
     const logo = document.querySelector('.sidebar-logo img');
-    if (logo) logo.src = isDark ? '/public/assets/logo_branca.webp' : '/assets/seu_secretario.webp';
+    if (logo) logo.src = isDark ? '/assets/logo_branca.webp' : '/assets/seu_secretario.webp';
 }
 
 // Aplica tema salvo ao carregar a página

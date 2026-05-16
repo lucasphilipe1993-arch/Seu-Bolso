@@ -109,6 +109,23 @@
         body.dark [style*="color:var(--gold)"],
         body.dark [style*="color: var(--gold)"] { color: #ffd740 !important; }
 
+        /* ── MODO ESCURO: stat-value com cor navy (fica escuro no dark) ── */
+        /* Cobre: Limites Ativos, Total Mensal (Gastos Fixos), Próximos (Agenda) e demais */
+        body.dark .stat-value[style*="color:var(--navy)"],
+        body.dark .stat-value[style*="color: var(--navy)"] { color: #e8edf8 !important; }
+
+        body.dark #lim-kpi-total,
+        body.dark #gf-kpi-total,
+        body.dark #ag-kpi-proximos,
+        body.dark #rel-saldo,
+        body.dark #adm-fat-usuarios,
+        body.dark #adm-usr-total,
+        body.dark #adm-fat-receita { color: #e8edf8 !important; }
+
+        /* ── MODO ESCURO: todos elementos com inline color navy ───────── */
+        body.dark [style*="color:var(--navy)"],
+        body.dark [style*="color: var(--navy)"] { color: #e8edf8 !important; }
+
         /* ── MODO ESCURO: textos das configurações ────────────────────── */
         body.dark .settings-sidebar-title { color: #e8edf8; }
         body.dark .settings-nav-item { color: #c8d4e8; }

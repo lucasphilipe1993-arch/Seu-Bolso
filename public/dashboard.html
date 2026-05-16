@@ -72,7 +72,60 @@
         body.dark .plan-card.current { background: #1e1a0a; border-color: var(--gold); }
         body.dark .shared-user-card { border-color: #2d3750; }
         body.dark .toggle-row { border-color: #2d3750; }
+        body.dark .btn-logout { color: #9aaac8; }
         body.dark .btn-logout:hover { background: #3a1515; color: var(--red); }
+
+        /* ── MODO ESCURO: cores dos valores mais vibrantes/fluorescentes ── */
+        body.dark #stat-receita,
+        body.dark .value-income,
+        body.dark .amount-income { color: #00e893 !important; }
+
+        body.dark #stat-despesa,
+        body.dark .value-expense,
+        body.dark .amount-expense,
+        body.dark .td-red { color: #ff5252 !important; }
+
+        body.dark #stat-areceber { color: #ffd740 !important; }
+
+        body.dark #stat-saldo { color: #40c4ff !important; }
+
+        body.dark .stat-value[style*="color:var(--green)"],
+        body.dark .stat-value[style*="color: var(--green)"] { color: #00e893 !important; }
+
+        body.dark .stat-value[style*="color:var(--red)"],
+        body.dark .stat-value[style*="color: var(--red)"] { color: #ff5252 !important; }
+
+        body.dark .stat-value[style*="color:var(--gold)"],
+        body.dark .stat-value[style*="color: var(--gold)"] { color: #ffd740 !important; }
+
+        body.dark td[style*="color:#c0392b"],
+        body.dark td[style*="color: #c0392b"],
+        body.dark .text-red,
+        body.dark [style*="color:var(--red)"] { color: #ff5252 !important; }
+
+        body.dark [style*="color:var(--green)"],
+        body.dark [style*="color: var(--green)"] { color: #00e893 !important; }
+
+        body.dark [style*="color:var(--gold)"],
+        body.dark [style*="color: var(--gold)"] { color: #ffd740 !important; }
+
+        /* ── MODO ESCURO: textos das configurações ────────────────────── */
+        body.dark .settings-sidebar-title { color: #e8edf8; }
+        body.dark .settings-nav-item { color: #c8d4e8; }
+        body.dark .settings-nav-item:hover { color: #e8edf8; background: #252e42; }
+        body.dark .settings-nav-item.active { color: white; background: var(--navy-lite); }
+        body.dark .toggle-label { color: #e8edf8; }
+        body.dark .toggle-desc { color: #9aaac8; }
+        body.dark .plan-name { color: #e8edf8; }
+        body.dark .plan-price { color: #e8edf8; }
+        body.dark .plan-feature { color: #c8d4e8; }
+        body.dark .danger-title { color: #ff5252; }
+        body.dark .danger-desc { color: #e8a0a0; }
+        body.dark .section-title,
+        body.dark h2, body.dark h3 { color: #e8edf8; }
+        body.dark .form-label { color: #9aaac8; }
+        body.dark label { color: #c8d4e8; }
+        body.dark p { color: #c8d4e8; }
 
         /* theme toggle button */
         .theme-toggle-btn {
@@ -270,13 +323,18 @@
         /* LOGOUT BUTTON */
         .btn-logout { width: 34px; height: 34px; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #9ca3af; transition: all .15s; flex-shrink: 0; }
         .btn-logout:hover { background: #fee2e2; color: var(--red); }
-        /* ÍCONES — cor única navy, sem variação */
+        /* ─── Ícones — navy no claro, brancos no escuro ─────────────── */
         .nav-icon svg { stroke: var(--navy) !important; }
         .nav-item:hover .nav-icon svg { stroke: var(--navy) !important; }
         .nav-item.active .nav-icon svg { stroke: white !important; }
+        body.dark .nav-icon svg { stroke: #ffffff !important; }
+        body.dark .nav-item:hover .nav-icon svg { stroke: #ffffff !important; }
+        body.dark .nav-item.active .nav-icon svg { stroke: white !important; }
         /* HAMBURGER */
         .hamburger { display: none; width: 44px; height: 44px; border: none; background: transparent; cursor: pointer; border-radius: 8px; align-items: center; justify-content: center; color: var(--navy); flex-shrink: 0; }
         .hamburger:hover { background: var(--gray-100); }
+        body.dark .hamburger { color: #e8edf8; }
+        body.dark .hamburger:hover { background: #252e42; }
         .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 49; }
         .sidebar-overlay.open { display: block; }
         /* TABELA SCROLL WRAPPER */
@@ -3552,6 +3610,8 @@ function applyTheme(dark) {
     document.body.classList.toggle('dark', dark);
     const label = document.getElementById('themeToggleLabel');
     if (label) label.textContent = dark ? 'Modo claro' : 'Modo escuro';
+    const logo = document.querySelector('.sidebar-logo img');
+    if (logo) logo.src = dark ? '/public/assets/logo_branca.webp' : '/assets/seu_secretario.webp';
 }
 
 function toggleTheme() {
@@ -3559,6 +3619,8 @@ function toggleTheme() {
     localStorage.setItem('gz_theme', isDark ? 'dark' : 'light');
     const label = document.getElementById('themeToggleLabel');
     if (label) label.textContent = isDark ? 'Modo claro' : 'Modo escuro';
+    const logo = document.querySelector('.sidebar-logo img');
+    if (logo) logo.src = isDark ? '/public/assets/logo_branca.webp' : '/assets/seu_secretario.webp';
 }
 
 // Aplica tema salvo ao carregar a página
